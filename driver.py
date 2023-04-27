@@ -367,6 +367,12 @@ async def event_handler(websocket, id, entityId, entityType, cmdId, params):
     if cmdId == entities.media_player.COMMANDS.PLAY_PAUSE:
         await rc.play_pause()
         await api.acknowledgeCommand(websocket, id)
+    elif cmdId == entities.media_player.COMMANDS.TURN_ON:
+        await rc.turn_on()
+        await api.acknowledgeCommand(websocket, id)
+    elif cmdId == entities.media_player.COMMANDS.TURN_OFF:
+        await rc.turn_off()
+        await api.acknowledgeCommand(websocket, id)
 
 async def main():
     await connect()
