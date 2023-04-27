@@ -9,12 +9,14 @@ import ucapi.entities as entities
 
 import pyatv
 import pyatv.const
+
 from pyatv.interface import PushListener
 
 LOG = logging.getLogger(__name__)
 LOOP = asyncio.get_event_loop()
 LOG.setLevel(logging.DEBUG)
 
+# Global variables
 api = uc.IntegrationAPI(LOOP)
 pairingAtv = None
 pairingProcess = None
@@ -152,49 +154,50 @@ async def polling():
     global connectedAtv
     prevHash = None
     while True:
-        playing = await connectedAtv.metadata.playing()
-        power = connectedAtv.power
+        if api.configuredEntities.contains(connectedAtv.service.identifier):
+            playing = await connectedAtv.metadata.playing()
+            power = connectedAtv.power
 
-        state = entities.media_player.STATES.UNKNOWN
+            state = entities.media_player.STATES.UNKNOWN
 
-        if power.power_state is pyatv.const.PowerState.On:
-            state = entities.media_player.STATES.ON
+            if power.power_state is pyatv.const.PowerState.On:
+                state = entities.media_player.STATES.ON
 
-            if playing.device_state == pyatv.const.DeviceState.Playing:
-                state = entities.media_player.STATES.PLAYING
-            elif playing.device_state == pyatv.const.DeviceState.Paused:
-                state = entities.media_player.STATES.PAUSED
-            elif playing.device_state == pyatv.const.DeviceState.Idle:
-                state = entities.media_player.STATES.PAUSED
+                if playing.device_state == pyatv.const.DeviceState.Playing:
+                    state = entities.media_player.STATES.PLAYING
+                elif playing.device_state == pyatv.const.DeviceState.Paused:
+                    state = entities.media_player.STATES.PAUSED
+                elif playing.device_state == pyatv.const.DeviceState.Idle:
+                    state = entities.media_player.STATES.PAUSED
 
-        elif power.power_state is pyatv.const.PowerState.Off:
-            state = entities.media_player.STATES.OFF
+            elif power.power_state is pyatv.const.PowerState.Off:
+                state = entities.media_player.STATES.OFF
 
-        attributes = {
-            entities.media_player.ATTRIBUTES.STATE: state,
-            entities.media_player.ATTRIBUTES.MEDIA_POSITION: playing.position,
-        }
-        
-        # Update if content changed
-        if playing.hash != prevHash:
-            try:
-                artwork = await connectedAtv.metadata.artwork(width=480, height=None)
-                artwork_encoded = 'data:image/png;base64,' + base64.b64encode(artwork.bytes).decode('utf-8')
-                attributes[entities.media_player.ATTRIBUTES.MEDIA_IMAGE_URL] = artwork_encoded
-            except:
-                LOG.error('OMG')
+            attributes = {
+                entities.media_player.ATTRIBUTES.STATE: state,
+                entities.media_player.ATTRIBUTES.MEDIA_POSITION: playing.position,
+            }
             
-            attributes[entities.media_player.ATTRIBUTES.MEDIA_DURATION] = playing.total_time
-            attributes[entities.media_player.ATTRIBUTES.MEDIA_TITLE] = playing.title
-            attributes[entities.media_player.ATTRIBUTES.MEDIA_ARTIST] = playing.artist
-            attributes[entities.media_player.ATTRIBUTES.MEDIA_ALBUM] = playing.album
+            # Update if content changed
+            if playing.hash != prevHash:
+                try:
+                    artwork = await connectedAtv.metadata.artwork(width=480, height=None)
+                    artwork_encoded = 'data:image/png;base64,' + base64.b64encode(artwork.bytes).decode('utf-8')
+                    attributes[entities.media_player.ATTRIBUTES.MEDIA_IMAGE_URL] = artwork_encoded
+                except:
+                    LOG.error('OMG')
+                
+                attributes[entities.media_player.ATTRIBUTES.MEDIA_DURATION] = playing.total_time
+                attributes[entities.media_player.ATTRIBUTES.MEDIA_TITLE] = playing.title
+                attributes[entities.media_player.ATTRIBUTES.MEDIA_ARTIST] = playing.artist
+                attributes[entities.media_player.ATTRIBUTES.MEDIA_ALBUM] = playing.album
 
-        prevHash = playing.hash
+            prevHash = playing.hash
 
-        api.configuredEntities.updateEntityAttributes(
-                connectedAtv.service.identifier,
-                attributes
-            )
+            api.configuredEntities.updateEntityAttributes(
+                    connectedAtv.service.identifier,
+                    attributes
+                )
 
         await asyncio.sleep(2)
 
