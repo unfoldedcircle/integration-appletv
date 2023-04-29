@@ -31,6 +31,7 @@ To do that, we need to compile it on the target architecture as `pyinstaller` do
 The following can be used on x86 Linux:
 
 ```
+sudo apt-get install qemu binfmt-support qemu-user-static
 docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 docker run --platform=aarch64 -v "$PWD:/io" -it ubuntu:focal
 
