@@ -3,6 +3,7 @@ import base64
 import logging
 import random
 import json
+import os
 
 import ucapi.api as uc
 import ucapi.entities as entities
@@ -17,6 +18,7 @@ LOOP = asyncio.get_event_loop()
 LOG.setLevel(logging.DEBUG)
 
 # Global variables
+dataPath = os.getenv('UC_APPLETV_DATA_PATH') + '/' if os.getenv('UC_APPLETV_DATA_PATH') is not None else ''
 api = uc.IntegrationAPI(LOOP)
 pairingAtv = None
 pairingProcess = None
@@ -33,25 +35,33 @@ async def storeCredentials(tv, service):
     }
 
     try:
-        f= open('credentials.json', 'w+')
+        f= open(dataPath + 'credentials.json', 'w+')
     except OSError:
         LOG.error('Cannot write the credentials file')
         return
 
     json.dump(data, f, ensure_ascii=False)
 
+    f.close()
+
 async def restoreCredentials():
     f = None
 
     try:
-        f = open('credentials.json', 'r')
+        f = open(dataPath + 'credentials.json', 'r')
     except OSError:
         LOG.error('Cannot open the credentials file')
     
     if f is None:
         return None
 
-    data = json.load(f)
+    try:
+        data = json.load(f)
+        f.close()
+    except ValueError:
+        LOG.error('Empty credentials file')
+        return None
+
     identifier = data['identifier']
     credentials = data['credentials']
 
@@ -87,7 +97,8 @@ async def connectToAppleTv(atv):
 async def disconnectFromAppleTv():
     global connectedAtv
     global isConnected
-    connectedAtv.close()
+    if connectedAtv is not None:
+        connectedAtv.close()
     isConnected = False
 
 async def finishPairing(websocket):
@@ -215,9 +226,10 @@ def startPolling():
 
 def stopPolling():
     global pollingTask
-    pollingTask.cancel()
-    pollingTask = None
-    LOG.debug('Polling stopped')
+    if pollingTask is not None:
+        pollingTask.cancel()
+        pollingTask = None
+        LOG.debug('Polling stopped')
 
 # DRIVER SETUP
 @api.events.on(uc.uc.EVENTS.SETUP_DRIVER)
@@ -369,10 +381,10 @@ async def event_handler(websocket, id, entityId, entityType, cmdId, params):
     if cmdId == entities.media_player.COMMANDS.PLAY_PAUSE:
         await rc.play_pause()
         await api.acknowledgeCommand(websocket, id)
-    elif cmdId == entities.media_player.COMMANDS.TURN_ON:
+    elif cmdId == entities.media_player.COMMANDS.ON:
         await rc.turn_on()
         await api.acknowledgeCommand(websocket, id)
-    elif cmdId == entities.media_player.COMMANDS.TURN_OFF:
+    elif cmdId == entities.media_player.COMMANDS.OFF:
         await rc.turn_off()
         await api.acknowledgeCommand(websocket, id)
 
