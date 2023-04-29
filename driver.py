@@ -328,6 +328,11 @@ async def event_handler():
 @api.events.on(uc.uc.EVENTS.EXIT_STANDBY)
 async def event_handler():
     global connectedAtv
+    global isConnected
+
+    if isConnected is True:
+        return
+    
     await connectToAppleTv(connectedAtv)
     startPolling()
 
