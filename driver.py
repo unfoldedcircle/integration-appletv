@@ -116,7 +116,6 @@ async def connect():
 
     if tv is None:
         LOG.error('Cannot find AppleTV to connect to')
-        await api.setDeviceState(uc.uc.DEVICE_STATES.ERROR)
         return
 
     await connectToAppleTv(tv)
@@ -203,6 +202,10 @@ async def polling():
 
 def startPolling():
     global pollingTask
+    global connectedAtv
+
+    if connectedAtv is None:
+        return
 
     if pollingTask is not None:
         return
