@@ -24,16 +24,13 @@ jobs:
         uses: actions/checkout@v3
         
       # We need the integration library, this is temporary until we decide to publish it to pypi  
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          repository: aitatoi/integration-python-library
-          token: ${{ secrets.PAT }}
-          
-      - name: Check
+      - name: Clone integrations library
         shell: bash
         run: |
+          git clone https://github.com/aitatoi/integration-python-library.git
           ls -lah
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Prepare
         run: |
