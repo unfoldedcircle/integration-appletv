@@ -18,7 +18,7 @@ env:
   
 jobs:
   build:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     steps:
       - name: Fetch all tags to determine version
         run: |
@@ -30,7 +30,7 @@ jobs:
         name: Install dependencies
         with:
           arch: aarch64
-          distro: ubuntu18.04
+          distro: ubuntu_latest
           
           # Create directory for the artifacts
           setup: |
