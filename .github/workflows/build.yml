@@ -30,7 +30,7 @@ jobs:
           
           sudo apt-get update && sudo apt-get install -y qemu binfmt-support qemu-user-static
           docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-          docker run --name builder --platform=aarch64 -v {$GITHUB_WORKSPACE}:/io -d ubuntu:focal tail -f /dev/null
+          docker run --name builder --platform=aarch64 -v ${GITHUB_WORKSPACE}:/io -d ubuntu:focal tail -f /dev/null
           
           docker exec builder bash -c "cd /io && pwd && ls -lsa"
           docker exec builder bash -c "apt-get update && apt-get install -y python3-pip"
