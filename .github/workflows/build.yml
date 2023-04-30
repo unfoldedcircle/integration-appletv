@@ -20,9 +20,21 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: uraimo/run-on-arch-action@v2
-        name: Install dependencies
+      - name: Checkout
+        uses: actions/checkout@v3
+        
+      - name: Fetch all tags to determine version
+        run: |
+          git fetch origin +refs/tags/*:refs/tags/*
+          echo "VERSION=$(git describe --match "v[0-9]*" --tags HEAD --always)" >> $GITHUB_ENV
+          
+      - name: add version
+        run: |
+          cd artifacts
+          echo ${{ env.VERSION }} > version.txt
+        
+      - name: Build  
+        uses: uraimo/run-on-arch-action@v2
         with:
           arch: aarch64
           distro: ubuntu_latest
@@ -44,17 +56,7 @@ jobs:
             uname -a
             pip3 install pyinstaller -r requirements.txt
             pyinstaller --clean --onfile --name intg-appletv driver.py
-            
-      - name: Fetch all tags to determine version
-        run: |
-          git fetch origin +refs/tags/*:refs/tags/*
-          echo "VERSION=$(git describe --match "v[0-9]*" --tags HEAD --always)" >> $GITHUB_ENV
-          
-      - name: add version
-        run: |
-          cd artifacts
-          echo ${{ env.VERSION }} > version.txt
-            
+                
       - name: Test
         run: |
           ls -al "${PWD}"
