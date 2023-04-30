@@ -26,15 +26,14 @@ jobs:
       - name: Prepare
         run: |
           sudo apt-get update && sudo apt-get install -y qemu binfmt-support qemu-user-static
-          docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-          docker run -d --name builder --platform=aarch64 -v "$PWD:/io" ubuntu:focal
+          docker run --name qemu --rm --privileged multiarch/qemu-user-static --reset -p yes
+          docker run --name builder --platform=aarch64 -v "$PWD:/io" -d ubuntu:focal tail -f /dev/null
           
           docker ps -a
           
-          cd /io | docker exec -i builder bash
-          apt-get update && apt-get install -y python3-pip | docker exec -i builder bash
-          pip3 install pyinstaller -r requirements.txt | docker exec -i builder bash
-          pyinstaller --clean --onfile --name intg-appletv driver.py | docker exec -i builder bash
+          docker exec builder bash -c "cd /io && apt-get update && apt-get install -y python3-pip"
+          docker exec builder bash -c "pip3 install pyinstaller -r requirements.txt"
+          docker exec builder bash -c "pyinstaller --clean --onfile --name intg-appletv driver.py"
           
       - name: Copy artifacts
         run: |
