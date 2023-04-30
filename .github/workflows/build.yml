@@ -32,8 +32,6 @@ jobs:
           docker exec builder bash -c "apt-get update && apt-get install -y python3-pip"
           docker exec builder bash -c "pip3 install pyinstaller -r /io/requirements.txt"
           docker exec builder bash -c "cd /io && pyinstaller --clean --onefile --name intg-appletv driver.py"
-          
-          ls -lah
             
       - name: Fetch all tags to determine version
         run: |
@@ -42,25 +40,21 @@ jobs:
           
       - name: Add version
         run: |
-          pwd
           mkdir -p artifacts
           cd artifacts
           echo ${{ env.VERSION }} > version.txt
           
-          ls -lah
-          
       - name: Create upload artifact
         shell: bash
         run: | 
-          pwd
-          
           cp dist/intg-appletv artifacts/
           cp driver.json artifacts/
           
-          ls -lah
+          echo ${{ env.VERSION }}
+          echo ${{ env.ARTIFACT_NAME }}
           
           echo "ARTIFACT_NAME=uc-intg-${{ env.INTG_NAME }}-${{ env.VERSION }}" >> $GITHUB_ENV
-          tar czvf ${{ env.ARTIFACT_NAME }}.tar.gz -C ${GITHUB_WORKSPACE}/artifacts .
+          tar czvf "${{ env.ARTIFACT_NAME }}.tar.gz" -C ${GITHUB_WORKSPACE}/artifacts .
           ls -lah
           
       - uses: actions/upload-artifact@v3
