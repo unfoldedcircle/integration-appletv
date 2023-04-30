@@ -28,14 +28,16 @@ jobs:
         run: | 
           mkdir -p artifacts
           cp driver.json artifacts/
-          
           echo "ARTIFACT_NAME=uc-intg-${{ env.INTG_NAME }}" >> $GITHUB_ENV
-          export ARTIFACT_NAME="${{ env.ARTIFACT_NAME }}"
+          
+      - name: Test 2
+        shell: bash
+        run: |
           tar czvf "${{ env.ARTIFACT_NAME }}.tar.gz" -C ${GITHUB_WORKSPACE}/artifacts .
           ls -lah
           
           echo "Env variables"
-          echo $ARTIFACT_NAME
+          echo ${{ env.ARTIFACT_NAME }}
       
       - name: Prepare
         run: |
@@ -58,20 +60,18 @@ jobs:
           cd artifacts
           echo ${{ env.VERSION }} > version.txt
           
+      - name: Prepare artifacts
+        shell: bash
+        run: |
+          cp dist/intg-appletv artifacts/
+          cp driver.json artifacts/
+          echo "ARTIFACT_NAME=uc-intg-${{ env.INTG_NAME }}-${{ env.VERSION }}" >> $GITHUB_ENV
+          
       - name: Create upload artifact
         shell: bash
         run: | 
-          cp dist/intg-appletv artifacts/
-          cp driver.json artifacts/
-          
-          echo "ARTIFACT_NAME=uc-intg-${{ env.INTG_NAME }}-${{ env.VERSION }}" >> $GITHUB_ENV
-          export ARTIFACT_NAME="${{ env.ARTIFACT_NAME }}"
           tar czvf $ARTIFACT_NAME.tar.gz" -C ${GITHUB_WORKSPACE}/artifacts .
           ls -lah
-          
-          echo "Env variables"
-          echo ${{ env.VERSION }}
-          echo ${{ env.ARTIFACT_NAME }}
           
       - uses: actions/upload-artifact@v3
         id: upload_artifact
