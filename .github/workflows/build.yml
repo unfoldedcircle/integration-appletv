@@ -57,7 +57,7 @@ jobs:
         run: |
           cp dist/intg-appletv artifacts/
           cp driver.json artifacts/
-          echo "ARTIFACT_NAME=uc-intg-${{ env.INTG_NAME }}-${{ env.VERSION }}" >> $GITHUB_ENV
+          echo "ARTIFACT_NAME=uc-intg-${{ env.INTG_NAME }}-${{ env.VERSION }}-aarch64" >> $GITHUB_ENV
           
       - name: Create upload artifact
         shell: bash
