@@ -22,7 +22,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      
+        
+      # We need the integration library, this is temporary until we decide to publish it to pypi  
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          repository: aitatoi/integration-python-library
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Check
+        shell: bash
+        run: |
+          ls -lah
+          
       - name: Prepare
         run: |
           sudo apt-get update && sudo apt-get install -y qemu binfmt-support qemu-user-static
