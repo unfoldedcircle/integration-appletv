@@ -40,20 +40,25 @@ jobs:
           git fetch origin +refs/tags/*:refs/tags/*
           echo "VERSION=$(git describe --match "v[0-9]*" --tags HEAD --always)" >> $GITHUB_ENV
           
-      - name: add version
+      - name: Add version
         run: |
+          pwd
           mkdir -p artifacts
           cd artifacts
           echo ${{ env.VERSION }} > version.txt
           
+          ls -lah artifacts
+          
       - name: Create upload artifact
         shell: bash
         run: | 
+          pwd
+          
           cp dist/intg-appletv artifacts/
           cp driver.json artifacts/
           
           echo "ARTIFACT_NAME=uc-intg-${{ env.INTG_NAME }}-${{ env.VERSION }}" >> $GITHUB_ENV
-          tar czvf ${{ env.ARTIFACT_NAME }}.tar.gz -C artifacts .
+          tar czvf ${{ env.ARTIFACT_NAME }}.tar.gz -C ${GITHUB_WORKSPACE}/artifacts .
           ls -lah
           
       - uses: actions/upload-artifact@v3
