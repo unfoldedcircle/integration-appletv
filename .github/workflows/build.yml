@@ -47,7 +47,7 @@ jobs:
           cd artifacts
           echo ${{ env.VERSION }} > version.txt
           
-          ls -lah artifacts
+          ls -lah
           
       - name: Create upload artifact
         shell: bash
@@ -56,6 +56,8 @@ jobs:
           
           cp dist/intg-appletv artifacts/
           cp driver.json artifacts/
+          
+          ls -lah
           
           echo "ARTIFACT_NAME=uc-intg-${{ env.INTG_NAME }}-${{ env.VERSION }}" >> $GITHUB_ENV
           tar czvf ${{ env.ARTIFACT_NAME }}.tar.gz -C ${GITHUB_WORKSPACE}/artifacts .
