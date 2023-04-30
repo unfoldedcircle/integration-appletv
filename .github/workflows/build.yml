@@ -31,7 +31,7 @@ jobs:
           
           docker exec builder bash -c "apt-get update && apt-get install -y python3-pip"
           docker exec builder bash -c "pip3 install pyinstaller -r /io/requirements.txt"
-          docker exec builder bash -c "cd /io && pyinstaller --clean --onfile --name intg-appletv driver.py"
+          docker exec builder bash -c "cd /io && pyinstaller --clean --onefile --name intg-appletv driver.py"
             
       - name: Fetch all tags to determine version
         run: |
