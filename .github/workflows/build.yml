@@ -24,15 +24,8 @@ jobs:
         run: |
           git fetch origin +refs/tags/*:refs/tags/*
           echo "VERSION=$(git describe --match "v[0-9]*" --tags HEAD --always)" >> $GITHUB_ENV
-
-      - name: Set build timestamp
-        run: |
-          echo "TIMESTAMP=$(date +"%Y%m%d_%H%M%S")" >> $GITHUB_ENV
           
-      - name: Checkout
-        uses: actions/checkout@v3
-      
-      - name: Docker
+      - uses: actions/checkout@v3
       - uses: uraimo/run-on-arch-action@v2
         name: Install dependencies
         with:
