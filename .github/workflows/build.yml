@@ -24,6 +24,7 @@ jobs:
         uses: actions/checkout@v3
         
       - name: Test
+        shell: bash
         run: | 
           mkdir -p artifacts
           cp driver.json artifacts/
@@ -33,7 +34,7 @@ jobs:
           ls -lah
           
           echo "Env variables"
-          echo ${{ env.ARTIFACT_NAME }}
+          echo $ARTIFACT_NAME
       
       - name: Prepare
         run: |
@@ -63,7 +64,7 @@ jobs:
           cp driver.json artifacts/
           
           echo "ARTIFACT_NAME=uc-intg-${{ env.INTG_NAME }}-${{ env.VERSION }}" >> $GITHUB_ENV
-          tar czvf "${{ env.ARTIFACT_NAME }}.tar.gz" -C ${GITHUB_WORKSPACE}/artifacts .
+          tar czvf $ARTIFACT_NAME.tar.gz" -C ${GITHUB_WORKSPACE}/artifacts .
           ls -lah
           
           echo "Env variables"
