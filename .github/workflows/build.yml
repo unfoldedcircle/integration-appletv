@@ -30,6 +30,7 @@ jobs:
           cp driver.json artifacts/
           
           echo "ARTIFACT_NAME=uc-intg-${{ env.INTG_NAME }}" >> $GITHUB_ENV
+          export ARTIFACT_NAME="${{ env.ARTIFACT_NAME }}"
           tar czvf "${{ env.ARTIFACT_NAME }}.tar.gz" -C ${GITHUB_WORKSPACE}/artifacts .
           ls -lah
           
@@ -64,6 +65,7 @@ jobs:
           cp driver.json artifacts/
           
           echo "ARTIFACT_NAME=uc-intg-${{ env.INTG_NAME }}-${{ env.VERSION }}" >> $GITHUB_ENV
+          export ARTIFACT_NAME="${{ env.ARTIFACT_NAME }}"
           tar czvf $ARTIFACT_NAME.tar.gz" -C ${GITHUB_WORKSPACE}/artifacts .
           ls -lah
           
