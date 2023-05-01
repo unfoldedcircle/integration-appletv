@@ -99,6 +99,7 @@ async def disconnectFromAppleTv():
     global isConnected
     if connectedAtv is not None:
         connectedAtv.close()
+        connectedAtv = None
     isConnected = False
 
 async def finishPairing(websocket):
@@ -127,6 +128,8 @@ async def connect():
 
     if tv is None:
         LOG.error('Cannot find AppleTV to connect to')
+        await asyncio.sleep(10)
+        await connect();
         return
 
     await connectToAppleTv(tv)
@@ -164,6 +167,9 @@ async def polling():
     global connectedAtv
     prevHash = None
     while True:
+        if connectedAtv is None:
+            prevHash = None
+
         if api.configuredEntities.contains(connectedAtv.service.identifier):
             playing = await connectedAtv.metadata.playing()
             power = connectedAtv.power
