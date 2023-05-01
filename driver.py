@@ -20,11 +20,24 @@ LOG.setLevel(logging.DEBUG)
 # Global variables
 dataPath = os.getenv('UC_APPLETV_DATA_PATH') + '/' if os.getenv('UC_APPLETV_DATA_PATH') is not None else ''
 api = uc.IntegrationAPI(LOOP)
+credentials = {}
 pairingAtv = None
 pairingProcess = None
 connectedAtv = None
 isConnected = False
 pollingTask = None
+
+async def retry(fn, retries=5):
+    i = 0
+    while True:
+        try:
+            return await fn()
+        except:
+            if i == retries:
+                LOG.debug('Retry limit reached')
+                raise
+            await asyncio.sleep(2)
+            i += 1
 
 async def storeCredentials(tv, service):
     f = None
@@ -44,7 +57,9 @@ async def storeCredentials(tv, service):
 
     f.close()
 
-async def restoreCredentials():
+async def loadCredentials():
+    global credentials
+
     f = None
 
     try:
@@ -53,31 +68,31 @@ async def restoreCredentials():
         LOG.error('Cannot open the credentials file')
     
     if f is None:
-        return None
+        return False
 
     try:
         data = json.load(f)
         f.close()
     except ValueError:
         LOG.error('Empty credentials file')
-        return None
+        return False
 
-    identifier = data['identifier']
-    credentials = data['credentials']
+    credentials['identifier'] = data['identifier']
+    credentials['credentials'] = data['credentials']
 
     if data['protocol'] == 'companion':
-        protocol = pyatv.const.Protocol.Companion
+        credentials['protocol'] = pyatv.const.Protocol.Companion
     elif data['protocol'] == 'airplay':
-        protocol = pyatv.const.Protocol.AirPlay
+        credentials['protocol'] = pyatv.const.Protocol.AirPlay
 
+    return True
+        
+async def findAppleTv(identifier):
     atvs = await pyatv.scan(LOOP, identifier=identifier)
-
     if not atvs:
         return None
-
-    atv = atvs[0]
-    atv.set_credentials(protocol, credentials)
-    return atv
+    else:
+        return atvs[0]
 
 async def discoverAppleTVs():
     atvs = await pyatv.scan(LOOP)
@@ -90,51 +105,40 @@ async def discoverAppleTVs():
 
     return res
 
-async def connectToAppleTv(atv):
-    global connectedAtv
-    connectedAtv = await pyatv.connect(atv, LOOP)
-
-
 async def disconnectFromAppleTv():
     global connectedAtv
     global isConnected
     if connectedAtv is not None:
         connectedAtv.close()
         connectedAtv = None
+
     isConnected = False
+    LOG.debug('Disconnected')
 
-async def finishPairing(websocket):
-    global pairingProcess
-
-    await pairingProcess.finish()
-
-    if pairingProcess.has_paired:
-        LOG.debug("Paired with device!")
-        await storeCredentials(pairingAtv, pairingProcess.service)
-        await api.driverSetupComplete(websocket)
-    else:
-        LOG.warning('Did not pair with device!')
-        await api.driverSetupError(websocket, 'Unable to pair with Apple TV')
-
-    await pairingProcess.close()
-    pairingProcess = None
-
-async def connect():
+async def connectToAppleTv():
     global connectedAtv
     global isConnected
+    global credentials
     tv = None
 
     if isConnected == True:
         return False
 
     if connectedAtv is None:
-        tv = await restoreCredentials()
+        tv = await findAppleTv(credentials['identifier'])
 
         if tv is None:
             LOG.error('Cannot find AppleTV to connect to')
-            return False
+            raise
+            # return False
+        
+    res = tv.set_credentials(credentials['protocol'], credentials['credentials'])
+    if res is False:
+        LOG.error('Failed to set credentials')
+        raise
+        # return False
 
-    await connectToAppleTv(tv)
+    connectedAtv = await pyatv.connect(tv, LOOP)
 
     entity = entities.media_player.MediaPlayer(tv.identifier, tv.name, [
             entities.media_player.FEATURES.ON_OFF,
@@ -168,12 +172,29 @@ async def connect():
 
     return True
 
+async def finishPairing(websocket):
+    global pairingProcess
+
+    await pairingProcess.finish()
+
+    if pairingProcess.has_paired:
+        LOG.debug("Paired with device!")
+        await storeCredentials(pairingAtv, pairingProcess.service)
+        await api.driverSetupComplete(websocket)
+    else:
+        LOG.warning('Did not pair with device!')
+        await api.driverSetupError(websocket, 'Unable to pair with Apple TV')
+
+    await pairingProcess.close()
+    pairingProcess = None
+
 async def polling():
     global api
     global connectedAtv
+    global isConnected
     prevHash = None
     while True:
-        if connectedAtv is None:
+        if isConnected is False:
             prevHash = None
 
         if api.configuredEntities.contains(connectedAtv.service.identifier):
@@ -340,7 +361,7 @@ async def event_handler():
     global isConnected
 
     if isConnected is False:
-        res = await connect()
+        res = await retry(connectToAppleTv)
         if res == True:
             await api.setDeviceState(uc.uc.DEVICE_STATES.CONNECTED)
         else:
@@ -362,7 +383,7 @@ async def event_handler():
 
 @api.events.on(uc.uc.EVENTS.EXIT_STANDBY)
 async def event_handler():
-    res = await connect()
+    res = await retry(connectToAppleTv)
     if res == True:
         startPolling()
 
@@ -410,7 +431,11 @@ async def event_handler(websocket, id, entityId, entityType, cmdId, params):
         await api.acknowledgeCommand(websocket, id)
 
 async def main():
-    await connect()
+    await loadCredentials()
+    try:
+        await connectToAppleTv()
+    except:
+        LOG.error('Cannot connect')
     await api.init('driver.json')
 
 if __name__ == "__main__":
