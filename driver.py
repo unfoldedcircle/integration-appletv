@@ -94,6 +94,7 @@ async def connectToAppleTv(atv):
     global connectedAtv
     connectedAtv = await pyatv.connect(atv, LOOP)
 
+
 async def disconnectFromAppleTv():
     global connectedAtv
     global isConnected
@@ -119,18 +120,19 @@ async def finishPairing(websocket):
     pairingProcess = None
 
 async def connect():
+    global connectedAtv
     global isConnected
+    tv = None
 
-    if isConnected is True:
-        return
+    if isConnected == True:
+        return False
 
-    tv = await restoreCredentials()
+    if connectedAtv is None:
+        tv = await restoreCredentials()
 
-    if tv is None:
-        LOG.error('Cannot find AppleTV to connect to')
-        await asyncio.sleep(10)
-        await connect();
-        return
+        if tv is None:
+            LOG.error('Cannot find AppleTV to connect to')
+            return False
 
     await connectToAppleTv(tv)
 
@@ -161,6 +163,10 @@ async def connect():
     api.availableEntities.addEntity(entity)
 
     isConnected = True
+
+    LOG.debug('Connected')
+
+    return True
 
 async def polling():
     global api
@@ -331,9 +337,17 @@ async def event_handler(websocket, id, data):
 
 @api.events.on(uc.uc.EVENTS.CONNECT)
 async def event_handler():
-    await connect()
-    await api.setDeviceState(uc.uc.DEVICE_STATES.CONNECTED)
-    startPolling()
+    global isConnected
+
+    if isConnected is False:
+        res = await connect()
+        if res == True:
+            await api.setDeviceState(uc.uc.DEVICE_STATES.CONNECTED)
+        else:
+            await api.setDeviceState(uc.uc.DEVICE_STATES.DISCONNECTED)
+    else:
+        startPolling()
+        await api.setDeviceState(uc.uc.DEVICE_STATES.CONNECTED)
 
 @api.events.on(uc.uc.EVENTS.DISCONNECT)
 async def event_handler():
@@ -348,8 +362,9 @@ async def event_handler():
 
 @api.events.on(uc.uc.EVENTS.EXIT_STANDBY)
 async def event_handler():
-    await connect()
-    startPolling()
+    res = await connect()
+    if res == True:
+        startPolling()
 
 @api.events.on(uc.uc.EVENTS.SUBSCRIBE_ENTITIES)
 async def event_handler(entityIds):
