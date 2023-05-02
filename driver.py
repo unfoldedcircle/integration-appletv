@@ -419,15 +419,16 @@ async def event_handler(websocket, id, entityId, entityType, cmdId, params):
     global connectedAtv
 
     rc = connectedAtv.remote_control
+    power = connectedAtv.power
 
     if cmdId == entities.media_player.COMMANDS.PLAY_PAUSE:
         await rc.play_pause()
         await api.acknowledgeCommand(websocket, id)
     elif cmdId == entities.media_player.COMMANDS.ON:
-        await rc.turn_on()
+        await power.turn_on()
         await api.acknowledgeCommand(websocket, id)
     elif cmdId == entities.media_player.COMMANDS.OFF:
-        await rc.turn_off()
+        await power.turn_off()
         await api.acknowledgeCommand(websocket, id)
 
 async def main():
