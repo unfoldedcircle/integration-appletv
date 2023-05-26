@@ -5,7 +5,8 @@
 	"name": { "en": "Apple TV" },
 	"icon": "custom:appletv.png",
 	"description": {
-		"en": "Control your Apple TV with Remote Two."
+		"en": "Control your Apple TV with Remote Two.",
+		"de": "Steuere AppleTV mit Remote Two."
 	},
 	"developer": {
 		"name": "Unfolded Circle ApS",
@@ -15,18 +16,21 @@
 	"home_page": "https://www.unfoldedcircle.com",
 	"setup_data_schema": {
 		"title": {
-			"en": "Integration setup"
+			"en": "Integration setup",
+			"de": "Integrationssetup"
 		},
 		"settings": [
 			{
 				"id": "info",
 				"label": {
-					"en": "Setup process"
+					"en": "Setup process",
+					"de": "Setup Fortschritt"
 				},
 				"field": {
 					"label": {
 						"value": {
-							"en": "The integration will discover your Apple TV on your network."
+							"en": "The integration will discover your Apple TV on your network.",
+							"de": "Diese Integration dient zur Apple TV Steuerung."
 						}
 					}
 				}
