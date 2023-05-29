@@ -18,7 +18,7 @@ LOOP = asyncio.get_event_loop()
 LOG.setLevel(logging.DEBUG)
 
 # Global variables
-dataPath = os.getenv('UC_APPLETV_DATA_PATH') + '/' if os.getenv('UC_APPLETV_DATA_PATH') is not None else ''
+dataPath = None
 api = uc.IntegrationAPI(LOOP)
 credentials = {}
 pairingAtv = None
@@ -48,7 +48,7 @@ async def storeCredentials(tv, service):
     }
 
     try:
-        f= open(dataPath + 'credentials.json', 'w+')
+        f= open(dataPath + '/credentials.json', 'w+')
     except OSError:
         LOG.error('Cannot write the credentials file')
         return
@@ -63,7 +63,7 @@ async def loadCredentials():
     f = None
 
     try:
-        f = open(dataPath + 'credentials.json', 'r')
+        f = open(dataPath + '/credentials.json', 'r')
     except OSError:
         LOG.error('Cannot open the credentials file')
     
@@ -432,12 +432,16 @@ async def event_handler(websocket, id, entityId, entityType, cmdId, params):
         await api.acknowledgeCommand(websocket, id)
 
 async def main():
+    global dataPath
+
+    await api.init('driver.json')
+    dataPath = api.configDirPath
+
     await loadCredentials()
     try:
         await connectToAppleTv()
     except:
         LOG.error('Cannot connect')
-    await api.init('driver.json')
 
 if __name__ == "__main__":
     LOOP.run_until_complete(main())
