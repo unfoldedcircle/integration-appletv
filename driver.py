@@ -100,8 +100,8 @@ async def discoverAppleTVs():
 
     for tv in atvs:
         # We only support TvOS
-        # if tv.device_info.operating_system == pyatv.const.OperatingSystem.TvOS:
-        res.append(tv)
+        if tv.device_info.operating_system == pyatv.const.OperatingSystem.TvOS:
+            res.append(tv)
 
     return res
 
@@ -279,7 +279,7 @@ async def event_handler(websocket, id, data):
         tvData = {
             'id': tv.identifier,
             'label': {
-                'en': tv.name + " TvOS " + tv.device_info.version
+                'en': tv.name + " TvOS " + str(tv.device_info.version)
             }
         }
 
