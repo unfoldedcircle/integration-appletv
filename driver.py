@@ -180,6 +180,9 @@ async def finishPairing(websocket):
     if pairingProcess.has_paired:
         LOG.debug("Paired with device!")
         await storeCredentials(pairingAtv, pairingProcess.service)
+
+        await connectToAppleTv()
+
         await api.driverSetupComplete(websocket)
     else:
         LOG.warning('Did not pair with device!')
