@@ -100,8 +100,8 @@ async def discoverAppleTVs():
 
     for tv in atvs:
         # We only support TvOS
-        if tv.device_info.operating_system == pyatv.const.OperatingSystem.TvOS:
-            res.append(tv)
+        # if tv.device_info.operating_system == pyatv.const.OperatingSystem.TvOS:
+        res.append(tv)
 
     return res
 
