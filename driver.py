@@ -50,6 +50,13 @@ async def commandWrapper(fn):
         return uc.uc.STATUS_CODES.SERVER_ERROR
     
 async def clearCredentials():
+    global credentials
+
+    credentials = {
+        'identifier': "",
+        'credentials': []
+    }
+
     if os.path.exists(dataPath + '/credentials.json'):
         os.remove(dataPath + '/credentials.json')
 
