@@ -1,6 +1,6 @@
 {
 	"driver_id": "uc_appletv_driver",
-	"version": "0.3.0",
+	"version": "0.4.0",
 	"min_core_api": "0.7.0",
 	"name": { "en": "Apple TV" },
 	"icon": "custom:appletv.png",
@@ -29,7 +29,7 @@
 				"field": {
 					"label": {
 						"value": {
-							"en": "The integration will discover your Apple TV on your network.",
+							"en": "The integration will discover your Apple TV on your network. During the process, you might need to enter multiple PINs that are shown on your Apple Tv.",
 							"de": "Diese Integration dient zur Apple TV Steuerung."
 						}
 					}
