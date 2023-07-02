@@ -39,6 +39,13 @@ async def retry(fn, retries=5):
             await asyncio.sleep(2)
             i += 1
 
+async def commandWrapper(fn):
+    try:
+        await fn()
+        return uc.uc.STATUS_CODES.OK
+    except:
+        return uc.uc.STATUS_CODES.SERVER_ERROR
+
 async def storeCredentials(tv, service):
     f = None
     data = {
@@ -143,7 +150,8 @@ async def connectToAppleTv():
     entity = entities.media_player.MediaPlayer(tv.identifier, tv.name, [
             entities.media_player.FEATURES.ON_OFF,
             # entities.media_player.FEATURES.VOLUME,
-            entities.media_player.FEATURES.MUTE_TOGGLE,
+            # entities.media_player.FEATURES.VOLUME_UP_DOWN,
+            # entities.media_player.FEATURES.MUTE_TOGGLE,
             entities.media_player.FEATURES.PLAY_PAUSE,
             entities.media_player.FEATURES.NEXT,
             entities.media_player.FEATURES.PREVIOUS,
@@ -203,6 +211,7 @@ async def polling():
         if api.configuredEntities.contains(connectedAtv.service.identifier):
             playing = await connectedAtv.metadata.playing()
             power = connectedAtv.power
+            # audio = connectedAtv.audio
 
             state = entities.media_player.STATES.UNKNOWN
 
@@ -222,6 +231,7 @@ async def polling():
             attributes = {
                 entities.media_player.ATTRIBUTES.STATE: state,
                 entities.media_player.ATTRIBUTES.MEDIA_POSITION: playing.position,
+                # entities.media_player.ATTRIBUTES.VOLUME: audio.volume,
             }
             
             # Update if content changed
@@ -370,19 +380,19 @@ async def event_handler():
         else:
             await api.setDeviceState(uc.uc.DEVICE_STATES.DISCONNECTED)
     else:
-        startPolling()
+        # startPolling()
         await api.setDeviceState(uc.uc.DEVICE_STATES.CONNECTED)
 
 @api.events.on(uc.uc.EVENTS.DISCONNECT)
 async def event_handler():
-    await disconnectFromAppleTv()
     stopPolling()
+    await disconnectFromAppleTv()
     await api.setDeviceState(uc.uc.DEVICE_STATES.DISCONNECTED)
 
 @api.events.on(uc.uc.EVENTS.ENTER_STANDBY)
 async def event_handler():
-    await disconnectFromAppleTv()
     stopPolling()
+    await disconnectFromAppleTv()
 
 @api.events.on(uc.uc.EVENTS.EXIT_STANDBY)
 async def event_handler():
@@ -401,6 +411,7 @@ async def event_handler(entityIds):
     # We only have one appleTv per driver for now
     for entityId in entityIds:
         if entityId == connectedAtv.service.identifier:
+            startPolling()
             LOG.debug('We have a match, start listening to events')
 
 @api.events.on(uc.uc.EVENTS.UNSUBSCRIBE_ENTITIES)
@@ -423,16 +434,29 @@ async def event_handler(websocket, id, entityId, entityType, cmdId, params):
 
     rc = connectedAtv.remote_control
     power = connectedAtv.power
+    audio = connectedAtv.audio
 
     if cmdId == entities.media_player.COMMANDS.PLAY_PAUSE:
-        await rc.play_pause()
-        await api.acknowledgeCommand(websocket, id)
+        res = await commandWrapper(rc.play_pause)
+        await api.acknowledgeCommand(websocket, id, res)
+    elif cmdId == entities.media_player.COMMANDS.NEXT:
+        res = await commandWrapper(rc.next)
+        await api.acknowledgeCommand(websocket, id, res)
+    elif cmdId == entities.media_player.COMMANDS.PREVIOUS:
+        res = await commandWrapper(rc.previous)
+        await api.acknowledgeCommand(websocket, id, res)
+    # elif cmdId == entities.media_player.COMMANDS.VOLUME_UP:
+    #     res = await commandWrapper(audio.volume_up)
+    #     await api.acknowledgeCommand(websocket, id, res)
+    # elif cmdId == entities.media_player.COMMANDS.VOLUME_DOWN:
+    #     res = await commandWrapper(audio.volume_down)
+    #     await api.acknowledgeCommand(websocket, id, res)
     elif cmdId == entities.media_player.COMMANDS.ON:
-        await power.turn_on()
-        await api.acknowledgeCommand(websocket, id)
+        res = await commandWrapper(power.turn_on)
+        await api.acknowledgeCommand(websocket, id, res)
     elif cmdId == entities.media_player.COMMANDS.OFF:
-        await power.turn_off()
-        await api.acknowledgeCommand(websocket, id)
+        res = await commandWrapper(power.turn_off)
+        await api.acknowledgeCommand(websocket, id, res)
 
 async def main():
     global dataPath
