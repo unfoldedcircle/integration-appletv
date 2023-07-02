@@ -48,6 +48,10 @@ async def commandWrapper(fn):
         return uc.uc.STATUS_CODES.OK
     except:
         return uc.uc.STATUS_CODES.SERVER_ERROR
+    
+async def clearCredentials():
+    if os.path.exists(dataPath + '/credentials.json'):
+        os.remove(dataPath + '/credentials.json')
 
 async def storeCredentials():
     f = None
@@ -286,6 +290,7 @@ def stopPolling():
 @api.events.on(uc.uc.EVENTS.SETUP_DRIVER)
 async def event_handler(websocket, id, data):
     LOG.debug('Starting driver setup')
+    await clearCredentials()
     await api.acknowledgeCommand(websocket, id)
     await api.driverSetupProgress(websocket)
 
