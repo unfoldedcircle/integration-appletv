@@ -19,6 +19,10 @@ Supported attributes:
 Supported commands:
 - Turn on
 - Turn off
+- Next
+- Previous
+- Volume up
+- Volume down
 - Play/pause
 
 
