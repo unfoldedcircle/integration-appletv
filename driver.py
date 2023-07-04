@@ -132,9 +132,11 @@ async def connectToAppleTv():
     tv = None
 
     if isConnected == True:
+        LOG.debug("Not connecting, already connected")
         return False
 
     if credentials['identifier'] == "":
+        LOG.debug("No identifier found, not connecting")
         return False
 
     if connectedAtv is None:
@@ -278,9 +280,11 @@ def startPolling():
     global connectedAtv
 
     if connectedAtv is None:
+        LOG.debug('Polling not started, AppleTv object is None')
         return
 
     if pollingTask is not None:
+        LOG.debug('Polling not started, already running')
         return
 
     pollingTask = LOOP.create_task(polling())
@@ -288,10 +292,13 @@ def startPolling():
 
 def stopPolling():
     global pollingTask
+
     if pollingTask is not None:
         pollingTask.cancel()
         pollingTask = None
         LOG.debug('Polling stopped')
+    else:
+        LOG.debug('Polling was already stopped')
 
 # DRIVER SETUP
 @api.events.on(uc.uc.EVENTS.SETUP_DRIVER)
@@ -445,6 +452,7 @@ async def event_handler():
     if isConnected is False:
         res = await retry(connectToAppleTv)
         if res == True:
+            startPolling()
             await api.setDeviceState(uc.uc.DEVICE_STATES.CONNECTED)
         else:
             await api.setDeviceState(uc.uc.DEVICE_STATES.DISCONNECTED)
@@ -468,6 +476,8 @@ async def event_handler():
     res = await retry(connectToAppleTv)
     if res == True:
         startPolling()
+    else:
+        await api.setDeviceState(uc.uc.DEVICE_STATES.ERROR)
 
 @api.events.on(uc.uc.EVENTS.SUBSCRIBE_ENTITIES)
 async def event_handler(entityIds):
