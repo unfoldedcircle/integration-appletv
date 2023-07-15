@@ -156,7 +156,6 @@ async def event_handler(websocket, id, data):
                 'credentials': pairingAppleTv.getCredentials() 
             })
             await storeCofig()
-            await api.driverSetupComplete(websocket)
 
             entity = entities.media_player.MediaPlayer(pairingAppleTv.identifier, pairingAppleTv.name, [
                 entities.media_player.FEATURES.ON_OFF,
@@ -184,6 +183,8 @@ async def event_handler(websocket, id, data):
                 entities.media_player.ATTRIBUTES.MEDIA_ALBUM: ""
             })
             api.availableEntities.addEntity(entity)
+
+            await api.driverSetupComplete(websocket)
     
     # We pair with airplay first
     elif "pin_airplay" in data:
@@ -391,7 +392,6 @@ async def main():
     global config
     global configuredAppleTvs
 
-    await api.init('driver.json')
     dataPath = api.configDirPath
 
     res = await loadConfig()
@@ -429,6 +429,8 @@ async def main():
             api.availableEntities.addEntity(entity)
     else:  
         LOG.error("Cannot load config")
+
+    await api.init('driver.json')
 
 if __name__ == "__main__":
     LOOP.run_until_complete(main())
