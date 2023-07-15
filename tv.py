@@ -11,6 +11,9 @@ import pyatv
 import pyatv.const
 
 from pyatv.interface import PushListener
+from pyatv.interface import DeviceListener
+from pyatv.interface import AudioListener
+from pyatv.interface import KeyboardListener
 
 LOG = logging.getLogger(__name__)
 LOG.setLevel(logging.DEBUG)
@@ -23,6 +26,7 @@ class EVENTS(IntEnum):
     POLLING_STOPPED = 4,
     ERROR = 5,
     UPDATE = 6,
+    VOLUME_CHANGED = 7,
 
 class AppleTv(object):
     def __init__(self, loop):
@@ -36,6 +40,8 @@ class AppleTv(object):
         self._pairingProcess = None
         self._connected = False
         self._polling = False
+        self._listener = None
+        self._prevUpdateHash = None
 
         @self.events.on(EVENTS.CONNECTED)
         async def _onConnected():
@@ -44,6 +50,40 @@ class AppleTv(object):
         @self.events.on(EVENTS.DISCONNECTED)
         async def _onDisconnected():
             await self._stopPolling()
+
+    class PushListener(PushListener, DeviceListener, AudioListener, KeyboardListener):
+        def __init__(self, loop):
+            self._loop = loop
+            self.events = AsyncIOEventEmitter(self._loop)
+            LOG.debug("Push listener initialised")
+
+        def playstatus_update(self, updater, playstatus):
+            LOG.debug("Push update")
+            LOG.debug(str(playstatus))
+            self.events.emit(EVENTS.UPDATE, playstatus)
+            
+        def playstatus_error(self, updater, exception):
+            LOG.debug(str(exception))
+            self.events.emit(EVENTS.ERROR)
+
+        def connection_lost(self, exception):
+            LOG.debug("Lost connection:", str(exception))
+            LOG.debug("Reconnecting")
+            # TODO: reconnect
+
+        def connection_closed(self):
+            LOG.debug("Connection closed!")
+
+        def volume_update(self, old_level, new_level):
+            self.events.emit(EVENTS.VOLUME_CHANGED, new_level)
+
+        def outputdevices_update(self, old_devices, new_devices):
+            print('Output devices changed from {0:s} to {1:s}'.format(old_devices, new_devices))
+            # TODO: implement me
+
+        def focusstate_update(self, old_state, new_state):
+            print('Focus state changed from {0:s} to {1:s}'.format(old_state, new_state))
+            # TODO: implement me
 
 
     async def init(self, identifier, credentials = []):
@@ -151,6 +191,26 @@ class AppleTv(object):
             self.events.emit(EVENTS.ERROR, 'Failed to connect')
             return
 
+        self._listener = self.PushListener(self._loop)
+
+        @self._listener.events.on(EVENTS.UPDATE)
+        async def _onUpdateEvent(data):
+            await self._processUpdate(data)
+
+        @self._listener.events.on(EVENTS.VOLUME_CHANGED)
+        async def _onVolumeChangedEvent(volume):
+            self.events.emit(EVENTS.VOLUME_CHANGED, volume)
+        
+        @self._listener.events.on(EVENTS.ERROR)
+        async def _onErrorEvent(data):
+            LOG.error("An error happened while getting a push update.")
+
+        self._atvObj.push_updater.listener = self._listener
+        self._atvObj.push_updater.start()
+        self._atvObj.listener = self._listener
+        self._atvObj.audio.listener = self._listener
+        self._atvObj.keyboard.listener = self._listener
+
         self._connected = True
         self.events.emit(EVENTS.CONNECTED)
         LOG.debug("Connected")
@@ -161,6 +221,8 @@ class AppleTv(object):
         if self._atvObj is not None:
             self._atvObj.close()
             self._atvObj = self._atvObjDiscovered
+            self._listener.events.remove_all_listeners()
+            self._listener = None
             self._connected = False
             self.events.emit(EVENTS.DISCONNECTED)
 
@@ -186,39 +248,66 @@ class AppleTv(object):
             LOG.debug('Polling was already stopped')
 
 
+    async def _processUpdate(self, data):
+        update = {}
+
+        if self._atvObj.power.power_state is pyatv.const.PowerState.On:
+            update['state'] = data.device_state
+
+        update['position'] = data.position
+
+        if data.hash != self._prevUpdateHash:
+            try:
+                artwork = await self._atvObj.metadata.artwork(width=480, height=None)
+                artwork_encoded = 'data:image/png;base64,' + base64.b64encode(artwork.bytes).decode('utf-8')
+                update['artwork'] = artwork_encoded
+            except:
+                LOG.error('Error while updating the artwork')
+
+        update['total_time'] = data.total_time
+        update['title'] = data.title
+        update['artist'] = data.artist
+        update['album'] = data.album
+
+        # TODO: data.genre
+        # TODO: data.media_type: Music, Tv, Unknown, Video
+        # TODO: data.repeat: All, Off, Track
+        # TODO: data.shuffle
+
+        self._prevUpdateHash = data.hash
+        self.events.emit(EVENTS.UPDATE, update)
+
+
     async def _pollWorker(self): 
-        prevHash = None
+        # prevHash = None
         while True:
             update = {}      
-            state = ""
-            try:
-                playing = await self._atvObj.metadata.playing()
-            except:
-                LOG.error('Error while getting metadata')
+            #     playing = await self._atvObj.metadata.playing()
+            # except:
+            #     LOG.error('Error while getting metadata')
             
-            if self._atvObj.power.power_state is pyatv.const.PowerState.On:
-                state = playing.device_state
-            elif self._atvObj.power.power_state is pyatv.const.PowerState.Off:
-                state = self._atvObj.power.power_state
+            # if self._atvObj.power.power_state is pyatv.const.PowerState.On:
+            #     state = playing.device_state
+            if self._atvObj.power.power_state is pyatv.const.PowerState.Off:
+                update['state'] = self._atvObj.power.power_state
+                self.events.emit(EVENTS.UPDATE, update)
+            # update['position'] = playing.position
 
-            update['state'] = state
-            update['position'] = playing.position
+            # if playing.hash != prevHash:
+            #     try:
+            #         artwork = await self._atvObj.metadata.artwork(width=480, height=None)
+            #         artwork_encoded = 'data:image/png;base64,' + base64.b64encode(artwork.bytes).decode('utf-8')
+            #         update['artwork'] = artwork_encoded
+            #     except:
+            #         LOG.error('Error while updating the artwork')
 
-            if playing.hash != prevHash:
-                try:
-                    artwork = await self._atvObj.metadata.artwork(width=480, height=None)
-                    artwork_encoded = 'data:image/png;base64,' + base64.b64encode(artwork.bytes).decode('utf-8')
-                    # update['artwork'] = artwork_encoded
-                except:
-                    LOG.error('Error while updating the artwork')
-
-                update['total_time'] = playing.total_time
-                update['title'] = playing.title
-                update['artist'] = playing.artist
-                update['album'] = playing.album
+            #     update['total_time'] = playing.total_time
+            #     update['title'] = playing.title
+            #     update['artist'] = playing.artist
+            #     update['album'] = playing.album
             
-            prevHash = playing.hash
-            self.events.emit(EVENTS.UPDATE, update)
+            # prevHash = playing.hash
+            
             await asyncio.sleep(2)
 
 
@@ -236,12 +325,16 @@ class AppleTv(object):
                 
 
     async def _commandWrapper(self, fn):
+        if self._connected is False:
+            return False
+        
         try:
             await fn()
             return True
         except:
             return False
         
+
     async def turnOn(self):
         return await self._commandWrapper(self._atvObj.power.turn_on)
     

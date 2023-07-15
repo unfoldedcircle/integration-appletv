@@ -314,6 +314,10 @@ async def event_handler(entityIds):
             async def onUpdate(update):
                 await handleAppleTvUpdate(entityId, update)
 
+            @appleTv.events.on(tv.EVENTS.VOLUME_CHANGED)
+            async def onVolumeUpdate(volume):
+                await handleAppleTvVolumeUpdate(entityId, volume)
+
 @api.events.on(uc.uc.EVENTS.UNSUBSCRIBE_ENTITIES)
 async def event_handler(entityIds):
     global configuredAppleTvs
@@ -413,6 +417,11 @@ async def handleAppleTvUpdate(entityId, update):
     if 'album' in update:
         attributes[entities.media_player.ATTRIBUTES.MEDIA_ALBUM] = update['album']
 
+    api.configuredEntities.updateEntityAttributes(entityId, attributes)
+
+async def handleAppleTvVolumeUpdate(entityId, volume):
+    attributes = {}
+    attributes[entities.media_player.ATTRIBUTES.VOLUME] = volume
     api.configuredEntities.updateEntityAttributes(entityId, attributes)
 
 async def main():
