@@ -170,7 +170,9 @@ async def event_handler(websocket, id, data):
                 entities.media_player.FEATURES.MEDIA_TITLE,
                 entities.media_player.FEATURES.MEDIA_ARTIST,
                 entities.media_player.FEATURES.MEDIA_ALBUM,
-                entities.media_player.FEATURES.MEDIA_IMAGE_URL                                       
+                entities.media_player.FEATURES.MEDIA_IMAGE_URL,
+                entities.media_player.FEATURES.DPAD,
+                entities.media_player.FEATURES.HOME,                                       
             ], {
                 entities.media_player.ATTRIBUTES.STATE: entities.media_player.STATES.OFF,
                 # entities.media_player.ATTRIBUTES.VOLUME: 0,
@@ -181,7 +183,7 @@ async def event_handler(websocket, id, data):
                 entities.media_player.ATTRIBUTES.MEDIA_TITLE: "",
                 entities.media_player.ATTRIBUTES.MEDIA_ARTIST: "",
                 entities.media_player.ATTRIBUTES.MEDIA_ALBUM: ""
-            })
+            }, deviceClass = entities.media_player.DEVICECLASSES.TV)
             api.availableEntities.addEntity(entity)
 
             await api.driverSetupComplete(websocket)
@@ -350,7 +352,33 @@ async def event_handler(websocket, id, entityId, entityType, cmdId, params):
     elif cmdId == entities.media_player.COMMANDS.OFF:
         res = await appleTv.turnOff()
         await api.acknowledgeCommand(websocket, id, uc.uc.STATUS_CODES.OK if res is True else uc.uc.STATUS_CODES.SERVER_ERROR)
-
+    elif cmdId == entities.media_player.COMMANDS.CURSOR_UP:
+        res = await appleTv.cursorUp()
+        await api.acknowledgeCommand(websocket, id, uc.uc.STATUS_CODES.OK if res is True else uc.uc.STATUS_CODES.SERVER_ERROR)
+    elif cmdId == entities.media_player.COMMANDS.CURSOR_DOWN:
+        res = await appleTv.cursorDown()
+        await api.acknowledgeCommand(websocket, id, uc.uc.STATUS_CODES.OK if res is True else uc.uc.STATUS_CODES.SERVER_ERROR)
+    elif cmdId == entities.media_player.COMMANDS.CURSOR_LEFT:
+        res = await appleTv.cursorLeft()
+        await api.acknowledgeCommand(websocket, id, uc.uc.STATUS_CODES.OK if res is True else uc.uc.STATUS_CODES.SERVER_ERROR)
+    elif cmdId == entities.media_player.COMMANDS.CURSOR_RIGHT:
+        res = await appleTv.cursorRight()
+        await api.acknowledgeCommand(websocket, id, uc.uc.STATUS_CODES.OK if res is True else uc.uc.STATUS_CODES.SERVER_ERROR)
+    elif cmdId == entities.media_player.COMMANDS.CURSOR_ENTER:
+        res = await appleTv.cursorEnter()
+        await api.acknowledgeCommand(websocket, id, uc.uc.STATUS_CODES.OK if res is True else uc.uc.STATUS_CODES.SERVER_ERROR)
+    elif cmdId == entities.media_player.COMMANDS.HOME:
+        res = await appleTv.home()
+        await api.acknowledgeCommand(websocket, id, uc.uc.STATUS_CODES.OK if res is True else uc.uc.STATUS_CODES.SERVER_ERROR)
+    elif cmdId == entities.media_player.COMMANDS.BACK:
+        res = await appleTv.menu()
+        await api.acknowledgeCommand(websocket, id, uc.uc.STATUS_CODES.OK if res is True else uc.uc.STATUS_CODES.SERVER_ERROR)
+    elif cmdId == entities.media_player.COMMANDS.CHANNEL_DOWN:
+        res = await appleTv.channelDown()
+        await api.acknowledgeCommand(websocket, id, uc.uc.STATUS_CODES.OK if res is True else uc.uc.STATUS_CODES.SERVER_ERROR)
+    elif cmdId == entities.media_player.COMMANDS.CHANNEL_UP:
+        res = await appleTv.channelUp()
+        await api.acknowledgeCommand(websocket, id, uc.uc.STATUS_CODES.OK if res is True else uc.uc.STATUS_CODES.SERVER_ERROR)
 
 async def handleAppleTvUpdate(entityId, update):
     attributes = {}
@@ -414,7 +442,9 @@ async def main():
                 entities.media_player.FEATURES.MEDIA_TITLE,
                 entities.media_player.FEATURES.MEDIA_ARTIST,
                 entities.media_player.FEATURES.MEDIA_ALBUM,
-                entities.media_player.FEATURES.MEDIA_IMAGE_URL                                       
+                entities.media_player.FEATURES.MEDIA_IMAGE_URL,
+                entities.media_player.FEATURES.DPAD,
+                entities.media_player.FEATURES.HOME,                                                                     
             ], {
                 entities.media_player.ATTRIBUTES.STATE: entities.media_player.STATES.OFF,
                 # entities.media_player.ATTRIBUTES.VOLUME: 0,
@@ -425,7 +455,7 @@ async def main():
                 entities.media_player.ATTRIBUTES.MEDIA_TITLE: "",
                 entities.media_player.ATTRIBUTES.MEDIA_ARTIST: "",
                 entities.media_player.ATTRIBUTES.MEDIA_ALBUM: ""
-            })
+            }, deviceClass = entities.media_player.DEVICECLASSES.TV)
             api.availableEntities.addEntity(entity)
     else:  
         LOG.error("Cannot load config")

@@ -27,6 +27,7 @@ class EVENTS(IntEnum):
 class AppleTv(object):
     def __init__(self, loop):
         self._loop = loop
+        self._atvObjDiscovered = None
         self._atvObj = None
         self.events = AsyncIOEventEmitter(self._loop)
         self.identifier = None
@@ -50,6 +51,7 @@ class AppleTv(object):
         if not atvs:
             return False
         else:
+            self._atvObjDiscovered = atvs[0]
             self._atvObj = atvs[0]
             self.identifier = identifier
             self._credentials = credentials
@@ -158,6 +160,7 @@ class AppleTv(object):
         LOG.debug('Disconnect')
         if self._atvObj is not None:
             self._atvObj.close()
+            self._atvObj = self._atvObjDiscovered
             self._connected = False
             self.events.emit(EVENTS.DISCONNECTED)
 
@@ -205,7 +208,7 @@ class AppleTv(object):
                 try:
                     artwork = await self._atvObj.metadata.artwork(width=480, height=None)
                     artwork_encoded = 'data:image/png;base64,' + base64.b64encode(artwork.bytes).decode('utf-8')
-                    update['artwork'] = artwork_encoded
+                    # update['artwork'] = artwork_encoded
                 except:
                     LOG.error('Error while updating the artwork')
 
@@ -259,3 +262,30 @@ class AppleTv(object):
     
     async def volumeDown(self):
         return await self._commandWrapper(self._atvObj.audio.volume_down)
+    
+    async def cursorUp(self):
+        return await self._commandWrapper(self._atvObj.remote_control.up)
+    
+    async def cursorDown(self):
+        return await self._commandWrapper(self._atvObj.remote_control.down)
+    
+    async def cursorLeft(self):
+        return await self._commandWrapper(self._atvObj.remote_control.left)
+    
+    async def cursorRight(self):
+        return await self._commandWrapper(self._atvObj.remote_control.right)
+    
+    async def cursorEnter(self):
+        return await self._commandWrapper(self._atvObj.remote_control.select)
+    
+    async def home(self):
+        return await self._commandWrapper(self._atvObj.remote_control.home)
+    
+    async def menu(self):
+        return await self._commandWrapper(self._atvObj.remote_control.menu)
+    
+    async def channelUp(self):
+        return await self._commandWrapper(self._atvObj.remote_control.channel_up)
+    
+    async def channelDown(self):
+        return await self._commandWrapper(self._atvObj.remote_control.channel_down)
