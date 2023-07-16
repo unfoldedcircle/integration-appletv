@@ -171,8 +171,9 @@ async def event_handler(websocket, id, data):
                 entities.media_player.FEATURES.MEDIA_ARTIST,
                 entities.media_player.FEATURES.MEDIA_ALBUM,
                 entities.media_player.FEATURES.MEDIA_IMAGE_URL,
+                entities.media_player.FEATURES.HOME,
+                entities.media_player.FEATURES.CHANNEL_SWITCHER,
                 entities.media_player.FEATURES.DPAD,
-                entities.media_player.FEATURES.HOME,                                       
             ], {
                 entities.media_player.ATTRIBUTES.STATE: entities.media_player.STATES.OFF,
                 # entities.media_player.ATTRIBUTES.VOLUME: 0,
@@ -452,8 +453,9 @@ async def main():
                 entities.media_player.FEATURES.MEDIA_ARTIST,
                 entities.media_player.FEATURES.MEDIA_ALBUM,
                 entities.media_player.FEATURES.MEDIA_IMAGE_URL,
+                entities.media_player.FEATURES.HOME,
+                entities.media_player.FEATURES.CHANNEL_SWITCHER,                                                                     
                 entities.media_player.FEATURES.DPAD,
-                entities.media_player.FEATURES.HOME,                                                                     
             ], {
                 entities.media_player.ATTRIBUTES.STATE: entities.media_player.STATES.OFF,
                 # entities.media_player.ATTRIBUTES.VOLUME: 0,

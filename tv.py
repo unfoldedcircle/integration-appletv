@@ -42,6 +42,7 @@ class AppleTv(object):
         self._polling = False
         self._listener = None
         self._prevUpdateHash = None
+        self._connErrorCounter = 0
 
         @self.events.on(EVENTS.CONNECTED)
         async def _onConnected():
@@ -187,9 +188,14 @@ class AppleTv(object):
         try:
             self._atvObj = await pyatv.connect(self._atvObj, self._loop)
         except:
-            LOG.error('Error connecting')
-            self.events.emit(EVENTS.ERROR, 'Failed to connect')
-            return
+            if self._connErrorCounter < 5:
+                self._connErrorCounter =+ 1
+                self.connect()
+            else:
+                LOG.error('Error connecting')
+                self.events.emit(EVENTS.ERROR, 'Failed to connect')
+                self._connErrorCounter = 0
+                return
 
         self._listener = self.PushListener(self._loop)
 
