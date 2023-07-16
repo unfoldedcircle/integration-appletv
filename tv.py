@@ -189,6 +189,7 @@ class AppleTv(object):
             self._atvObj = await pyatv.connect(self._atvObj, self._loop)
         except:
             if self._connErrorCounter < 5:
+                await asyncio.sleep(2)
                 self._connErrorCounter =+ 1
                 self.connect()
             else:
