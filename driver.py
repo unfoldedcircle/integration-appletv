@@ -174,7 +174,7 @@ async def event_handler(websocket, id, data):
                 entities.media_player.FEATURES.HOME,
                 entities.media_player.FEATURES.CHANNEL_SWITCHER,
                 entities.media_player.FEATURES.DPAD,
-                entities.media_player.FEATURES.SOURCE,
+                entities.media_player.FEATURES.SELECT_SOURCE,
             ], {
                 entities.media_player.ATTRIBUTES.STATE: entities.media_player.STATES.OFF,
                 # entities.media_player.ATTRIBUTES.VOLUME: 0,
@@ -385,6 +385,9 @@ async def event_handler(websocket, id, entityId, entityType, cmdId, params):
     elif cmdId == entities.media_player.COMMANDS.CHANNEL_UP:
         res = await appleTv.channelUp()
         await api.acknowledgeCommand(websocket, id, uc.uc.STATUS_CODES.OK if res is True else uc.uc.STATUS_CODES.SERVER_ERROR)
+    elif cmdId == entities.media_player.COMMANDS.SELECT_SOURCE:
+        res = await appleTv.launchApp(params["source"])
+        await api.acknowledgeCommand(websocket, id, uc.uc.STATUS_CODES.OK if res is True else uc.uc.STATUS_CODES.SERVER_ERROR)
 
 async def handleAppleTvUpdate(entityId, update):
     attributes = {}
@@ -420,6 +423,8 @@ async def handleAppleTvUpdate(entityId, update):
         attributes[entities.media_player.ATTRIBUTES.MEDIA_ALBUM] = update['album']
     if 'source' in update:
         attributes[entities.media_player.ATTRIBUTES.SOURCE] = update['source']
+    if 'sourceList' in update:
+        attributes[entities.media_player.ATTRIBUTES.SOURCE_LIST] = update['sourceList']
 
     api.configuredEntities.updateEntityAttributes(entityId, attributes)
 
@@ -459,7 +464,7 @@ async def main():
                 entities.media_player.FEATURES.HOME,
                 entities.media_player.FEATURES.CHANNEL_SWITCHER,                                                                     
                 entities.media_player.FEATURES.DPAD,
-                entities.media_player.FEATURES.SOURCE,
+                entities.media_player.FEATURES.SELECT_SOURCE,
             ], {
                 entities.media_player.ATTRIBUTES.STATE: entities.media_player.STATES.OFF,
                 # entities.media_player.ATTRIBUTES.VOLUME: 0,

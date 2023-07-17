@@ -42,6 +42,7 @@ class AppleTv(object):
         self._polling = False
         self._listener = None
         self._prevUpdateHash = None
+        self._appList = {}
 
         @self.events.on(EVENTS.CONNECTED)
         async def _onConnected():
@@ -272,10 +273,19 @@ class AppleTv(object):
             except:
                 LOG.error('Error while updating the artwork')
 
+        update['sourceList'] = []
+
+        try:
+            appList = await self._atvObj.apps.app_list()
+            for app in appList:
+                self._appList[app.name] = app.identifier
+                update['sourceList'].append(app.name)
+        except:
+            LOG.error('Error while getting app list')
+
         try:
             app = self._atvObj.metadata.app.name
             update['source'] = app
-            print(app)
         except:
             LOG.error('Error getting current app')
 
@@ -302,35 +312,12 @@ class AppleTv(object):
 
 
     async def _pollWorker(self): 
-        # prevHash = None
         while True:
             update = {}      
-            #     playing = await self._atvObj.metadata.playing()
-            # except:
-            #     LOG.error('Error while getting metadata')
-            
-            # if self._atvObj.power.power_state is pyatv.const.PowerState.On:
-            #     state = playing.device_state
             if self._atvObj.power.power_state is pyatv.const.PowerState.Off:
                 update['state'] = self._atvObj.power.power_state
                 self.events.emit(EVENTS.UPDATE, update)
-            # update['position'] = playing.position
 
-            # if playing.hash != prevHash:
-            #     try:
-            #         artwork = await self._atvObj.metadata.artwork(width=480, height=None)
-            #         artwork_encoded = 'data:image/png;base64,' + base64.b64encode(artwork.bytes).decode('utf-8')
-            #         update['artwork'] = artwork_encoded
-            #     except:
-            #         LOG.error('Error while updating the artwork')
-
-            #     update['total_time'] = playing.total_time
-            #     update['title'] = playing.title
-            #     update['artist'] = playing.artist
-            #     update['album'] = playing.album
-            
-            # prevHash = playing.hash
-            
             await asyncio.sleep(2)
 
 
@@ -405,3 +392,7 @@ class AppleTv(object):
     
     async def channelDown(self):
         return await self._commandWrapper(self._atvObj.remote_control.channel_down)
+    
+    async def launchApp(self, appName):
+        await self._atvObj.apps.launch_app(self._appList[appName])
+        return True

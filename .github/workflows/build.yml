@@ -37,7 +37,7 @@ jobs:
           docker run --name builder --platform=aarch64 -v ${GITHUB_WORKSPACE}:/io -d ubuntu:focal tail -f /dev/null
           
           docker exec builder bash -c "apt-get update && apt-get install -y python3-pip"
-          docker exec builder bash -c "cd /io/integration-python-library && python3 setup.py bdist_wheel && pip3 install -I dist/ucapi-0.0.5-py3-none-any.whl"
+          docker exec builder bash -c "cd /io/integration-python-library && python3 setup.py bdist_wheel && pip3 install -I dist/ucapi-0.0.6-py3-none-any.whl"
           docker exec builder bash -c "pip3 install pyinstaller -r /io/requirements.txt"
           docker exec builder bash -c "cd /io && pyinstaller --clean --onefile --name intg-appletv driver.py"
             
