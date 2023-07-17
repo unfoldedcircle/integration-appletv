@@ -42,7 +42,6 @@ class AppleTv(object):
         self._polling = False
         self._listener = None
         self._prevUpdateHash = None
-        self._connErrorCounter = 0
 
         @self.events.on(EVENTS.CONNECTED)
         async def _onConnected():
@@ -185,18 +184,19 @@ class AppleTv(object):
             else:
                 LOG.debug('Credentials set for %s', protocol)
 
-        try:
-            self._atvObj = await pyatv.connect(self._atvObj, self._loop)
-        except:
-            if self._connErrorCounter < 5:
+        connTry = 0
+
+        while connTry != 5:
+            try:
+                self._atvObj = await pyatv.connect(self._atvObj, self._loop)
+                connTry = 5
+            except:
+                if connTry == 5:
+                    LOG.error('Error connecting')
+                    self.events.emit(EVENTS.ERROR, 'Failed to connect')
+                    return
                 await asyncio.sleep(2)
-                self._connErrorCounter =+ 1
-                self.connect()
-            else:
-                LOG.error('Error connecting')
-                self.events.emit(EVENTS.ERROR, 'Failed to connect')
-                self._connErrorCounter = 0
-                return
+                connTry += 1
 
         self._listener = self.PushListener(self._loop)
 
