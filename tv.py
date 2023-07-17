@@ -263,6 +263,7 @@ class AppleTv(object):
 
         update['position'] = data.position
 
+        # image operations are expensive, so we only do it when the hash changed
         if data.hash != self._prevUpdateHash:
             try:
                 artwork = await self._atvObj.metadata.artwork(width=480, height=None)
@@ -271,10 +272,25 @@ class AppleTv(object):
             except:
                 LOG.error('Error while updating the artwork')
 
+        try:
+            app = self._atvObj.metadata.app.name
+            update['source'] = app
+            print(app)
+        except:
+            LOG.error('Error getting current app')
+
         update['total_time'] = data.total_time
         update['title'] = data.title
-        update['artist'] = data.artist
-        update['album'] = data.album
+
+        if data.artist is not None:
+            update['artist'] = data.artist
+        else:
+            update['artist'] = ""
+        
+        if data.album is not None:
+            update['album'] = data.album
+        else:
+            update['album'] = ""
 
         # TODO: data.genre
         # TODO: data.media_type: Music, Tv, Unknown, Video
