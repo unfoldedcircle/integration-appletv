@@ -302,8 +302,10 @@ class AppleTv(object):
         else:
             update['album'] = ""
 
+        if data.media_type is not None:
+            update['media_type'] = data.media_type
+
         # TODO: data.genre
-        # TODO: data.media_type: Music, Tv, Unknown, Video
         # TODO: data.repeat: All, Off, Track
         # TODO: data.shuffle
 

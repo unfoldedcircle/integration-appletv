@@ -171,6 +171,7 @@ async def event_handler(websocket, id, data):
                 entities.media_player.FEATURES.MEDIA_ARTIST,
                 entities.media_player.FEATURES.MEDIA_ALBUM,
                 entities.media_player.FEATURES.MEDIA_IMAGE_URL,
+                entities.media_player.FEATURES.MEDIA_TYPE,
                 entities.media_player.FEATURES.HOME,
                 entities.media_player.FEATURES.CHANNEL_SWITCHER,
                 entities.media_player.FEATURES.DPAD,
@@ -425,6 +426,15 @@ async def handleAppleTvUpdate(entityId, update):
         attributes[entities.media_player.ATTRIBUTES.SOURCE] = update['source']
     if 'sourceList' in update:
         attributes[entities.media_player.ATTRIBUTES.SOURCE_LIST] = update['sourceList']
+    if 'media_type' in update:
+        if update['media_type'] == pyatv.const.MediaType.Music:
+            attributes[entities.media_player.ATTRIBUTES.MEDIA_TYPE] = entities.media_player.MEDIA_TYPE.MUSIC
+        elif update['media_type'] == pyatv.const.MediaType.TV:
+            attributes[entities.media_player.ATTRIBUTES.MEDIA_TYPE] = entities.media_player.MEDIA_TYPE.TVSHOW
+        elif update['media_type'] == pyatv.const.MediaType.Video:
+            attributes[entities.media_player.ATTRIBUTES.MEDIA_TYPE] = entities.media_player.MEDIA_TYPE.VIDEO
+        elif update['media_type'] == pyatv.const.MediaType.Unknown:
+            attributes[entities.media_player.ATTRIBUTES.MEDIA_TYPE] = ""
 
     api.configuredEntities.updateEntityAttributes(entityId, attributes)
 
@@ -461,6 +471,7 @@ async def main():
                 entities.media_player.FEATURES.MEDIA_ARTIST,
                 entities.media_player.FEATURES.MEDIA_ALBUM,
                 entities.media_player.FEATURES.MEDIA_IMAGE_URL,
+                entities.media_player.FEATURES.MEDIA_TYPE,
                 entities.media_player.FEATURES.HOME,
                 entities.media_player.FEATURES.CHANNEL_SWITCHER,                                                                     
                 entities.media_player.FEATURES.DPAD,
