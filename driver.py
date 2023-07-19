@@ -314,6 +314,8 @@ async def event_handler():
 async def event_handler():
     global configuredAppleTvs
 
+    await asyncio.sleep(2)
+
     for appleTv in configuredAppleTvs:
         await configuredAppleTvs[appleTv].connect()
         await api.setDeviceState(uc.uc.DEVICE_STATES.CONNECTED)
@@ -351,8 +353,9 @@ async def event_handler(websocket, id, entityId, entityType, cmdId, params):
     appleTv = configuredAppleTvs[entityId]
 
     configuredEntity = api.configuredEntities.getEntity(entityId)
-    if configuredEntity.attributes[entities.media_player.ATTRIBUTES.STATE] == entities.media_player.STATES.OFF and cmdId != entities.media_player.COMMANDS.ON:
+    if configuredEntity.attributes[entities.media_player.ATTRIBUTES.STATE] == entities.media_player.STATES.OFF:
         await appleTv.turnOn()
+        await api.acknowledgeCommand(websocket, id)
         return
 
     if cmdId == entities.media_player.COMMANDS.PLAY_PAUSE:
@@ -410,6 +413,8 @@ async def event_handler(websocket, id, entityId, entityType, cmdId, params):
 async def handleAppleTvUpdate(entityId, update):
     attributes = {}
 
+    configuredEntity = api.configuredEntities.getEntity(entityId)
+
     if 'state' in update:
         state = entities.media_player.STATES.UNKNOWN
 
@@ -442,7 +447,11 @@ async def handleAppleTvUpdate(entityId, update):
     if 'source' in update:
         attributes[entities.media_player.ATTRIBUTES.SOURCE] = update['source']
     if 'sourceList' in update:
-        attributes[entities.media_player.ATTRIBUTES.SOURCE_LIST] = update['sourceList']
+        if entities.media_player.ATTRIBUTES.SOURCE_LIST in configuredEntity.attributes:
+            if len(configuredEntity.attributes[entities.media_player.ATTRIBUTES.SOURCE_LIST]) != len(update['sourceList']):
+                attributes[entities.media_player.ATTRIBUTES.SOURCE_LIST] = update['sourceList']
+        else:
+            attributes[entities.media_player.ATTRIBUTES.SOURCE_LIST] = update['sourceList']
     if 'media_type' in update:
         if update['media_type'] == pyatv.const.MediaType.Music:
             attributes[entities.media_player.ATTRIBUTES.MEDIA_TYPE] = entities.media_player.MEDIA_TYPE.MUSIC

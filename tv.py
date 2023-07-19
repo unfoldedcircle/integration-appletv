@@ -292,11 +292,11 @@ class AppleTv(object):
         # image operations are expensive, so we only do it when the hash changed
         # if data.hash != self._prevUpdateHash:
         try:
-            artwork = await self._atvObj.metadata.artwork(width=480, height=None)
+            artwork = await self._atvObj.metadata.artwork(width=400, height=None)
             artwork_encoded = 'data:image/png;base64,' + base64.b64encode(artwork.bytes).decode('utf-8')
             update['artwork'] = artwork_encoded
         except:
-            LOG.error('Error while updating the artwork')
+            LOG.warning('Error while updating the artwork')
 
         update['total_time'] = data.total_time
         update['title'] = data.title
@@ -324,25 +324,32 @@ class AppleTv(object):
 
     async def _pollWorker(self): 
         while True:
-            update = {}      
+            update = {}
+            
             if self._atvObj.power.power_state is pyatv.const.PowerState.Off:
                 update['state'] = self._atvObj.power.power_state
-                
-            update['sourceList'] = []
+                update['artist'] = ""
+                update['album'] = ""
+                update['artwork'] = ""
+                update['media_type'] = ""
+            
+            if self._atvObj.power.power_state is not pyatv.const.PowerState.Off:
+                data = await self._atvObj.metadata.playing()
+                update['state'] = data.device_state                
+                update['sourceList'] = []
 
-            try:
-                appList = await self._atvObj.apps.app_list()
-                for app in appList:
-                    self._appList[app.name] = app.identifier
-                    update['sourceList'].append(app.name)
-            except:
-                LOG.error('Error while getting app list')
+                try:
+                    appList = await self._atvObj.apps.app_list()
+                    for app in appList:
+                        self._appList[app.name] = app.identifier
+                        update['sourceList'].append(app.name)
+                except:
+                    LOG.warning('Error while getting app list')
 
-            try:
-                app = self._atvObj.metadata.app.name
-                update['source'] = app
-            except:
-                LOG.error('Error getting current app')
+                try:
+                    update['source'] = self._atvObj.metadata.app.name
+                except:
+                    LOG.warning('Error getting current app')
 
             self.events.emit(EVENTS.UPDATE, update)
             await asyncio.sleep(2)
