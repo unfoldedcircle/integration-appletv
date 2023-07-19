@@ -64,6 +64,9 @@ async def loadConfig():
 
     config = data
 
+    if not config:
+        return False
+
     return True
         
 async def discoverAppleTVs():
@@ -273,21 +276,31 @@ async def event_handler():
 
         atv = configuredAppleTvs[appleTv]
 
+        @atv.events.on(tv.EVENTS.CONNECTED)
+        async def onConnected():
+            await api.setDeviceState(uc.uc.DEVICE_STATES.CONNECTED)
+
         @atv.events.on(tv.EVENTS.ERROR)
         async def onError(message):
             LOG.error(message)
             await api.setDeviceState(uc.uc.DEVICE_STATES.ERROR)
 
         await configuredAppleTvs[appleTv].connect()
-        await api.setDeviceState(uc.uc.DEVICE_STATES.CONNECTED)
+        
 
 @api.events.on(uc.uc.EVENTS.DISCONNECT)
 async def event_handler():
     global configuredAppleTvs
 
     for appleTv in configuredAppleTvs:
+
+        atv = configuredAppleTvs[appleTv]
+
+        @atv.events.on(tv.EVENTS.DISCONNECTED)
+        async def onDisconnected():
+            await api.setDeviceState(uc.uc.DEVICE_STATES.DISCONNECTED)
+
         await configuredAppleTvs[appleTv].disconnect()
-        await api.setDeviceState(uc.uc.DEVICE_STATES.DISCONNECTED)
 
 @api.events.on(uc.uc.EVENTS.ENTER_STANDBY)
 async def event_handler():
@@ -331,12 +344,16 @@ async def event_handler(entityIds):
             appleTv = configuredAppleTvs[entityId]
             appleTv.events.remove_all_listeners()
 
-#TODO handle commands
 @api.events.on(uc.uc.EVENTS.ENTITY_COMMAND)
 async def event_handler(websocket, id, entityId, entityType, cmdId, params):
     global configuredAppleTvs
 
     appleTv = configuredAppleTvs[entityId]
+
+    configuredEntity = api.configuredEntities.getEntity(entityId)
+    if configuredEntity.attributes[entities.media_player.ATTRIBUTES.STATE] == entities.media_player.STATES.OFF and cmdId != entities.media_player.COMMANDS.ON:
+        await appleTv.turnOn()
+        return
 
     if cmdId == entities.media_player.COMMANDS.PLAY_PAUSE:
         res = await appleTv.playPause()

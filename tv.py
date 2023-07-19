@@ -36,9 +36,11 @@ class AppleTv(object):
         self.events = AsyncIOEventEmitter(self._loop)
         self.identifier = None
         self.name = ""
+        self._credentialsSetup = False
         self._credentials = []
         self._pairingProcess = None
         self._connected = False
+        self._credentialsBackOff = 0
         self._polling = False
         self._listener = None
         self._prevUpdateHash = None
@@ -79,11 +81,13 @@ class AppleTv(object):
             self.events.emit(EVENTS.VOLUME_CHANGED, new_level)
 
         def outputdevices_update(self, old_devices, new_devices):
-            print('Output devices changed from {0:s} to {1:s}'.format(old_devices, new_devices))
+            # print('Output devices changed from {0:s} to {1:s}'.format(old_devices, new_devices))
+            LOG.debug("Output changed, TODO")
             # TODO: implement me
 
         def focusstate_update(self, old_state, new_state):
-            print('Focus state changed from {0:s} to {1:s}'.format(old_state, new_state))
+            # print('Focus state changed from {0:s} to {1:s}'.format(old_state, new_state))
+            LOG.debug("Focus state changed, TODO")
             # TODO: implement me
 
 
@@ -96,12 +100,14 @@ class AppleTv(object):
             self._atvObj = atvs[0]
             self.identifier = identifier
             self._credentials = credentials
+            self._credentialsSetup = True;
             self.name = self._atvObj.name
             return True
 
 
     def addCredentials(self, credentials):
         self._credentials.append(credentials)
+        self._credentialsSetup = True;
 
 
     def getCredentials(self):
@@ -166,9 +172,26 @@ class AppleTv(object):
             self.events.emit(EVENTS.ERROR, 'No identifier found, aborting connect')
             return
 
+        if self._credentialsSetup is False:
+            LOG.warning('Credentials not setup yet, retrying connect nr %d', self._credentialsBackOff)
+            if self._credentialsBackOff != 5:
+                self._credentialsBackOff += 1
+                await asyncio.sleep(2)
+                await self.connect()
+            else:
+                LOG.warning('No credentials found, aborting connect')
+                self.events.emit(EVENTS.ERROR, 'No credentials found, aborting connect')
+            return
+        
         if not self._credentials:
-            LOG.warning('No credentials were found, aborting connect')
-            self.events.emit(EVENTS.ERROR, 'No credentials were found, aborting connect')
+            LOG.warning('No credentials found, retyring connect nr %d', self._credentialsBackOff)
+            if self._credentialsBackOff != 5:
+                self._credentialsBackOff += 1
+                await asyncio.sleep(2)
+                await self.connect()
+            else:
+                LOG.warning('No credentials found, aborting connect')
+                self.events.emit(EVENTS.ERROR, 'No credentials found, aborting connect')
             return
 
         for credential in self._credentials:
@@ -220,6 +243,7 @@ class AppleTv(object):
         self._atvObj.keyboard.listener = self._listener
 
         self._connected = True
+        self._credentialsBackOff = 0
         self.events.emit(EVENTS.CONNECTED)
         LOG.debug("Connected")
 
@@ -232,6 +256,7 @@ class AppleTv(object):
             self._listener.events.remove_all_listeners()
             self._listener = None
             self._connected = False
+            self._credentialsBackOff = 0
             self.events.emit(EVENTS.DISCONNECTED)
 
 
@@ -265,29 +290,13 @@ class AppleTv(object):
         update['position'] = data.position
 
         # image operations are expensive, so we only do it when the hash changed
-        if data.hash != self._prevUpdateHash:
-            try:
-                artwork = await self._atvObj.metadata.artwork(width=480, height=None)
-                artwork_encoded = 'data:image/png;base64,' + base64.b64encode(artwork.bytes).decode('utf-8')
-                update['artwork'] = artwork_encoded
-            except:
-                LOG.error('Error while updating the artwork')
-
-        update['sourceList'] = []
-
+        # if data.hash != self._prevUpdateHash:
         try:
-            appList = await self._atvObj.apps.app_list()
-            for app in appList:
-                self._appList[app.name] = app.identifier
-                update['sourceList'].append(app.name)
+            artwork = await self._atvObj.metadata.artwork(width=480, height=None)
+            artwork_encoded = 'data:image/png;base64,' + base64.b64encode(artwork.bytes).decode('utf-8')
+            update['artwork'] = artwork_encoded
         except:
-            LOG.error('Error while getting app list')
-
-        try:
-            app = self._atvObj.metadata.app.name
-            update['source'] = app
-        except:
-            LOG.error('Error getting current app')
+            LOG.error('Error while updating the artwork')
 
         update['total_time'] = data.total_time
         update['title'] = data.title
@@ -318,8 +327,24 @@ class AppleTv(object):
             update = {}      
             if self._atvObj.power.power_state is pyatv.const.PowerState.Off:
                 update['state'] = self._atvObj.power.power_state
-                self.events.emit(EVENTS.UPDATE, update)
+                
+            update['sourceList'] = []
 
+            try:
+                appList = await self._atvObj.apps.app_list()
+                for app in appList:
+                    self._appList[app.name] = app.identifier
+                    update['sourceList'].append(app.name)
+            except:
+                LOG.error('Error while getting app list')
+
+            try:
+                app = self._atvObj.metadata.app.name
+                update['source'] = app
+            except:
+                LOG.error('Error getting current app')
+
+            self.events.emit(EVENTS.UPDATE, update)
             await asyncio.sleep(2)
 
 
