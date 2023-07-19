@@ -410,6 +410,17 @@ async def event_handler(websocket, id, entityId, entityType, cmdId, params):
         res = await appleTv.launchApp(params["source"])
         await api.acknowledgeCommand(websocket, id, uc.uc.STATUS_CODES.OK if res is True else uc.uc.STATUS_CODES.SERVER_ERROR)
 
+
+def keyUpdateHelper(key, value, attributes, configuredEntity):
+    if key in configuredEntity.attributes:
+        if configuredEntity.attributes[key] != value:
+            attributes[key] = value
+    else:
+        attributes[key] = value
+
+    return attributes
+
+
 async def handleAppleTvUpdate(entityId, update):
     attributes = {}
 
@@ -430,8 +441,9 @@ async def handleAppleTvUpdate(entityId, update):
             state = entities.media_player.STATES.PAUSED
         elif update['state'] is pyatv.const.PowerState.Off:
             state = entities.media_player.STATES.OFF
-        
-        attributes[entities.media_player.ATTRIBUTES.STATE] = state
+
+        attributes = keyUpdateHelper(entities.media_player.ATTRIBUTES.STATE, state, attributes, configuredEntity)
+
     if 'position' in update:
         attributes[entities.media_player.ATTRIBUTES.MEDIA_POSITION] = update['position']
     if 'artwork' in update:
@@ -439,13 +451,17 @@ async def handleAppleTvUpdate(entityId, update):
     if 'total_time' in update:
         attributes[entities.media_player.ATTRIBUTES.MEDIA_DURATION] = update['total_time']
     if 'title' in update:
-        attributes[entities.media_player.ATTRIBUTES.MEDIA_TITLE] = update['title']
+        attributes = keyUpdateHelper(entities.media_player.ATTRIBUTES.MEDIA_TITLE, update['title'], attributes, configuredEntity)
+        # attributes[entities.media_player.ATTRIBUTES.MEDIA_TITLE] = update['title']
     if 'artist' in update:
-        attributes[entities.media_player.ATTRIBUTES.MEDIA_ARTIST] = update['artist']
+        attributes = keyUpdateHelper(entities.media_player.ATTRIBUTES.MEDIA_ARTIST, update['artist'], attributes, configuredEntity)
+        # attributes[entities.media_player.ATTRIBUTES.MEDIA_ARTIST] = update['artist']
     if 'album' in update:
-        attributes[entities.media_player.ATTRIBUTES.MEDIA_ALBUM] = update['album']
+        attributes = keyUpdateHelper(entities.media_player.ATTRIBUTES.MEDIA_ALBUM, update['album'], attributes, configuredEntity)
+        # attributes[entities.media_player.ATTRIBUTES.MEDIA_ALBUM] = update['album']
     if 'source' in update:
-        attributes[entities.media_player.ATTRIBUTES.SOURCE] = update['source']
+        attributes = keyUpdateHelper(entities.media_player.ATTRIBUTES.SOURCE, update['source'], attributes, configuredEntity)
+        # attributes[entities.media_player.ATTRIBUTES.SOURCE] = update['source']
     if 'sourceList' in update:
         if entities.media_player.ATTRIBUTES.SOURCE_LIST in configuredEntity.attributes:
             if len(configuredEntity.attributes[entities.media_player.ATTRIBUTES.SOURCE_LIST]) != len(update['sourceList']):
@@ -453,16 +469,21 @@ async def handleAppleTvUpdate(entityId, update):
         else:
             attributes[entities.media_player.ATTRIBUTES.SOURCE_LIST] = update['sourceList']
     if 'media_type' in update:
-        if update['media_type'] == pyatv.const.MediaType.Music:
-            attributes[entities.media_player.ATTRIBUTES.MEDIA_TYPE] = entities.media_player.MEDIA_TYPE.MUSIC
-        elif update['media_type'] == pyatv.const.MediaType.TV:
-            attributes[entities.media_player.ATTRIBUTES.MEDIA_TYPE] = entities.media_player.MEDIA_TYPE.TVSHOW
-        elif update['media_type'] == pyatv.const.MediaType.Video:
-            attributes[entities.media_player.ATTRIBUTES.MEDIA_TYPE] = entities.media_player.MEDIA_TYPE.VIDEO
-        elif update['media_type'] == pyatv.const.MediaType.Unknown:
-            attributes[entities.media_player.ATTRIBUTES.MEDIA_TYPE] = ""
+        mediaType = ""
 
-    api.configuredEntities.updateEntityAttributes(entityId, attributes)
+        if update['media_type'] == pyatv.const.MediaType.Music:
+            mediaType = entities.media_player.MEDIA_TYPE.MUSIC
+        elif update['media_type'] == pyatv.const.MediaType.TV:
+            mediaType = entities.media_player.MEDIA_TYPE.TVSHOW
+        elif update['media_type'] == pyatv.const.MediaType.Video:
+            mediaType = entities.media_player.MEDIA_TYPE.VIDEO
+        elif update['media_type'] == pyatv.const.MediaType.Unknown:
+            mediaType = ""
+
+        attributes = keyUpdateHelper(entities.media_player.ATTRIBUTES.MEDIA_TYPE, mediaType, attributes, configuredEntity)
+
+    if attributes:
+        api.configuredEntities.updateEntityAttributes(entityId, attributes)
 
 async def handleAppleTvVolumeUpdate(entityId, volume):
     attributes = {}

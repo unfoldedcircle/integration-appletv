@@ -344,12 +344,13 @@ class AppleTv(object):
                         self._appList[app.name] = app.identifier
                         update['sourceList'].append(app.name)
                 except:
-                    LOG.warning('Error while getting app list')
+                    LOG.debug('Error while getting app list')
 
                 try:
                     update['source'] = self._atvObj.metadata.app.name
                 except:
-                    LOG.warning('Error getting current app')
+                    LOG.debug('Error while getting current app')
+                    pass
 
             self.events.emit(EVENTS.UPDATE, update)
             await asyncio.sleep(2)
