@@ -42,7 +42,7 @@ class AppleTv(object):
         self._pairingProcess = None
         self._connected = False
         self._credentialsBackOff = 0
-        self._polling = False
+        self._polling = None
         self._listener = None
         self._prevUpdateHash = None
         self._appList = {}
@@ -94,6 +94,8 @@ class AppleTv(object):
         self._credentials = credentials
         self._credentialsSetup = True;
 
+        self._listener = self.PushListener(self._loop, self.identifier)
+
         atvs = await pyatv.scan(self._loop, identifier=identifier)
         if not atvs:
             return False
@@ -116,10 +118,6 @@ class AppleTv(object):
     def getConnected(self):
         return self._connected
     
-
-    def getPolling(self):
-        return self._polling
-
 
     async def startPairing(self, protocol, name):
         LOG.debug('Pairing started')
@@ -222,8 +220,6 @@ class AppleTv(object):
             await asyncio.sleep(2)
             await self.connect()
             return
-        
-        self._listener = self.PushListener(self._loop, self.identifier)
 
         @self._listener.events.on(EVENTS.UPDATE)
         async def _onUpdateEvent(data):
@@ -239,10 +235,12 @@ class AppleTv(object):
 
         @self._listener.events.on(EVENTS.DISCONNECTED)
         async def _onDisconnected(identifier):
-            await self.disconnect(True)
+            await self.disconnect()
             LOG.warning('Apple TV disconnected for some reason: %s. Reconnecting...', identifier)
             await asyncio.sleep(2)
             await self.connect()
+
+        self._getUpdate()
 
         self._atvObj.push_updater.listener = self._listener
         self._atvObj.push_updater.start()
@@ -256,16 +254,14 @@ class AppleTv(object):
         LOG.debug("Connected")
 
 
-    async def disconnect(self, skipClose = False):
+    async def disconnect(self):
         LOG.debug('Disconnect')
         await self._stopPolling()
 
         if self._atvObj is not None:
-            if skipClose is False:
-                self._atvObj.close()
+            self._atvObj.close()
             self._atvObj = self._atvObjDiscovered
             self._listener.events.remove_all_listeners()
-            self._listener = None
             self._connected = False
             self._credentialsBackOff = 0
             self.events.emit(EVENTS.DISCONNECTED, self.identifier)
@@ -284,6 +280,7 @@ class AppleTv(object):
 
     async def _stopPolling(self):
         if self._polling is not None:
+            self._polling.cancel()
             self._polling = None
             LOG.debug('Polling stopped')
             self.events.emit(EVENTS.POLLING_STOPPED)
@@ -291,7 +288,42 @@ class AppleTv(object):
             LOG.debug('Polling was already stopped')
 
 
+    async def _getUpdate(self):
+        LOG.debug('Manually getting update')
+        update = {}
+
+        data = await self._atvObj.metadata.playing()
+
+        try:
+            artwork = await self._atvObj.metadata.artwork(width=400, height=400)
+            artwork_encoded = 'data:image/png;base64,' + base64.b64encode(artwork.bytes).decode('utf-8')
+            update['artwork'] = artwork_encoded
+        except:
+            LOG.warning('Error while updating the artwork')
+
+        update['total_time'] = data.total_time
+        update['title'] = data.title
+
+        if data.artist is not None:
+            update['artist'] = data.artist
+        else:
+            update['artist'] = ""
+        
+        if data.album is not None:
+            update['album'] = data.album
+        else:
+            update['album'] = ""
+
+        if data.media_type is not None:
+            update['media_type'] = data.media_type
+
+        if data:
+            self.events.emit(EVENTS.UPDATE, update)
+
+
     async def _processUpdate(self, data):
+        LOG.debug('Push update')
+
         update = {}
 
         if self._atvObj.power.power_state is pyatv.const.PowerState.On:
@@ -300,13 +332,13 @@ class AppleTv(object):
         update['position'] = data.position
 
         # image operations are expensive, so we only do it when the hash changed
-        # if data.hash != self._prevUpdateHash:
-        try:
-            artwork = await self._atvObj.metadata.artwork(width=400, height=None)
-            artwork_encoded = 'data:image/png;base64,' + base64.b64encode(artwork.bytes).decode('utf-8')
-            update['artwork'] = artwork_encoded
-        except Exception:
-            LOG.warning('Error while updating the artwork')
+        if data.hash != self._prevUpdateHash:
+            try:
+                artwork = await self._atvObj.metadata.artwork(width=400, height=400)
+                artwork_encoded = 'data:image/png;base64,' + base64.b64encode(artwork.bytes).decode('utf-8')
+                update['artwork'] = artwork_encoded
+            except:
+                LOG.warning('Error while updating the artwork')
 
         update['total_time'] = data.total_time
         update['title'] = data.title
@@ -333,7 +365,7 @@ class AppleTv(object):
 
 
     async def _pollWorker(self): 
-        while True and self._connected is True:
+        while True:
             update = {}
             
             if self._atvObj.power.power_state is pyatv.const.PowerState.Off:
@@ -342,8 +374,7 @@ class AppleTv(object):
                 update['album'] = ""
                 update['artwork'] = ""
                 update['media_type'] = ""
-            
-            if self._atvObj.power.power_state is not pyatv.const.PowerState.Off:
+            else:
                 data = await self._atvObj.metadata.playing()
                 update['state'] = data.device_state                
                 update['sourceList'] = []
@@ -353,12 +384,12 @@ class AppleTv(object):
                     for app in appList:
                         self._appList[app.name] = app.identifier
                         update['sourceList'].append(app.name)
-                except Exception:
+                except:
                     LOG.debug('Error while getting app list')
 
                 try:
                     update['source'] = self._atvObj.metadata.app.name
-                except Exception:
+                except:
                     LOG.debug('Error while getting current app')
                     pass
 
@@ -386,7 +417,7 @@ class AppleTv(object):
         try:
             await fn()
             return True
-        except Exception:
+        except:
             return False
         
 

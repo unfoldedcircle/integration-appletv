@@ -1,6 +1,6 @@
 {
 	"driver_id": "uc_appletv_driver",
-	"version": "0.9.4",
+	"version": "0.9.5",
 	"min_core_api": "0.7.0",
 	"name": { "en": "Apple TV" },
 	"icon": "custom:appletv.png",

@@ -473,7 +473,7 @@ async def handleAppleTvUpdate(entityId, update):
     if 'position' in update:
         attributes = keyUpdateHelper(entities.media_player.ATTRIBUTES.MEDIA_POSITION, update['position'], attributes, configuredEntity)
     if 'artwork' in update:
-        attributes = keyUpdateHelper(entities.media_player.ATTRIBUTES.MEDIA_IMAGE_URL, update['artwork'], attributes, configuredEntity)
+        attributes[entities.media_player.ATTRIBUTES.MEDIA_IMAGE_URL] = update['artwork']
     if 'total_time' in update:
         attributes = keyUpdateHelper(entities.media_player.ATTRIBUTES.MEDIA_DURATION, update['total_time'], attributes, configuredEntity)
     if 'title' in update:
