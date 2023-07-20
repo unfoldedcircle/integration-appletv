@@ -299,6 +299,12 @@ async def event_handler(entityIds):
     for entityId in entityIds:
         if entityId in configuredAppleTvs:
             LOG.debug('We have a match, start listening to events')
+
+            if api.state != uc.uc.DEVICE_STATES.CONNECTED:
+                api.configuredEntities.updateEntityAttributes(entityId, {
+                    entities.media_player.ATTRIBUTES.STATE: entities.media_player.STATES.UNAVAILABLE
+                })
+
             appleTv = configuredAppleTvs[entityId]
             @appleTv.events.on(tv.EVENTS.UPDATE)
             async def onUpdate(update):
@@ -321,6 +327,9 @@ async def event_handler(entityIds):
 @api.events.on(uc.uc.EVENTS.ENTITY_COMMAND)
 async def event_handler(websocket, id, entityId, entityType, cmdId, params):
     global configuredAppleTvs
+
+    if api.state != uc.uc.DEVICE_STATES.CONNECTED:
+        await api.acknowledgeCommand(websocket, id, uc.uc.STATUS_CODES.SERVICE_UNAVAILABLE)
 
     appleTv = configuredAppleTvs[entityId]
 
@@ -369,15 +378,20 @@ async def event_handler(websocket, id, entityId, entityType, cmdId, params):
     elif cmdId == entities.media_player.COMMANDS.HOME:
         res = await appleTv.home()
         await api.acknowledgeCommand(websocket, id, uc.uc.STATUS_CODES.OK if res is True else uc.uc.STATUS_CODES.SERVER_ERROR)
-        # clear playing information
-        attributes = {}
-        attributes[entities.media_player.ATTRIBUTES.MEDIA_IMAGE_URL] = ""
-        attributes[entities.media_player.ATTRIBUTES.MEDIA_ALBUM] = ""
-        attributes[entities.media_player.ATTRIBUTES.MEDIA_ARTIST] = ""
-        attributes[entities.media_player.ATTRIBUTES.MEDIA_TITLE] = ""
-        attributes[entities.media_player.ATTRIBUTES.MEDIA_TYPE] = ""
-        attributes[entities.media_player.ATTRIBUTES.SOURCE] = ""
-        api.configuredEntities.updateEntityAttributes(entityId, attributes)
+        
+        # we wait a bit to get a push update, because music can play in the background
+        await asyncio.sleep(1)
+        if configuredEntity.attributes[entities.media_player.ATTRIBUTES.STATE] != entities.media_player.STATES.PLAYING:
+            # if nothing is playing we clear the playing information
+            attributes = {}
+            attributes[entities.media_player.ATTRIBUTES.MEDIA_IMAGE_URL] = ""
+            attributes[entities.media_player.ATTRIBUTES.MEDIA_ALBUM] = ""
+            attributes[entities.media_player.ATTRIBUTES.MEDIA_ARTIST] = ""
+            attributes[entities.media_player.ATTRIBUTES.MEDIA_TITLE] = ""
+            attributes[entities.media_player.ATTRIBUTES.MEDIA_TYPE] = ""
+            attributes[entities.media_player.ATTRIBUTES.SOURCE] = ""
+            attributes[entities.media_player.ATTRIBUTES.MEDIA_DURATION] = 0
+            api.configuredEntities.updateEntityAttributes(entityId, attributes)
     elif cmdId == entities.media_player.COMMANDS.BACK:
         res = await appleTv.menu()
         await api.acknowledgeCommand(websocket, id, uc.uc.STATUS_CODES.OK if res is True else uc.uc.STATUS_CODES.SERVER_ERROR)
@@ -419,10 +433,10 @@ async def handleConnected(identifier):
 
 async def handleDisconnected(identifier):
     LOG.debug('Apple TV disconnected: %s', identifier)
-    await api.setDeviceState(uc.uc.DEVICE_STATES.DISCONNECTED)
     api.configuredEntities.updateEntityAttributes(identifier, {
         entities.media_player.ATTRIBUTES.STATE: entities.media_player.STATES.UNAVAILABLE
     })
+    await api.setDeviceState(uc.uc.DEVICE_STATES.DISCONNECTED)
 
 
 async def handleConnectionError(identifier, message):
