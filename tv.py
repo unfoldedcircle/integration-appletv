@@ -50,10 +50,6 @@ class AppleTv(object):
         @self.events.on(EVENTS.CONNECTED)
         async def _onConnected(identifier):
             await self._startPolling()
-                
-        @self.events.on(EVENTS.DISCONNECTED)
-        async def _onDisconnected(identifier):
-            await self._stopPolling()
 
     class PushListener(PushListener, DeviceListener, AudioListener, KeyboardListener):
         def __init__(self, loop, identifier):
@@ -218,23 +214,15 @@ class AppleTv(object):
             else:
                 LOG.debug('Credentials set for %s', protocol)
 
-        connTry = 0
-
-        while connTry != 5:
-            try:
-                LOG.debug('Trying to connect to the Apple TV')
-                self._atvObj = await pyatv.connect(self._atvObj, self._loop)
-                print(self._atvObj)
-                connTry = 5
-            except Exception:
-                if connTry == 5:
-                    LOG.error('Error connecting')
-                    self.events.emit(EVENTS.ERROR, self.identifier, 'Failed to connect')
-                    return
-                LOG.debug('Trying to connect again ... %d', connTry)
-                await asyncio.sleep(2 * connTry)
-                connTry += 1
-
+        try:
+            LOG.debug('Trying to connect to the Apple TV')
+            self._atvObj = await pyatv.connect(self._atvObj, self._loop)
+        except Exception:
+            LOG.debug('Trying to connect again ...')
+            await asyncio.sleep(2)
+            await self.connect()
+            return
+        
         self._listener = self.PushListener(self._loop, self.identifier)
 
         @self._listener.events.on(EVENTS.UPDATE)
@@ -270,6 +258,8 @@ class AppleTv(object):
 
     async def disconnect(self, skipClose = False):
         LOG.debug('Disconnect')
+        await self._stopPolling()
+
         if self._atvObj is not None:
             if skipClose is False:
                 self._atvObj.close()

@@ -369,6 +369,15 @@ async def event_handler(websocket, id, entityId, entityType, cmdId, params):
     elif cmdId == entities.media_player.COMMANDS.HOME:
         res = await appleTv.home()
         await api.acknowledgeCommand(websocket, id, uc.uc.STATUS_CODES.OK if res is True else uc.uc.STATUS_CODES.SERVER_ERROR)
+        # clear playing information
+        attributes = {}
+        attributes[entities.media_player.ATTRIBUTES.MEDIA_IMAGE_URL] = ""
+        attributes[entities.media_player.ATTRIBUTES.MEDIA_ALBUM] = ""
+        attributes[entities.media_player.ATTRIBUTES.MEDIA_ARTIST] = ""
+        attributes[entities.media_player.ATTRIBUTES.MEDIA_TITLE] = ""
+        attributes[entities.media_player.ATTRIBUTES.MEDIA_TYPE] = ""
+        attributes[entities.media_player.ATTRIBUTES.SOURCE] = ""
+        api.configuredEntities.updateEntityAttributes(entityId, attributes)
     elif cmdId == entities.media_player.COMMANDS.BACK:
         res = await appleTv.menu()
         await api.acknowledgeCommand(websocket, id, uc.uc.STATUS_CODES.OK if res is True else uc.uc.STATUS_CODES.SERVER_ERROR)
