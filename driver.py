@@ -285,6 +285,11 @@ async def event_handler():
             LOG.error(message)
             await api.setDeviceState(uc.uc.DEVICE_STATES.ERROR)
 
+            for item in config:
+                api.configuredEntities.updateEntityAttributes(item['identifier'], {
+                    entities.media_player.ATTRIBUTES.STATE: entities.media_player.STATES.UNAVAILABLE
+                })
+
         await configuredAppleTvs[appleTv].connect()
         
 
@@ -317,8 +322,23 @@ async def event_handler():
     await asyncio.sleep(2)
 
     for appleTv in configuredAppleTvs:
+        atv = configuredAppleTvs[appleTv]
+
+        @atv.events.on(tv.EVENTS.CONNECTED)
+        async def onConnected():
+            await api.setDeviceState(uc.uc.DEVICE_STATES.CONNECTED)
+
+        @atv.events.on(tv.EVENTS.ERROR)
+        async def onError(message):
+            LOG.error(message)
+            await api.setDeviceState(uc.uc.DEVICE_STATES.ERROR)
+            
+            for item in config:
+                api.configuredEntities.updateEntityAttributes(item['identifier'], {
+                    entities.media_player.ATTRIBUTES.STATE: entities.media_player.STATES.UNAVAILABLE
+                })
+
         await configuredAppleTvs[appleTv].connect()
-        await api.setDeviceState(uc.uc.DEVICE_STATES.CONNECTED)
 
 @api.events.on(uc.uc.EVENTS.SUBSCRIBE_ENTITIES)
 async def event_handler(entityIds):
@@ -445,23 +465,19 @@ async def handleAppleTvUpdate(entityId, update):
         attributes = keyUpdateHelper(entities.media_player.ATTRIBUTES.STATE, state, attributes, configuredEntity)
 
     if 'position' in update:
-        attributes[entities.media_player.ATTRIBUTES.MEDIA_POSITION] = update['position']
+        attributes = keyUpdateHelper(entities.media_player.ATTRIBUTES.MEDIA_POSITION, update['position'], attributes, configuredEntity)
     if 'artwork' in update:
-        attributes[entities.media_player.ATTRIBUTES.MEDIA_IMAGE_URL] = update['artwork']
+        attributes = keyUpdateHelper(entities.media_player.ATTRIBUTES.MEDIA_IMAGE_URL, update['artwork'], attributes, configuredEntity)
     if 'total_time' in update:
         attributes[entities.media_player.ATTRIBUTES.MEDIA_DURATION] = update['total_time']
     if 'title' in update:
         attributes = keyUpdateHelper(entities.media_player.ATTRIBUTES.MEDIA_TITLE, update['title'], attributes, configuredEntity)
-        # attributes[entities.media_player.ATTRIBUTES.MEDIA_TITLE] = update['title']
     if 'artist' in update:
         attributes = keyUpdateHelper(entities.media_player.ATTRIBUTES.MEDIA_ARTIST, update['artist'], attributes, configuredEntity)
-        # attributes[entities.media_player.ATTRIBUTES.MEDIA_ARTIST] = update['artist']
     if 'album' in update:
         attributes = keyUpdateHelper(entities.media_player.ATTRIBUTES.MEDIA_ALBUM, update['album'], attributes, configuredEntity)
-        # attributes[entities.media_player.ATTRIBUTES.MEDIA_ALBUM] = update['album']
     if 'source' in update:
         attributes = keyUpdateHelper(entities.media_player.ATTRIBUTES.SOURCE, update['source'], attributes, configuredEntity)
-        # attributes[entities.media_player.ATTRIBUTES.SOURCE] = update['source']
     if 'sourceList' in update:
         if entities.media_player.ATTRIBUTES.SOURCE_LIST in configuredEntity.attributes:
             if len(configuredEntity.attributes[entities.media_player.ATTRIBUTES.SOURCE_LIST]) != len(update['sourceList']):
@@ -504,7 +520,7 @@ async def main():
             await appleTv.init(item['identifier'], item['credentials'])
             configuredAppleTvs[appleTv.identifier] = appleTv
 
-            entity = entities.media_player.MediaPlayer(appleTv.identifier, appleTv.name, [
+            entity = entities.media_player.MediaPlayer(item['identifier'], appleTv.name, [
                 entities.media_player.FEATURES.ON_OFF,
                 # entities.media_player.FEATURES.VOLUME,
                 entities.media_player.FEATURES.VOLUME_UP_DOWN,
@@ -524,7 +540,7 @@ async def main():
                 entities.media_player.FEATURES.DPAD,
                 entities.media_player.FEATURES.SELECT_SOURCE,
             ], {
-                entities.media_player.ATTRIBUTES.STATE: entities.media_player.STATES.OFF,
+                entities.media_player.ATTRIBUTES.STATE: entities.media_player.STATES.UNAVAILABLE,
                 # entities.media_player.ATTRIBUTES.VOLUME: 0,
                 # entities.media_player.ATTRIBUTES.MUTED: False,
                 entities.media_player.ATTRIBUTES.MEDIA_DURATION: 0,
@@ -534,6 +550,7 @@ async def main():
                 entities.media_player.ATTRIBUTES.MEDIA_ARTIST: "",
                 entities.media_player.ATTRIBUTES.MEDIA_ALBUM: ""
             }, deviceClass = entities.media_player.DEVICECLASSES.TV)
+
             api.availableEntities.addEntity(entity)
     else:  
         LOG.error("Cannot load config")

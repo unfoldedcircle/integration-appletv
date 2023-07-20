@@ -176,7 +176,7 @@ class AppleTv(object):
             LOG.warning('Credentials not setup yet, retrying connect nr %d', self._credentialsBackOff)
             if self._credentialsBackOff != 5:
                 self._credentialsBackOff += 1
-                await asyncio.sleep(2)
+                await asyncio.sleep(2 * self._credentialsBackOff)
                 await self.connect()
             else:
                 LOG.warning('No credentials found, aborting connect')
@@ -187,7 +187,7 @@ class AppleTv(object):
             LOG.warning('No credentials found, retyring connect nr %d', self._credentialsBackOff)
             if self._credentialsBackOff != 5:
                 self._credentialsBackOff += 1
-                await asyncio.sleep(2)
+                await asyncio.sleep(2 * self._credentialsBackOff)
                 await self.connect()
             else:
                 LOG.warning('No credentials found, aborting connect')
@@ -219,7 +219,7 @@ class AppleTv(object):
                     LOG.error('Error connecting')
                     self.events.emit(EVENTS.ERROR, 'Failed to connect')
                     return
-                await asyncio.sleep(2)
+                await asyncio.sleep(2 * connTry)
                 connTry += 1
 
         self._listener = self.PushListener(self._loop)
