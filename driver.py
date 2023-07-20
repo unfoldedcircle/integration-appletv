@@ -262,7 +262,6 @@ async def event_handler():
     for appleTv in configuredAppleTvs:
         await configuredAppleTvs[appleTv].connect()
         
-    await api.setDeviceState(uc.uc.DEVICE_STATES.CONNECTED)
 
 @api.events.on(uc.uc.EVENTS.DISCONNECT)
 async def event_handler():
@@ -273,6 +272,7 @@ async def event_handler():
 
     await api.setDeviceState(uc.uc.DEVICE_STATES.DISCONNECTED)
 
+
 @api.events.on(uc.uc.EVENTS.ENTER_STANDBY)
 async def event_handler():
     global configuredAppleTvs
@@ -280,6 +280,7 @@ async def event_handler():
     for appleTv in configuredAppleTvs:
         await configuredAppleTvs[appleTv].disconnect()
         await api.setDeviceState(uc.uc.DEVICE_STATES.DISCONNECTED)
+
 
 @api.events.on(uc.uc.EVENTS.EXIT_STANDBY)
 async def event_handler():
@@ -289,6 +290,7 @@ async def event_handler():
 
     for appleTv in configuredAppleTvs:
         await configuredAppleTvs[appleTv].connect()
+
 
 @api.events.on(uc.uc.EVENTS.SUBSCRIBE_ENTITIES)
 async def event_handler(entityIds):
@@ -400,6 +402,10 @@ async def handleConnecting(identifier):
 
 async def handleConnected(identifier):
     LOG.debug('Apple TV connected: %s', identifier)
+    api.configuredEntities.updateEntityAttributes(identifier, {
+        entities.media_player.ATTRIBUTES.STATE: entities.media_player.STATES.STANDBY
+    })
+    await api.setDeviceState(uc.uc.DEVICE_STATES.CONNECTED)
 
 
 async def handleDisconnected(identifier):
