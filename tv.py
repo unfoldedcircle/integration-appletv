@@ -19,21 +19,21 @@ LOG = logging.getLogger(__name__)
 LOG.setLevel(logging.DEBUG)
 
 class EVENTS(IntEnum):
-    CONNECTED = 0,
-    DISCONNECTED = 1,
-    PAIRED = 2,
-    POLLING_STARTED = 3,
-    POLLING_STOPPED = 4,
-    ERROR = 5,
-    UPDATE = 6,
-    VOLUME_CHANGED = 7,
+    CONNECTING = 0
+    CONNECTED = 1
+    DISCONNECTED = 2
+    PAIRED = 3
+    POLLING_STARTED = 4
+    POLLING_STOPPED = 5
+    ERROR = 6
+    UPDATE = 7
+    VOLUME_CHANGED = 8
 
 class AppleTv(object):
     def __init__(self, loop):
         self._loop = loop
         self._atvObjDiscovered = None
         self._atvObj = None
-        self._atvObjCreationBackOff = 0
         self.events = AsyncIOEventEmitter(self._loop)
         self.identifier = None
         self.name = ""
@@ -166,22 +166,17 @@ class AppleTv(object):
 
     async def connect(self):
         LOG.debug('Connecting...')
+        self.events.emit(EVENTS.CONNECTING, self.identifier)
 
         if self._connected == True:
             return
         
         if self._atvObj is None:
-            LOG.debug('No Apple TV object was created, trying to create one now, try nr: %d', self._atvObjCreationBackOff)
-            if self._atvObjCreationBackOff != 5:
-                self._atvObjCreationBackOff += 1
-                await asyncio.sleep(2)
-                await self.init(self.identifier, self._credentials)
-                await asyncio.sleep(2 * self._atvObjCreationBackOff)
-                await self.connect()
-            else:
-                LOG.warning('Could not create Apple TV object, giving up')
-                self._atvObjCreationBackOff = 0
-                self.events.emit(EVENTS.ERROR, self.identifier, 'Failed to create Apple TV object')
+            LOG.debug('No Apple TV object was created, trying to create one now')
+            await asyncio.sleep(2)
+            await self.init(self.identifier, self._credentials)
+            await asyncio.sleep(4)
+            await self.connect()
             return
 
         if self.identifier == "":
@@ -190,27 +185,23 @@ class AppleTv(object):
             return
 
         if self._credentialsSetup is False:
-            LOG.warning('Credentials not setup yet, retrying connect nr %d', self._credentialsBackOff)
-            if self._credentialsBackOff != 5:
-                self._credentialsBackOff += 1
-                await asyncio.sleep(2 * self._credentialsBackOff)
-                await self.connect()
-            else:
-                LOG.warning('No credentials found, aborting connect')
+            LOG.warning('Credentials not setup yet, retrying nr %d', self._credentialsBackOff)
+            if self._credentialsBackOff == 15:
                 self._credentialsBackOff = 0
-                self.events.emit(EVENTS.ERROR, self.identifier, 'No credentials found, aborting connect')
+
+            self._credentialsBackOff += 1
+            await asyncio.sleep(2 * self._credentialsBackOff)
+            await self.connect()
             return
         
         if not self._credentials:
             LOG.warning('No credentials found, retyring connect nr %d', self._credentialsBackOff)
-            if self._credentialsBackOff != 5:
-                self._credentialsBackOff += 1
-                await asyncio.sleep(2 * self._credentialsBackOff)
-                await self.connect()
-            else:
-                LOG.warning('No credentials found, aborting connect')
+            if self._credentialsBackOff == 15:
                 self._credentialsBackOff = 0
-                self.events.emit(EVENTS.ERROR, self.identifier, 'No credentials found, aborting connect')
+
+            self._credentialsBackOff += 1
+            await asyncio.sleep(2 * self._credentialsBackOff)
+            await self.connect()
             return
 
         for credential in self._credentials:
@@ -231,13 +222,16 @@ class AppleTv(object):
 
         while connTry != 5:
             try:
+                LOG.debug('Trying to connect to the Apple TV')
                 self._atvObj = await pyatv.connect(self._atvObj, self._loop)
+                print(self._atvObj)
                 connTry = 5
-            except:
+            except Exception:
                 if connTry == 5:
                     LOG.error('Error connecting')
                     self.events.emit(EVENTS.ERROR, self.identifier, 'Failed to connect')
                     return
+                LOG.debug('Trying to connect again ... %d', connTry)
                 await asyncio.sleep(2 * connTry)
                 connTry += 1
 
@@ -257,11 +251,9 @@ class AppleTv(object):
 
         @self._listener.events.on(EVENTS.DISCONNECTED)
         async def _onDisconnected(identifier):
-            self._credentialsBackOff = 0
-            self._atvObjCreationBackOff = 0
-            self._connected = False
+            await self.disconnect(True)
             LOG.warning('Apple TV disconnected for some reason: %s. Reconnecting...', identifier)
-            self.events.emit(EVENTS.DISCONNECTED, identifier)
+            await asyncio.sleep(2)
             await self.connect()
 
         self._atvObj.push_updater.listener = self._listener
@@ -272,21 +264,20 @@ class AppleTv(object):
 
         self._connected = True
         self._credentialsBackOff = 0
-        self._atvObjCreationBackOff = 0
         self.events.emit(EVENTS.CONNECTED, self.identifier)
         LOG.debug("Connected")
 
 
-    async def disconnect(self):
+    async def disconnect(self, skipClose = False):
         LOG.debug('Disconnect')
         if self._atvObj is not None:
-            self._atvObj.close()
+            if skipClose is False:
+                self._atvObj.close()
             self._atvObj = self._atvObjDiscovered
             self._listener.events.remove_all_listeners()
             self._listener = None
             self._connected = False
             self._credentialsBackOff = 0
-            self._atvObjCreationBackOff = 0
             self.events.emit(EVENTS.DISCONNECTED, self.identifier)
 
 
@@ -324,7 +315,7 @@ class AppleTv(object):
             artwork = await self._atvObj.metadata.artwork(width=400, height=None)
             artwork_encoded = 'data:image/png;base64,' + base64.b64encode(artwork.bytes).decode('utf-8')
             update['artwork'] = artwork_encoded
-        except:
+        except Exception:
             LOG.warning('Error while updating the artwork')
 
         update['total_time'] = data.total_time
@@ -352,7 +343,7 @@ class AppleTv(object):
 
 
     async def _pollWorker(self): 
-        while True:
+        while True and self._connected is True:
             update = {}
             
             if self._atvObj.power.power_state is pyatv.const.PowerState.Off:
@@ -372,12 +363,12 @@ class AppleTv(object):
                     for app in appList:
                         self._appList[app.name] = app.identifier
                         update['sourceList'].append(app.name)
-                except:
+                except Exception:
                     LOG.debug('Error while getting app list')
 
                 try:
                     update['source'] = self._atvObj.metadata.app.name
-                except:
+                except Exception:
                     LOG.debug('Error while getting current app')
                     pass
 
@@ -405,7 +396,7 @@ class AppleTv(object):
         try:
             await fn()
             return True
-        except:
+        except Exception:
             return False
         
 

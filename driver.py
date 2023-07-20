@@ -209,6 +209,10 @@ async def event_handler(websocket, id, data):
         res = await pairingAppleTv.init(choice)
 
         # hook up signals
+        @pairingAppleTv.events.on(tv.EVENTS.CONNECTING)
+        async def _onConnecting(identifier):
+            await handleConnecting(identifier)
+
         @pairingAppleTv.events.on(tv.EVENTS.CONNECTED)
         async def _onConnected(identifier):
             await handleConnected(identifier)
@@ -254,8 +258,6 @@ async def event_handler(websocket, id, data):
 @api.events.on(uc.uc.EVENTS.CONNECT)
 async def event_handler():
     global configuredAppleTvs
-
-    await api.setDeviceState(uc.uc.DEVICE_STATES.CONNECTING)
 
     for appleTv in configuredAppleTvs:
         await configuredAppleTvs[appleTv].connect()
@@ -391,6 +393,10 @@ def keyUpdateHelper(key, value, attributes, configuredEntity):
 
     return attributes
 
+async def handleConnecting(identifier):
+    LOG.debug('Apple TV is connecting: %s', identifier)
+    await api.setDeviceState(uc.uc.DEVICE_STATES.CONNECTING)
+
 
 async def handleConnected(identifier):
     LOG.debug('Apple TV connected: %s', identifier)
@@ -398,6 +404,7 @@ async def handleConnected(identifier):
 
 async def handleDisconnected(identifier):
     LOG.debug('Apple TV disconnected: %s', identifier)
+    await api.setDeviceState(uc.uc.DEVICE_STATES.DISCONNECTED)
     api.configuredEntities.updateEntityAttributes(identifier, {
         entities.media_player.ATTRIBUTES.STATE: entities.media_player.STATES.UNAVAILABLE
     })
@@ -525,6 +532,10 @@ async def main():
             await appleTv.init(item['identifier'], item['credentials'])
 
             # hook up signals
+            @appleTv.events.on(tv.EVENTS.CONNECTING)
+            async def _onConnecting(identifier):
+                await handleConnecting(identifier)
+
             @appleTv.events.on(tv.EVENTS.CONNECTED)
             async def _onConnected(identifier):
                 await handleConnected(identifier)
