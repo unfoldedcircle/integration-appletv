@@ -33,6 +33,7 @@ class AppleTv(object):
         self._loop = loop
         self._atvObjDiscovered = None
         self._atvObj = None
+        self._atvObjCreationBackOff = 0
         self.events = AsyncIOEventEmitter(self._loop)
         self.identifier = None
         self.name = ""
@@ -47,16 +48,17 @@ class AppleTv(object):
         self._appList = {}
 
         @self.events.on(EVENTS.CONNECTED)
-        async def _onConnected():
+        async def _onConnected(identifier):
             await self._startPolling()
                 
         @self.events.on(EVENTS.DISCONNECTED)
-        async def _onDisconnected():
+        async def _onDisconnected(identifier):
             await self._stopPolling()
 
     class PushListener(PushListener, DeviceListener, AudioListener, KeyboardListener):
-        def __init__(self, loop):
+        def __init__(self, loop, identifier):
             self._loop = loop
+            self._identifier = identifier
             self.events = AsyncIOEventEmitter(self._loop)
             LOG.debug("Push listener initialised")
 
@@ -67,12 +69,12 @@ class AppleTv(object):
             
         def playstatus_error(self, updater, exception):
             LOG.debug(str(exception))
-            self.events.emit(EVENTS.ERROR)
+            self.events.emit(EVENTS.ERROR, self._identifier)
 
         def connection_lost(self, exception):
-            LOG.debug("Lost connection:", str(exception))
+            LOG.warning("Lost connection:", str(exception))
             LOG.debug("Reconnecting")
-            # TODO: reconnect
+            self.events.emit(EVENTS.DISCONNECTED, self._identifier)
 
         def connection_closed(self):
             LOG.debug("Connection closed!")
@@ -92,15 +94,16 @@ class AppleTv(object):
 
 
     async def init(self, identifier, credentials = []):
+        self.identifier = identifier
+        self._credentials = credentials
+        self._credentialsSetup = True;
+
         atvs = await pyatv.scan(self._loop, identifier=identifier)
         if not atvs:
             return False
         else:
             self._atvObjDiscovered = atvs[0]
             self._atvObj = atvs[0]
-            self.identifier = identifier
-            self._credentials = credentials
-            self._credentialsSetup = True;
             self.name = self._atvObj.name
             return True
 
@@ -153,7 +156,7 @@ class AppleTv(object):
             res = self._pairingProcess.service
         else:
             LOG.warning('Did not pair with device')
-            self.events.emit(EVENTS.ERROR, 'Could not pair with device')
+            self.events.emit(EVENTS.ERROR, self.identifier, 'Could not pair with device')
 
         await self._pairingProcess.close()
         self._pairingProcess = None
@@ -167,9 +170,23 @@ class AppleTv(object):
         if self._connected == True:
             return
         
+        if self._atvObj is None:
+            LOG.debug('No Apple TV object was created, trying to create one now, try nr: %d', self._atvObjCreationBackOff)
+            if self._atvObjCreationBackOff != 5:
+                self._atvObjCreationBackOff += 1
+                await asyncio.sleep(2)
+                await self.init(self.identifier, self._credentials)
+                await asyncio.sleep(2 * self._atvObjCreationBackOff)
+                await self.connect()
+            else:
+                LOG.warning('Could not create Apple TV object, giving up')
+                self._atvObjCreationBackOff = 0
+                self.events.emit(EVENTS.ERROR, self.identifier, 'Failed to create Apple TV object')
+            return
+
         if self.identifier == "":
             LOG.warning('No identifier found, aborting connect')
-            self.events.emit(EVENTS.ERROR, 'No identifier found, aborting connect')
+            self.events.emit(EVENTS.ERROR, self.identifier, 'No identifier found, aborting connect')
             return
 
         if self._credentialsSetup is False:
@@ -180,7 +197,8 @@ class AppleTv(object):
                 await self.connect()
             else:
                 LOG.warning('No credentials found, aborting connect')
-                self.events.emit(EVENTS.ERROR, 'No credentials found, aborting connect')
+                self._credentialsBackOff = 0
+                self.events.emit(EVENTS.ERROR, self.identifier, 'No credentials found, aborting connect')
             return
         
         if not self._credentials:
@@ -191,7 +209,8 @@ class AppleTv(object):
                 await self.connect()
             else:
                 LOG.warning('No credentials found, aborting connect')
-                self.events.emit(EVENTS.ERROR, 'No credentials found, aborting connect')
+                self._credentialsBackOff = 0
+                self.events.emit(EVENTS.ERROR, self.identifier, 'No credentials found, aborting connect')
             return
 
         for credential in self._credentials:
@@ -204,7 +223,7 @@ class AppleTv(object):
             res = self._atvObj.set_credentials(protocol, credential['credentials'])
             if res == False:
                 LOG.error('Failed to set credentials')
-                self.events.emit(EVENTS.ERROR, 'Failed to set credentials')
+                self.events.emit(EVENTS.ERROR, self.identifier, 'Failed to set credentials')
             else:
                 LOG.debug('Credentials set for %s', protocol)
 
@@ -217,12 +236,12 @@ class AppleTv(object):
             except:
                 if connTry == 5:
                     LOG.error('Error connecting')
-                    self.events.emit(EVENTS.ERROR, 'Failed to connect')
+                    self.events.emit(EVENTS.ERROR, self.identifier, 'Failed to connect')
                     return
                 await asyncio.sleep(2 * connTry)
                 connTry += 1
 
-        self._listener = self.PushListener(self._loop)
+        self._listener = self.PushListener(self._loop, self.identifier)
 
         @self._listener.events.on(EVENTS.UPDATE)
         async def _onUpdateEvent(data):
@@ -236,6 +255,15 @@ class AppleTv(object):
         async def _onErrorEvent(data):
             LOG.error("An error happened while getting a push update.")
 
+        @self._listener.events.on(EVENTS.DISCONNECTED)
+        async def _onDisconnected(identifier):
+            self._credentialsBackOff = 0
+            self._atvObjCreationBackOff = 0
+            self._connected = False
+            LOG.warning('Apple TV disconnected for some reason: %s. Reconnecting...', identifier)
+            self.events.emit(EVENTS.DISCONNECTED, identifier)
+            await self.connect()
+
         self._atvObj.push_updater.listener = self._listener
         self._atvObj.push_updater.start()
         self._atvObj.listener = self._listener
@@ -244,7 +272,8 @@ class AppleTv(object):
 
         self._connected = True
         self._credentialsBackOff = 0
-        self.events.emit(EVENTS.CONNECTED)
+        self._atvObjCreationBackOff = 0
+        self.events.emit(EVENTS.CONNECTED, self.identifier)
         LOG.debug("Connected")
 
 
@@ -257,7 +286,8 @@ class AppleTv(object):
             self._listener = None
             self._connected = False
             self._credentialsBackOff = 0
-            self.events.emit(EVENTS.DISCONNECTED)
+            self._atvObjCreationBackOff = 0
+            self.events.emit(EVENTS.DISCONNECTED, self.identifier)
 
 
     async def _startPolling(self):
@@ -273,7 +303,6 @@ class AppleTv(object):
 
     async def _stopPolling(self):
         if self._polling is not None:
-            self._polling.cancel()
             self._polling = None
             LOG.debug('Polling stopped')
             self.events.emit(EVENTS.POLLING_STOPPED)

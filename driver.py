@@ -160,37 +160,7 @@ async def event_handler(websocket, id, data):
             })
             await storeCofig()
 
-            entity = entities.media_player.MediaPlayer(pairingAppleTv.identifier, pairingAppleTv.name, [
-                entities.media_player.FEATURES.ON_OFF,
-                # entities.media_player.FEATURES.VOLUME,
-                entities.media_player.FEATURES.VOLUME_UP_DOWN,
-                # entities.media_player.FEATURES.MUTE_TOGGLE,
-                entities.media_player.FEATURES.PLAY_PAUSE,
-                entities.media_player.FEATURES.NEXT,
-                entities.media_player.FEATURES.PREVIOUS,
-                entities.media_player.FEATURES.MEDIA_DURATION,
-                entities.media_player.FEATURES.MEDIA_POSITION,
-                entities.media_player.FEATURES.MEDIA_TITLE,
-                entities.media_player.FEATURES.MEDIA_ARTIST,
-                entities.media_player.FEATURES.MEDIA_ALBUM,
-                entities.media_player.FEATURES.MEDIA_IMAGE_URL,
-                entities.media_player.FEATURES.MEDIA_TYPE,
-                entities.media_player.FEATURES.HOME,
-                entities.media_player.FEATURES.CHANNEL_SWITCHER,
-                entities.media_player.FEATURES.DPAD,
-                entities.media_player.FEATURES.SELECT_SOURCE,
-            ], {
-                entities.media_player.ATTRIBUTES.STATE: entities.media_player.STATES.OFF,
-                # entities.media_player.ATTRIBUTES.VOLUME: 0,
-                # entities.media_player.ATTRIBUTES.MUTED: False,
-                entities.media_player.ATTRIBUTES.MEDIA_DURATION: 0,
-                entities.media_player.ATTRIBUTES.MEDIA_POSITION: 0,
-                entities.media_player.ATTRIBUTES.MEDIA_IMAGE_URL: "",
-                entities.media_player.ATTRIBUTES.MEDIA_TITLE: "",
-                entities.media_player.ATTRIBUTES.MEDIA_ARTIST: "",
-                entities.media_player.ATTRIBUTES.MEDIA_ALBUM: ""
-            }, deviceClass = entities.media_player.DEVICECLASSES.TV)
-            api.availableEntities.addEntity(entity)
+            addAvailableAppleTv(pairingAppleTv.identifier, pairingAppleTv.name)
 
             await api.driverSetupComplete(websocket)
     
@@ -237,6 +207,19 @@ async def event_handler(websocket, id, data):
         # Create a new AppleTv object
         pairingAppleTv = tv.AppleTv(LOOP)
         res = await pairingAppleTv.init(choice)
+
+        # hook up signals
+        @pairingAppleTv.events.on(tv.EVENTS.CONNECTED)
+        async def _onConnected(identifier):
+            await handleConnected(identifier)
+
+        @pairingAppleTv.events.on(tv.EVENTS.DISCONNECTED)
+        async def _onDisconnected(identifier):
+            await handleDisconnected(identifier)
+        
+        @pairingAppleTv.events.on(tv.EVENTS.ERROR)
+        async def _onDisconnected(identifier, message):
+            await handleConnectionError(identifier, message)
         
         if res is False:
             LOG.error('Cannot find the chosen AppleTV')
@@ -272,40 +255,21 @@ async def event_handler(websocket, id, data):
 async def event_handler():
     global configuredAppleTvs
 
+    await api.setDeviceState(uc.uc.DEVICE_STATES.CONNECTING)
+
     for appleTv in configuredAppleTvs:
-
-        atv = configuredAppleTvs[appleTv]
-
-        @atv.events.on(tv.EVENTS.CONNECTED)
-        async def onConnected():
-            await api.setDeviceState(uc.uc.DEVICE_STATES.CONNECTED)
-
-        @atv.events.on(tv.EVENTS.ERROR)
-        async def onError(message):
-            LOG.error(message)
-            await api.setDeviceState(uc.uc.DEVICE_STATES.ERROR)
-
-            for item in config:
-                api.configuredEntities.updateEntityAttributes(item['identifier'], {
-                    entities.media_player.ATTRIBUTES.STATE: entities.media_player.STATES.UNAVAILABLE
-                })
-
         await configuredAppleTvs[appleTv].connect()
         
+    await api.setDeviceState(uc.uc.DEVICE_STATES.CONNECTED)
 
 @api.events.on(uc.uc.EVENTS.DISCONNECT)
 async def event_handler():
     global configuredAppleTvs
 
     for appleTv in configuredAppleTvs:
-
-        atv = configuredAppleTvs[appleTv]
-
-        @atv.events.on(tv.EVENTS.DISCONNECTED)
-        async def onDisconnected():
-            await api.setDeviceState(uc.uc.DEVICE_STATES.DISCONNECTED)
-
         await configuredAppleTvs[appleTv].disconnect()
+
+    await api.setDeviceState(uc.uc.DEVICE_STATES.DISCONNECTED)
 
 @api.events.on(uc.uc.EVENTS.ENTER_STANDBY)
 async def event_handler():
@@ -322,22 +286,6 @@ async def event_handler():
     await asyncio.sleep(2)
 
     for appleTv in configuredAppleTvs:
-        atv = configuredAppleTvs[appleTv]
-
-        @atv.events.on(tv.EVENTS.CONNECTED)
-        async def onConnected():
-            await api.setDeviceState(uc.uc.DEVICE_STATES.CONNECTED)
-
-        @atv.events.on(tv.EVENTS.ERROR)
-        async def onError(message):
-            LOG.error(message)
-            await api.setDeviceState(uc.uc.DEVICE_STATES.ERROR)
-            
-            for item in config:
-                api.configuredEntities.updateEntityAttributes(item['identifier'], {
-                    entities.media_player.ATTRIBUTES.STATE: entities.media_player.STATES.UNAVAILABLE
-                })
-
         await configuredAppleTvs[appleTv].connect()
 
 @api.events.on(uc.uc.EVENTS.SUBSCRIBE_ENTITIES)
@@ -432,6 +380,9 @@ async def event_handler(websocket, id, entityId, entityType, cmdId, params):
 
 
 def keyUpdateHelper(key, value, attributes, configuredEntity):
+    if value is None:
+        return attributes
+
     if key in configuredEntity.attributes:
         if configuredEntity.attributes[key] != value:
             attributes[key] = value
@@ -439,6 +390,25 @@ def keyUpdateHelper(key, value, attributes, configuredEntity):
         attributes[key] = value
 
     return attributes
+
+
+async def handleConnected(identifier):
+    LOG.debug('Apple TV connected: %s', identifier)
+
+
+async def handleDisconnected(identifier):
+    LOG.debug('Apple TV disconnected: %s', identifier)
+    api.configuredEntities.updateEntityAttributes(identifier, {
+        entities.media_player.ATTRIBUTES.STATE: entities.media_player.STATES.UNAVAILABLE
+    })
+
+
+async def handleConnectionError(identifier, message):
+    LOG.error(message)
+    await api.setDeviceState(uc.uc.DEVICE_STATES.ERROR)
+    api.configuredEntities.updateEntityAttributes(identifier, {
+        entities.media_player.ATTRIBUTES.STATE: entities.media_player.STATES.UNAVAILABLE
+    })
 
 
 async def handleAppleTvUpdate(entityId, update):
@@ -469,7 +439,7 @@ async def handleAppleTvUpdate(entityId, update):
     if 'artwork' in update:
         attributes = keyUpdateHelper(entities.media_player.ATTRIBUTES.MEDIA_IMAGE_URL, update['artwork'], attributes, configuredEntity)
     if 'total_time' in update:
-        attributes[entities.media_player.ATTRIBUTES.MEDIA_DURATION] = update['total_time']
+        attributes = keyUpdateHelper(entities.media_player.ATTRIBUTES.MEDIA_DURATION, update['total_time'], attributes, configuredEntity)
     if 'title' in update:
         attributes = keyUpdateHelper(entities.media_player.ATTRIBUTES.MEDIA_TITLE, update['title'], attributes, configuredEntity)
     if 'artist' in update:
@@ -506,6 +476,41 @@ async def handleAppleTvVolumeUpdate(entityId, volume):
     attributes[entities.media_player.ATTRIBUTES.VOLUME] = volume
     api.configuredEntities.updateEntityAttributes(entityId, attributes)
 
+def addAvailableAppleTv(identifier, name):
+    entity = entities.media_player.MediaPlayer(identifier, name, [
+        entities.media_player.FEATURES.ON_OFF,
+        # entities.media_player.FEATURES.VOLUME,
+        entities.media_player.FEATURES.VOLUME_UP_DOWN,
+        # entities.media_player.FEATURES.MUTE_TOGGLE,
+        entities.media_player.FEATURES.PLAY_PAUSE,
+        entities.media_player.FEATURES.NEXT,
+        entities.media_player.FEATURES.PREVIOUS,
+        entities.media_player.FEATURES.MEDIA_DURATION,
+        entities.media_player.FEATURES.MEDIA_POSITION,
+        entities.media_player.FEATURES.MEDIA_TITLE,
+        entities.media_player.FEATURES.MEDIA_ARTIST,
+        entities.media_player.FEATURES.MEDIA_ALBUM,
+        entities.media_player.FEATURES.MEDIA_IMAGE_URL,
+        entities.media_player.FEATURES.MEDIA_TYPE,
+        entities.media_player.FEATURES.HOME,
+        entities.media_player.FEATURES.CHANNEL_SWITCHER,                                                                     
+        entities.media_player.FEATURES.DPAD,
+        entities.media_player.FEATURES.SELECT_SOURCE,
+    ], {
+        entities.media_player.ATTRIBUTES.STATE: entities.media_player.STATES.UNAVAILABLE,
+        # entities.media_player.ATTRIBUTES.VOLUME: 0,
+        # entities.media_player.ATTRIBUTES.MUTED: False,
+        entities.media_player.ATTRIBUTES.MEDIA_DURATION: 0,
+        entities.media_player.ATTRIBUTES.MEDIA_POSITION: 0,
+        entities.media_player.ATTRIBUTES.MEDIA_IMAGE_URL: "",
+        entities.media_player.ATTRIBUTES.MEDIA_TITLE: "",
+        entities.media_player.ATTRIBUTES.MEDIA_ARTIST: "",
+        entities.media_player.ATTRIBUTES.MEDIA_ALBUM: ""
+    }, deviceClass = entities.media_player.DEVICECLASSES.TV)
+
+    api.availableEntities.addEntity(entity)
+
+
 async def main():
     global dataPath
     global config
@@ -518,40 +523,22 @@ async def main():
         for item in config:
             appleTv = tv.AppleTv(LOOP)
             await appleTv.init(item['identifier'], item['credentials'])
+
+            # hook up signals
+            @appleTv.events.on(tv.EVENTS.CONNECTED)
+            async def _onConnected(identifier):
+                await handleConnected(identifier)
+
+            @appleTv.events.on(tv.EVENTS.DISCONNECTED)
+            async def _onDisconnected(identifier):
+                await handleDisconnected(identifier)
+            
+            @appleTv.events.on(tv.EVENTS.ERROR)
+            async def _onDisconnected(identifier, message):
+                await handleConnectionError(identifier, message)
+
             configuredAppleTvs[appleTv.identifier] = appleTv
-
-            entity = entities.media_player.MediaPlayer(item['identifier'], appleTv.name, [
-                entities.media_player.FEATURES.ON_OFF,
-                # entities.media_player.FEATURES.VOLUME,
-                entities.media_player.FEATURES.VOLUME_UP_DOWN,
-                # entities.media_player.FEATURES.MUTE_TOGGLE,
-                entities.media_player.FEATURES.PLAY_PAUSE,
-                entities.media_player.FEATURES.NEXT,
-                entities.media_player.FEATURES.PREVIOUS,
-                entities.media_player.FEATURES.MEDIA_DURATION,
-                entities.media_player.FEATURES.MEDIA_POSITION,
-                entities.media_player.FEATURES.MEDIA_TITLE,
-                entities.media_player.FEATURES.MEDIA_ARTIST,
-                entities.media_player.FEATURES.MEDIA_ALBUM,
-                entities.media_player.FEATURES.MEDIA_IMAGE_URL,
-                entities.media_player.FEATURES.MEDIA_TYPE,
-                entities.media_player.FEATURES.HOME,
-                entities.media_player.FEATURES.CHANNEL_SWITCHER,                                                                     
-                entities.media_player.FEATURES.DPAD,
-                entities.media_player.FEATURES.SELECT_SOURCE,
-            ], {
-                entities.media_player.ATTRIBUTES.STATE: entities.media_player.STATES.UNAVAILABLE,
-                # entities.media_player.ATTRIBUTES.VOLUME: 0,
-                # entities.media_player.ATTRIBUTES.MUTED: False,
-                entities.media_player.ATTRIBUTES.MEDIA_DURATION: 0,
-                entities.media_player.ATTRIBUTES.MEDIA_POSITION: 0,
-                entities.media_player.ATTRIBUTES.MEDIA_IMAGE_URL: "",
-                entities.media_player.ATTRIBUTES.MEDIA_TITLE: "",
-                entities.media_player.ATTRIBUTES.MEDIA_ARTIST: "",
-                entities.media_player.ATTRIBUTES.MEDIA_ALBUM: ""
-            }, deviceClass = entities.media_player.DEVICECLASSES.TV)
-
-            api.availableEntities.addEntity(entity)
+            addAvailableAppleTv(item['identifier'], appleTv.name)
     else:  
         LOG.error("Cannot load config")
 
