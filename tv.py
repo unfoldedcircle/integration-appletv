@@ -21,13 +21,14 @@ LOG.setLevel(logging.DEBUG)
 class EVENTS(IntEnum):
     CONNECTING = 0
     CONNECTED = 1
-    DISCONNECTED = 2
-    PAIRED = 3
-    POLLING_STARTED = 4
-    POLLING_STOPPED = 5
-    ERROR = 6
-    UPDATE = 7
-    VOLUME_CHANGED = 8
+    CONN_FAILED = 2
+    DISCONNECTED = 3
+    PAIRED = 4
+    POLLING_STARTED = 5
+    POLLING_STOPPED = 6
+    ERROR = 7
+    UPDATE = 8
+    VOLUME_CHANGED = 9
 
 class AppleTv(object):
     def __init__(self, loop):
@@ -50,6 +51,10 @@ class AppleTv(object):
         @self.events.on(EVENTS.CONNECTED)
         async def _onConnected(identifier):
             await self._startPolling()
+
+        @self.events.on(EVENTS.CONN_FAILED)
+        async def _onConnFailed():
+            await self.connect()
 
     class PushListener(PushListener, DeviceListener, AudioListener, KeyboardListener):
         def __init__(self, loop, identifier):
@@ -170,7 +175,7 @@ class AppleTv(object):
             await asyncio.sleep(2)
             await self.init(self.identifier, self._credentials)
             await asyncio.sleep(4)
-            await self.connect()
+            self.events.emit(EVENTS.CONN_FAILED)
             return
 
         if self.identifier == "":
@@ -185,7 +190,7 @@ class AppleTv(object):
 
             self._credentialsBackOff += 1
             await asyncio.sleep(2 * self._credentialsBackOff)
-            await self.connect()
+            self.events.emit(EVENTS.CONN_FAILED)
             return
         
         if not self._credentials:
@@ -195,7 +200,7 @@ class AppleTv(object):
 
             self._credentialsBackOff += 1
             await asyncio.sleep(2 * self._credentialsBackOff)
-            await self.connect()
+            self.events.emit(EVENTS.CONN_FAILED)
             return
 
         for credential in self._credentials:
@@ -218,7 +223,7 @@ class AppleTv(object):
         except Exception:
             LOG.debug('Trying to connect again ...')
             await asyncio.sleep(2)
-            await self.connect()
+            self.events.emit(EVENTS.CONN_FAILED)
             return
 
         @self._listener.events.on(EVENTS.UPDATE)
@@ -238,9 +243,9 @@ class AppleTv(object):
             await self.disconnect()
             LOG.warning('Apple TV disconnected for some reason: %s. Reconnecting...', identifier)
             await asyncio.sleep(2)
-            await self.connect()
+            self.events.emit(EVENTS.CONN_FAILED)
 
-        self._getUpdate()
+        await self._getUpdate()
 
         self._atvObj.push_updater.listener = self._listener
         self._atvObj.push_updater.start()
