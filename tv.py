@@ -203,6 +203,7 @@ class AppleTv(object):
             self.events.emit(EVENTS.CONN_FAILED)
             return
 
+        setCredentials = 0
         for credential in self._credentials:
             protocol = None
             if credential['protocol'] == 'companion':
@@ -212,10 +213,17 @@ class AppleTv(object):
 
             res = self._atvObj.set_credentials(protocol, credential['credentials'])
             if res == False:
-                LOG.error('Failed to set credentials')
-                self.events.emit(EVENTS.ERROR, self.identifier, 'Failed to set credentials')
+                LOG.error('Failed to set credentials for %s', protocol)
+                # self.events.emit(EVENTS.ERROR, self.identifier, 'Failed to set credentials')
             else:
                 LOG.debug('Credentials set for %s', protocol)
+                setCredentials += 1
+
+        if setCredentials != len(self._credentials):
+            await self.init(self.identifier, self._credentials)
+            await asyncio.sleep(4)
+            self.events.emit(EVENTS.CONN_FAILED)
+            return
 
         try:
             LOG.debug('Trying to connect to the Apple TV')
@@ -380,9 +388,12 @@ class AppleTv(object):
                 update['artwork'] = ""
                 update['media_type'] = ""
             else:
-                data = await self._atvObj.metadata.playing()
-                update['state'] = data.device_state                
-                update['sourceList'] = []
+                try:
+                    data = await self._atvObj.metadata.playing()
+                    update['state'] = data.device_state                
+                    update['sourceList'] = []
+                except:
+                    LOG.debug('Error while getting playing metadata')
 
                 try:
                     appList = await self._atvObj.apps.app_list()
