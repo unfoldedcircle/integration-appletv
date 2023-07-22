@@ -105,7 +105,7 @@ async def event_handler(websocket, id, data):
 
     if not dropdownItems:
         LOG.warning('No Apple TVs found')
-        await api.driverSetupError(websocket, 'No Apple TVs found')
+        await api.driverSetupError(websocket)
         return
 
     await api.requestDriverSetupUserInput(websocket, 'Please choose your Apple TV', [
@@ -137,7 +137,7 @@ async def event_handler(websocket, id, data):
 
         res = await pairingAppleTv.finishPairing()
         if res is None:
-            await api.driverSetupError(websocket, 'Unable to pair with Apple TV')
+            await api.driverSetupError(websocket)
         else:
             c = {
                 'protocol': res.protocol.name.lower(),
@@ -165,7 +165,7 @@ async def event_handler(websocket, id, data):
         
         res = await pairingAppleTv.finishPairing()
         if res is None:
-            await api.driverSetupError(websocket, 'Unable to pair with Apple TV')
+            await api.driverSetupError(websocket)
         else:
             # Store credentials
             c = {
@@ -204,7 +204,7 @@ async def event_handler(websocket, id, data):
         
         if pairingAppleTv.pairingAtv is None:
             LOG.error('Cannot find the chosen AppleTV')
-            await api.driverSetupError(websocket, 'There was an error during the setup process')
+            await api.driverSetupError(websocket)
             return
         
         await pairingAppleTv.init(choice, name = pairingAppleTv.pairingAtv.name)
@@ -232,7 +232,7 @@ async def event_handler(websocket, id, data):
 
     else:
         LOG.error('No choice was received')
-        await api.driverSetupError(websocket, 'No Apple TV was selected')
+        await api.driverSetupError(websocket)
 
 @api.events.on(uc.uc.EVENTS.CONNECT)
 async def event_handler():
@@ -270,10 +270,9 @@ async def event_handler(entityIds):
         if entityId in configuredAppleTvs:
             LOG.debug('We have a match, start listening to events')
 
-            if api.state != uc.uc.DEVICE_STATES.CONNECTED:
-                api.configuredEntities.updateEntityAttributes(entityId, {
-                    entities.media_player.ATTRIBUTES.STATE: entities.media_player.STATES.UNAVAILABLE
-                })
+            api.configuredEntities.updateEntityAttributes(entityId, {
+                entities.media_player.ATTRIBUTES.STATE: entities.media_player.STATES.UNAVAILABLE
+            })
 
             appleTv = configuredAppleTvs[entityId]
 

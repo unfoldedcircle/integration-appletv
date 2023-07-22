@@ -359,14 +359,16 @@ class AppleTv(object):
                 except:
                     LOG.debug('Error while getting playing metadata')
 
-                if self._isFeatureAvailable(pyatv.const.FeatureName.AppList):
+                if self._atv.features.in_state(pyatv.const.FeatureState.Available, pyatv.const.FeatureName.AppList):
                     try:
                         appList = await self._atv.apps.app_list()
                         for app in appList:
                             self._appList[app.name] = app.identifier
                             update['sourceList'].append(app.name)
-                    except:
-                        LOG.warning('Could not get app list')
+                    except pyatv.exceptions.NotSupportedError:
+                        LOG.warning('App list is not supported')
+                    except pyatv.exceptions.ProtocolError:
+                        LOG.warning('App list: protocol error')
 
                 if self._isFeatureAvailable(pyatv.const.FeatureName.App):
                     update['source'] = self._atv.metadata.app.name
