@@ -127,12 +127,6 @@ async def event_handler(websocket, id, data):
     global pairingAppleTv
     global config
 
-    if pairingAppleTv:
-        @pairingAppleTv.events.on(tv.EVENTS.ERROR)
-        async def onError(message):
-            LOG.error(message)
-            await api.driverSetupError(websocket, message)
-
     await api.acknowledgeCommand(websocket, id)
     await api.driverSetupProgress(websocket)
 
@@ -152,10 +146,10 @@ async def event_handler(websocket, id, data):
             pairingAppleTv.addCredentials(c)
 
             configuredAppleTvs[pairingAppleTv.identifier] = pairingAppleTv
-            await configuredAppleTvs[pairingAppleTv.identifier].connect()
 
             config.append({
                 'identifier' : pairingAppleTv.identifier,
+                'name': pairingAppleTv.name,
                 'credentials': pairingAppleTv.getCredentials() 
             })
             await storeCofig()
@@ -206,29 +200,14 @@ async def event_handler(websocket, id, data):
 
         # Create a new AppleTv object
         pairingAppleTv = tv.AppleTv(LOOP)
-        res = await pairingAppleTv.init(choice)
-
-        # hook up signals
-        @pairingAppleTv.events.on(tv.EVENTS.CONNECTING)
-        async def _onConnecting(identifier):
-            await handleConnecting(identifier)
-
-        @pairingAppleTv.events.on(tv.EVENTS.CONNECTED)
-        async def _onConnected(identifier):
-            await handleConnected(identifier)
-
-        @pairingAppleTv.events.on(tv.EVENTS.DISCONNECTED)
-        async def _onDisconnected(identifier):
-            await handleDisconnected(identifier)
+        pairingAppleTv.pairingAtv = await pairingAppleTv.findAtv(choice)
         
-        @pairingAppleTv.events.on(tv.EVENTS.ERROR)
-        async def _onDisconnected(identifier, message):
-            await handleConnectionError(identifier, message)
-        
-        if res is False:
+        if pairingAppleTv.pairingAtv is None:
             LOG.error('Cannot find the chosen AppleTV')
             await api.driverSetupError(websocket, 'There was an error during the setup process')
             return
+        
+        await pairingAppleTv.init(choice, name = pairingAppleTv.pairingAtv.name)
 
         LOG.debug('Pairing process begin')
         # Hook up to signals
@@ -257,19 +236,11 @@ async def event_handler(websocket, id, data):
 
 @api.events.on(uc.uc.EVENTS.CONNECT)
 async def event_handler():
-    global configuredAppleTvs
+    await api.setDeviceState(uc.uc.DEVICE_STATES.CONNECTED)
 
-    for appleTv in configuredAppleTvs:
-        await configuredAppleTvs[appleTv].connect()
-        
 
 @api.events.on(uc.uc.EVENTS.DISCONNECT)
 async def event_handler():
-    global configuredAppleTvs
-
-    for appleTv in configuredAppleTvs:
-        await configuredAppleTvs[appleTv].disconnect()
-
     await api.setDeviceState(uc.uc.DEVICE_STATES.DISCONNECTED)
 
 
@@ -279,7 +250,6 @@ async def event_handler():
 
     for appleTv in configuredAppleTvs:
         await configuredAppleTvs[appleTv].disconnect()
-        await api.setDeviceState(uc.uc.DEVICE_STATES.DISCONNECTED)
 
 
 @api.events.on(uc.uc.EVENTS.EXIT_STANDBY)
@@ -306,6 +276,19 @@ async def event_handler(entityIds):
                 })
 
             appleTv = configuredAppleTvs[entityId]
+
+            @appleTv.events.on(tv.EVENTS.CONNECTED)
+            async def _onConnected(identifier):
+                await handleConnected(identifier)
+
+            @appleTv.events.on(tv.EVENTS.DISCONNECTED)
+            async def _onDisconnected(identifier):
+                await handleDisconnected(identifier)
+            
+            @appleTv.events.on(tv.EVENTS.ERROR)
+            async def _onDisconnected(identifier, message):
+                await handleConnectionError(identifier, message)
+
             @appleTv.events.on(tv.EVENTS.UPDATE)
             async def onUpdate(update):
                 await handleAppleTvUpdate(entityId, update)
@@ -313,6 +296,8 @@ async def event_handler(entityIds):
             @appleTv.events.on(tv.EVENTS.VOLUME_CHANGED)
             async def onVolumeUpdate(volume):
                 await handleAppleTvVolumeUpdate(entityId, volume)
+
+            await appleTv.connect()
 
 @api.events.on(uc.uc.EVENTS.UNSUBSCRIBE_ENTITIES)
 async def event_handler(entityIds):
@@ -322,6 +307,7 @@ async def event_handler(entityIds):
         if entityId in configuredAppleTvs:
             LOG.debug('We have a match, stop listening to events')
             appleTv = configuredAppleTvs[entityId]
+            await appleTv.disconnect()
             appleTv.events.remove_all_listeners()
 
 @api.events.on(uc.uc.EVENTS.ENTITY_COMMAND)
@@ -418,17 +404,12 @@ def keyUpdateHelper(key, value, attributes, configuredEntity):
 
     return attributes
 
-async def handleConnecting(identifier):
-    LOG.debug('Apple TV is connecting: %s', identifier)
-    await api.setDeviceState(uc.uc.DEVICE_STATES.CONNECTING)
-
 
 async def handleConnected(identifier):
     LOG.debug('Apple TV connected: %s', identifier)
     api.configuredEntities.updateEntityAttributes(identifier, {
         entities.media_player.ATTRIBUTES.STATE: entities.media_player.STATES.STANDBY
     })
-    await api.setDeviceState(uc.uc.DEVICE_STATES.CONNECTED)
 
 
 async def handleDisconnected(identifier):
@@ -436,15 +417,14 @@ async def handleDisconnected(identifier):
     api.configuredEntities.updateEntityAttributes(identifier, {
         entities.media_player.ATTRIBUTES.STATE: entities.media_player.STATES.UNAVAILABLE
     })
-    await api.setDeviceState(uc.uc.DEVICE_STATES.DISCONNECTED)
 
 
 async def handleConnectionError(identifier, message):
     LOG.error(message)
-    await api.setDeviceState(uc.uc.DEVICE_STATES.ERROR)
     api.configuredEntities.updateEntityAttributes(identifier, {
         entities.media_player.ATTRIBUTES.STATE: entities.media_player.STATES.UNAVAILABLE
     })
+    await api.setDeviceState(uc.uc.DEVICE_STATES.ERROR)
 
 
 async def handleAppleTvUpdate(entityId, update):
@@ -504,6 +484,16 @@ async def handleAppleTvUpdate(entityId, update):
 
         attributes = keyUpdateHelper(entities.media_player.ATTRIBUTES.MEDIA_TYPE, mediaType, attributes, configuredEntity)
 
+    if entities.media_player.ATTRIBUTES.STATE in attributes:
+        if attributes[entities.media_player.ATTRIBUTES.STATE] == entities.media_player.STATES.OFF:
+            attributes[entities.media_player.ATTRIBUTES.MEDIA_IMAGE_URL] = ""
+            attributes[entities.media_player.ATTRIBUTES.MEDIA_ALBUM] = ""
+            attributes[entities.media_player.ATTRIBUTES.MEDIA_ARTIST] = ""
+            attributes[entities.media_player.ATTRIBUTES.MEDIA_TITLE] = ""
+            attributes[entities.media_player.ATTRIBUTES.MEDIA_TYPE] = ""
+            attributes[entities.media_player.ATTRIBUTES.SOURCE] = ""
+            attributes[entities.media_player.ATTRIBUTES.MEDIA_DURATION] = 0
+
     if attributes:
         api.configuredEntities.updateEntityAttributes(entityId, attributes)
 
@@ -557,28 +547,16 @@ async def main():
     res = await loadConfig()
     if res is True:
         for item in config:
+            # TODO: remove this after one verison update
+            name = 'AppleTv'
+            if 'name' in item:
+                name = item['name']
+
             appleTv = tv.AppleTv(LOOP)
-            await appleTv.init(item['identifier'], item['credentials'])
-
-            # hook up signals
-            @appleTv.events.on(tv.EVENTS.CONNECTING)
-            async def _onConnecting(identifier):
-                await handleConnecting(identifier)
-
-            @appleTv.events.on(tv.EVENTS.CONNECTED)
-            async def _onConnected(identifier):
-                await handleConnected(identifier)
-
-            @appleTv.events.on(tv.EVENTS.DISCONNECTED)
-            async def _onDisconnected(identifier):
-                await handleDisconnected(identifier)
-            
-            @appleTv.events.on(tv.EVENTS.ERROR)
-            async def _onDisconnected(identifier, message):
-                await handleConnectionError(identifier, message)
-
+            await appleTv.init(item['identifier'], item['credentials'], name)
             configuredAppleTvs[appleTv.identifier] = appleTv
-            addAvailableAppleTv(item['identifier'], appleTv.name)
+
+            addAvailableAppleTv(item['identifier'], name)
     else:  
         LOG.error("Cannot load config")
 
