@@ -46,6 +46,7 @@ class AppleTv(object):
         self.pairingAtv = None
         self._pairingProcess = None
         self._polling = None
+        self._pollInterval = 2
         self._prevUpdateHash = None
         self._appList = {}
 
@@ -65,7 +66,7 @@ class AppleTv(object):
         LOG.debug(str(exception))
 
     def connection_lost(self, exception):
-        LOG.exception("Lost connection:", str(exception))
+        LOG.exception("Lost connection")
         self.events.emit(EVENTS.DISCONNECTED, self.identifier)
         _ = asyncio.ensure_future(self._stopPolling())
         if self._atv:
@@ -304,6 +305,10 @@ class AppleTv(object):
 
         if self._atv.power.power_state is pyatv.const.PowerState.On:
             update['state'] = data.device_state
+            if update['state'] == pyatv.const.DeviceState.Playing:
+                self._pollInterval = 2
+            else:
+                self._pollInterval = 10
 
         update['position'] = data.position
 
@@ -368,7 +373,7 @@ class AppleTv(object):
 
 
             self.events.emit(EVENTS.UPDATE, update)
-            await asyncio.sleep(2)
+            await asyncio.sleep(self._pollInterval)
 
 
     def _isFeatureAvailable(self, feature: pyatv.const.FeatureName) -> bool:
