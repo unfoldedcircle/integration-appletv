@@ -25,6 +25,7 @@ configuredAppleTvs = {}
 pairingAppleTv = None
     
 async def clearConfig():
+    """"Remove the configuration file"""
     global config
     config = []
 
@@ -45,6 +46,7 @@ async def storeCofig():
     f.close()
 
 async def loadConfig():
+    """"Load the config into the config global variable"""
     global config
     f = None
     try:
@@ -70,6 +72,7 @@ async def loadConfig():
     return True
         
 async def discoverAppleTVs():
+    """"Discover Apple TVs on the network using pyatv.scan"""
     atvs = await pyatv.scan(LOOP)
     res = []
 
@@ -234,16 +237,17 @@ async def event_handler(websocket, id, data):
         LOG.error('No choice was received')
         await api.driverSetupError(websocket)
 
+# When the core connects, we just set the device state
 @api.events.on(uc.uc.EVENTS.CONNECT)
 async def event_handler():
     await api.setDeviceState(uc.uc.DEVICE_STATES.CONNECTED)
 
-
+# When the core disconnects, we just set the device state
 @api.events.on(uc.uc.EVENTS.DISCONNECT)
 async def event_handler():
     await api.setDeviceState(uc.uc.DEVICE_STATES.DISCONNECTED)
 
-
+# On standby, we disconnect every Apple TV objects
 @api.events.on(uc.uc.EVENTS.ENTER_STANDBY)
 async def event_handler():
     global configuredAppleTvs
@@ -251,7 +255,7 @@ async def event_handler():
     for appleTv in configuredAppleTvs:
         await configuredAppleTvs[appleTv].disconnect()
 
-
+# On exit standby we wait a bit then connect all Apple TV objects
 @api.events.on(uc.uc.EVENTS.EXIT_STANDBY)
 async def event_handler():
     global configuredAppleTvs
@@ -261,7 +265,8 @@ async def event_handler():
     for appleTv in configuredAppleTvs:
         await configuredAppleTvs[appleTv].connect()
 
-
+# When the core subscribes to entities, we set these to UNAVAILABLE state
+# then we hook up to the signals of the object and then connect
 @api.events.on(uc.uc.EVENTS.SUBSCRIBE_ENTITIES)
 async def event_handler(entityIds):
     global configuredAppleTvs
@@ -298,6 +303,7 @@ async def event_handler(entityIds):
 
             await appleTv.connect()
 
+# On unsubscribe, we disconnect the objects and remove listeners for events
 @api.events.on(uc.uc.EVENTS.UNSUBSCRIBE_ENTITIES)
 async def event_handler(entityIds):
     global configuredAppleTvs
@@ -309,16 +315,21 @@ async def event_handler(entityIds):
             await appleTv.disconnect()
             appleTv.events.remove_all_listeners()
 
+# We handle commands here
 @api.events.on(uc.uc.EVENTS.ENTITY_COMMAND)
 async def event_handler(websocket, id, entityId, entityType, cmdId, params):
     global configuredAppleTvs
-
-    if api.state != uc.uc.DEVICE_STATES.CONNECTED:
-        await api.acknowledgeCommand(websocket, id, uc.uc.STATUS_CODES.SERVICE_UNAVAILABLE)
-
+ 
     appleTv = configuredAppleTvs[entityId]
 
+    # If the device is not on we send SERVICE_UNAVAILABLE
+    if appleTv.isOn is False:
+        await api.acknowledgeCommand(websocket, id, uc.uc.STATUS_CODES.SERVICE_UNAVAILABLE)
+        return
+
     configuredEntity = api.configuredEntities.getEntity(entityId)
+
+    # If the entity is OFF, we send the turnOn command regardless of the actual command
     if configuredEntity.attributes[entities.media_player.ATTRIBUTES.STATE] == entities.media_player.STATES.OFF:
         await appleTv.turnOn()
         await api.acknowledgeCommand(websocket, id)
@@ -497,6 +508,7 @@ async def handleAppleTvUpdate(entityId, update):
         api.configuredEntities.updateEntityAttributes(entityId, attributes)
 
 async def handleAppleTvVolumeUpdate(entityId, volume):
+    """"Hnalde the volume update events from the Apple TV"""
     attributes = {}
     attributes[entities.media_player.ATTRIBUTES.VOLUME] = volume
     api.configuredEntities.updateEntityAttributes(entityId, attributes)
@@ -504,7 +516,7 @@ async def handleAppleTvVolumeUpdate(entityId, volume):
 def addAvailableAppleTv(identifier, name):
     entity = entities.media_player.MediaPlayer(identifier, name, [
         entities.media_player.FEATURES.ON_OFF,
-        # entities.media_player.FEATURES.VOLUME,
+        entities.media_player.FEATURES.VOLUME,
         entities.media_player.FEATURES.VOLUME_UP_DOWN,
         # entities.media_player.FEATURES.MUTE_TOGGLE,
         entities.media_player.FEATURES.PLAY_PAUSE,
@@ -523,7 +535,7 @@ def addAvailableAppleTv(identifier, name):
         entities.media_player.FEATURES.SELECT_SOURCE,
     ], {
         entities.media_player.ATTRIBUTES.STATE: entities.media_player.STATES.UNAVAILABLE,
-        # entities.media_player.ATTRIBUTES.VOLUME: 0,
+        entities.media_player.ATTRIBUTES.VOLUME: 0,
         # entities.media_player.ATTRIBUTES.MUTED: False,
         entities.media_player.ATTRIBUTES.MEDIA_DURATION: 0,
         entities.media_player.ATTRIBUTES.MEDIA_POSITION: 0,
@@ -543,6 +555,8 @@ async def main():
 
     dataPath = api.configDirPath
 
+    # We load the config and create an AppleTv object for every entry
+    # We also create an available entity entry for every config entry
     res = await loadConfig()
     if res is True:
         for item in config:

@@ -36,7 +36,7 @@ class AppleTv(object):
     def __init__(self, loop):
         self._loop = loop
         self.events = AsyncIOEventEmitter(self._loop)
-        self._isOn = False
+        self.isOn = False
         self._atv = None
         self.name = ""
         self.identifier = None
@@ -51,21 +51,24 @@ class AppleTv(object):
         self._appList = {}
 
     def backoff(self):
-        if self._connectionAttempts * BACKOFF_SEC == BACKOFF_MAX:
-            self._connectionAttempts = 0
+        if self._connectionAttempts * BACKOFF_SEC >= BACKOFF_MAX:
+            return BACKOFF_MAX
 
         return self._connectionAttempts * BACKOFF_SEC
 
     def playstatus_update(self, updater, playstatus):
+        """"Callback for when a push update happens"""
         LOG.debug("Push update")
         LOG.debug(str(playstatus))
         _ = asyncio.ensure_future(self._processUpdate(playstatus))
 
         
     def playstatus_error(self, updater, exception):
+        """"Callback for when a push update error happens"""
         LOG.debug(str(exception))
 
     def connection_lost(self, exception):
+        """"Callback for when the device is disconnected"""
         LOG.exception("Lost connection")
         self.events.emit(EVENTS.DISCONNECTED, self.identifier)
         _ = asyncio.ensure_future(self._stopPolling())
@@ -75,23 +78,28 @@ class AppleTv(object):
         self._startConnectLoop()
 
     def connection_closed(self):
+        """"Callback for when the user disconnects the device"""
         LOG.debug("Connection closed!")
 
     def volume_update(self, old_level, new_level):
+        """"Callback for volume level change"""
         LOG.debug('Volume level: %d', new_level)
         # TODO: implement me
 
     def outputdevices_update(self, old_devices, new_devices):
+        """"Callback for output device change, like airplay speaker"""
         # print('Output devices changed from {0:s} to {1:s}'.format(old_devices, new_devices))
         pass
         # TODO: implement me
 
     def focusstate_update(self, old_state, new_state):
+        """"Callback when the focus is changed for text input"""
         # print('Focus state changed from {0:s} to {1:s}'.format(old_state, new_state))
         pass
         # TODO: implement me
 
     async def findAtv(self, identifier):
+        """Find a specific Apple TV on the network by identifier"""
         atvs = await pyatv.scan(self._loop, identifier=identifier)
         if not atvs:
             return None
@@ -99,6 +107,7 @@ class AppleTv(object):
             return atvs[0]
 
     async def init(self, identifier, credentials = [], name = ""):
+        """Initialises the object and setting identifier, credentials and name"""
         self.identifier = identifier
         self._credentials = credentials
         self.name = name
@@ -110,6 +119,7 @@ class AppleTv(object):
         return self._credentials
     
     async def startPairing(self, protocol, name):
+        """""Starts the pairing process with the Apple TV"""
         LOG.debug('Pairing started')
         self._pairingProcess = await pyatv.pair(self.pairingAtv, protocol, self._loop, name=name)
         await self._pairingProcess.begin()
@@ -145,21 +155,21 @@ class AppleTv(object):
         return res
 
     async def connect(self):
-        if self._isOn is True:
+        if self.isOn is True:
             return 
-        self._isOn = True
+        self.isOn = True
         self.events.emit(EVENTS.CONNECTING, self.identifier)
         self._startConnectLoop()
 
     def _startConnectLoop(self):
-        if not self._connectTask and self._atv is None and self._isOn:
+        if not self._connectTask and self._atv is None and self.isOn:
             self._connectTask = asyncio.create_task(self._connectLoop())
         else:
-            LOG.debug('Not starting connect loop (Atv: %s, isOn: %s)', self._atv is None, self._isOn)
+            LOG.debug('Not starting connect loop (Atv: %s, isOn: %s)', self._atv is None, self.isOn)
 
     async def _connectLoop(self):
         LOG.debug('Starting connect loop')
-        while self._isOn and self._atv is None:
+        while self.isOn and self._atv is None:
             await self._connectOnce()
             if self._atv is not None:
                 break
@@ -171,14 +181,17 @@ class AppleTv(object):
         LOG.debug('Connect loop ended')
         self._connectTask = None
 
+        # We get a manual update, to make sure we're in sync
         await self._getUpdate()
 
+        # Add callback listener for various push updates
         self._atv.push_updater.listener = self
         self._atv.push_updater.start()
         self._atv.listener = self
         self._atv.audio.listener = self
         self._atv.keyboard.listener = self
 
+        # Reset the backoff counter
         self._connectionAttempts = 0
 
         await self._startPolling()
@@ -201,6 +214,8 @@ class AppleTv(object):
             self._atv = None
 
     async def _connect(self, conf):
+        # We try to connect with all the protocols.
+        # If something is not ready yet, we try again afterwards
         missingProtocols = []
 
         for credential in self._credentials:
@@ -226,7 +241,7 @@ class AppleTv(object):
 
     async def disconnect(self):
         LOG.debug('Disconnecting from device')
-        self._isOn = False
+        self.isOn = False
         await self._stopPolling()
 
         try:
@@ -303,6 +318,8 @@ class AppleTv(object):
 
         update = {}
 
+        # We only update device state (playing, paused, etc) if the power state is On
+        # otherwise we'll set the state to Off in the polling method
         if self._atv.power.power_state is pyatv.const.PowerState.On:
             update['state'] = data.device_state
             if update['state'] == pyatv.const.DeviceState.Playing:
@@ -314,12 +331,13 @@ class AppleTv(object):
 
         # image operations are expensive, so we only do it when the hash changed
         if data.hash != self._prevUpdateHash:
-            try:
-                artwork = await self._atv.metadata.artwork(width=ARTWORK_WIDTH, height=ARTWORK_HEIGHT)
-                artwork_encoded = 'data:image/png;base64,' + base64.b64encode(artwork.bytes).decode('utf-8')
-                update['artwork'] = artwork_encoded
-            except:
-                LOG.warning('Error while updating the artwork')
+            if self._isFeatureAvailable(pyatv.const.FeatureName.Artwork):
+                try:
+                    artwork = await self._atv.metadata.artwork(width=ARTWORK_WIDTH, height=ARTWORK_HEIGHT)
+                    artwork_encoded = 'data:image/png;base64,' + base64.b64encode(artwork.bytes).decode('utf-8')
+                    update['artwork'] = artwork_encoded
+                except:
+                    LOG.warning('Error while updating the artwork')
 
         update['total_time'] = data.total_time
         update['title'] = data.title
