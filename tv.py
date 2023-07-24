@@ -30,7 +30,6 @@ class EVENTS(IntEnum):
     PAIRED = 3
     ERROR = 4
     UPDATE = 5
-    VOLUME_CHANGED = 6
 
 class AppleTv(object):
     def __init__(self, loop):
@@ -84,7 +83,9 @@ class AppleTv(object):
     def volume_update(self, old_level, new_level):
         """"Callback for volume level change"""
         LOG.debug('Volume level: %d', new_level)
-        # TODO: implement me
+        update = {}
+        update['volume'] = new_level
+        self.events.emit(EVENTS.UPDATE, update)
 
     def outputdevices_update(self, old_devices, new_devices):
         """"Callback for output device change, like airplay speaker"""

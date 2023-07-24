@@ -303,10 +303,6 @@ async def event_handler(entityIds):
             async def onUpdate(update):
                 await handleAppleTvUpdate(entityId, update)
 
-            @appleTv.events.on(tv.EVENTS.VOLUME_CHANGED)
-            async def onVolumeUpdate(volume):
-                await handleAppleTvVolumeUpdate(entityId, volume)
-
             await appleTv.connect()
 
 # On unsubscribe, we disconnect the objects and remove listeners for events
@@ -504,6 +500,9 @@ async def handleAppleTvUpdate(entityId, update):
 
         attributes = keyUpdateHelper(entities.media_player.ATTRIBUTES.MEDIA_TYPE, mediaType, attributes, configuredEntity)
 
+    if 'volume' in update:
+        attributes[entities.media_player.ATTRIBUTES.VOLUME] = update['volume']
+
     if entities.media_player.ATTRIBUTES.STATE in attributes:
         if attributes[entities.media_player.ATTRIBUTES.STATE] == entities.media_player.STATES.OFF:
             attributes[entities.media_player.ATTRIBUTES.MEDIA_IMAGE_URL] = ""
@@ -517,11 +516,6 @@ async def handleAppleTvUpdate(entityId, update):
     if attributes:
         api.configuredEntities.updateEntityAttributes(entityId, attributes)
 
-async def handleAppleTvVolumeUpdate(entityId, volume):
-    """"Hnalde the volume update events from the Apple TV"""
-    attributes = {}
-    attributes[entities.media_player.ATTRIBUTES.VOLUME] = volume
-    api.configuredEntities.updateEntityAttributes(entityId, attributes)
 
 def addAvailableAppleTv(identifier, name):
     entity = entities.media_player.MediaPlayer(identifier, name, [
