@@ -337,8 +337,9 @@ async def event_handler(websocket, id, entityId, entityType, cmdId, params):
 
     # If the entity is OFF, we send the turnOn command regardless of the actual command
     if configuredEntity.attributes[entities.media_player.ATTRIBUTES.STATE] == entities.media_player.STATES.OFF:
-        await appleTv.turnOn()
-        await api.acknowledgeCommand(websocket, id)
+        LOG.debug('Apple TV is off, sending turn on command')
+        res = await appleTv.turnOn()
+        await api.acknowledgeCommand(websocket, id, uc.uc.STATUS_CODES.OK if res is True else uc.uc.STATUS_CODES.SERVER_ERROR)
         return
 
     if cmdId == entities.media_player.COMMANDS.PLAY_PAUSE:
@@ -423,9 +424,12 @@ def keyUpdateHelper(key, value, attributes, configuredEntity):
 
 async def handleConnected(identifier):
     LOG.debug('Apple TV connected: %s', identifier)
-    api.configuredEntities.updateEntityAttributes(identifier, {
-        entities.media_player.ATTRIBUTES.STATE: entities.media_player.STATES.STANDBY
-    })
+    configuredEntity = api.configuredEntities.getEntity(identifier)
+
+    if configuredEntity.attributes[entities.media_player.ATTRIBUTES.STATE] == entities.media_player.STATES.UNAVAILABLE:
+        api.configuredEntities.updateEntityAttributes(identifier, {
+            entities.media_player.ATTRIBUTES.STATE: entities.media_player.STATES.STANDBY
+        })
 
 
 async def handleDisconnected(identifier):
@@ -451,9 +455,9 @@ async def handleAppleTvUpdate(entityId, update):
     if 'state' in update:
         state = entities.media_player.STATES.UNKNOWN
 
-        if update['state'] is pyatv.const.PowerState.On:
+        if update['state'] == pyatv.const.PowerState.On:
             state = entities.media_player.STATES.ON
-        elif update['state'] is pyatv.const.DeviceState.Playing:
+        elif update['state'] == pyatv.const.DeviceState.Playing:
             state = entities.media_player.STATES.PLAYING
         elif update['state'] == pyatv.const.DeviceState.Playing:
             state = entities.media_player.STATES.PLAYING
@@ -461,7 +465,7 @@ async def handleAppleTvUpdate(entityId, update):
             state = entities.media_player.STATES.PAUSED
         elif update['state'] == pyatv.const.DeviceState.Idle:
             state = entities.media_player.STATES.PAUSED
-        elif update['state'] is pyatv.const.PowerState.Off:
+        elif update['state'] == pyatv.const.PowerState.Off:
             state = entities.media_player.STATES.OFF
 
         attributes = keyUpdateHelper(entities.media_player.ATTRIBUTES.STATE, state, attributes, configuredEntity)

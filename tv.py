@@ -181,9 +181,6 @@ class AppleTv(object):
         LOG.debug('Connect loop ended')
         self._connectTask = None
 
-        # We get a manual update, to make sure we're in sync
-        await self._getUpdate()
-
         # Add callback listener for various push updates
         self._atv.push_updater.listener = self
         self._atv.push_updater.start()
@@ -279,47 +276,6 @@ class AppleTv(object):
             LOG.debug('Polling was already stopped')
 
 
-    async def _getUpdate(self):
-        LOG.debug('Manually getting update')
-        update = {}
-        data = None
-
-        if self._state == pyatv.const.DeviceState.Playing:
-            try:
-                data = await self._atv.metadata.playing()
-            except:
-                LOG.warning('Could not get metadata yet')
-                return
-
-            try:
-                artwork = await self._atv.metadata.artwork(width=ARTWORK_WIDTH, height=ARTWORK_HEIGHT)
-                artwork_encoded = 'data:image/png;base64,' + base64.b64encode(artwork.bytes).decode('utf-8')
-                update['artwork'] = artwork_encoded
-            except:
-                LOG.warning('Error while updating the artwork')
-
-            if data:
-                update['total_time'] = data.total_time
-                update['title'] = data.title
-
-                if data.artist is not None:
-                    update['artist'] = data.artist
-                else:
-                    update['artist'] = ""
-                
-                if data.album is not None:
-                    update['album'] = data.album
-                else:
-                    update['album'] = ""
-
-                if data.media_type is not None:
-                    update['media_type'] = data.media_type
-
-            if update:
-                LOG.debug('Manual update done')
-                self.events.emit(EVENTS.UPDATE, update)
-
-
     async def _processUpdate(self, data):
         LOG.debug('Push update')
 
@@ -328,14 +284,10 @@ class AppleTv(object):
         # We only update device state (playing, paused, etc) if the power state is On
         # otherwise we'll set the state to Off in the polling method
         self._state = data.device_state
-        update['state'] = data.device_state 
+        update['state'] = data.device_state
 
-        if self._atv.power.power_state is pyatv.const.PowerState.On:
-            update['state'] = data.device_state
-            if update['state'] == pyatv.const.DeviceState.Playing:
-                self._pollInterval = 2
-            else:
-                self._pollInterval = 10
+        if update['state'] == pyatv.const.DeviceState.Playing:
+            self._pollInterval = 2
 
         update['position'] = data.position
 
@@ -391,8 +343,20 @@ class AppleTv(object):
         while True and self._atv is not None:
             update = {}
             
-            if self._atv.power.power_state is pyatv.const.PowerState.Off:
-                update['state'] = self._atv.power.power_state
+            if self._isFeatureAvailable(pyatv.const.FeatureName.PowerState) and (
+                self._state != pyatv.const.DeviceState.Playing
+                and self._state != pyatv.const.DeviceState.Paused
+                and self._state != pyatv.const.DeviceState.Idle
+                and self._state != pyatv.const.DeviceState.Stopped
+                and self._state != pyatv.const.DeviceState.Seeking
+                and self._state != pyatv.const.DeviceState.Loading
+                ): 
+                if  self._atv.power.power_state == pyatv.const.PowerState.Off:
+                    update['state'] = self._atv.power.power_state
+                    self._pollInterval = 10
+                elif self._atv.power.power_state == pyatv.const.PowerState.On:
+                    update['state'] = self._atv.power.power_state
+                    self._pollInterval = 2
 
             if self._isFeatureAvailable(pyatv.const.FeatureName.App):
                 update['source'] = self._atv.metadata.app.name
