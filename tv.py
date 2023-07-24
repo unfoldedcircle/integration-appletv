@@ -48,6 +48,7 @@ class AppleTv(object):
         self._polling = None
         self._pollInterval = 2
         self._prevUpdateHash = None
+        self._state = None
         self._appList = {}
 
     def backoff(self):
@@ -196,6 +197,9 @@ class AppleTv(object):
 
         await self._startPolling()
 
+        if self._atv.features.in_state(pyatv.const.FeatureState.Available, pyatv.const.FeatureName.AppList):
+            self._loop.create_task(self._updateAppList())
+
         self.events.emit(EVENTS.CONNECTED, self.identifier)
         LOG.debug("Connected")
 
@@ -320,6 +324,8 @@ class AppleTv(object):
 
         # We only update device state (playing, paused, etc) if the power state is On
         # otherwise we'll set the state to Off in the polling method
+        self._state = data.device_state
+
         if self._atv.power.power_state is pyatv.const.PowerState.On:
             update['state'] = data.device_state
             if update['state'] == pyatv.const.DeviceState.Playing:
@@ -331,7 +337,7 @@ class AppleTv(object):
 
         # image operations are expensive, so we only do it when the hash changed
         if data.hash != self._prevUpdateHash:
-            if self._isFeatureAvailable(pyatv.const.FeatureName.Artwork):
+            if self._state == pyatv.const.DeviceState.Playing:
                 try:
                     artwork = await self._atv.metadata.artwork(width=ARTWORK_WIDTH, height=ARTWORK_HEIGHT)
                     artwork_encoded = 'data:image/png;base64,' + base64.b64encode(artwork.bytes).decode('utf-8')
@@ -362,6 +368,22 @@ class AppleTv(object):
         self._prevUpdateHash = data.hash
         self.events.emit(EVENTS.UPDATE, update)
 
+    async def _updateAppList(self):
+        LOG.debug('Updating app list')
+        update = {}
+        
+        try:
+            update['sourceList'] = []
+            appList = await self._atv.apps.app_list()
+            for app in appList:
+                self._appList[app.name] = app.identifier
+                update['sourceList'].append(app.name)
+        except pyatv.exceptions.NotSupportedError:
+            LOG.warning('App list is not supported')
+        except pyatv.exceptions.ProtocolError:
+            LOG.warning('App list: protocol error')
+        
+        self.events.emit(EVENTS.UPDATE, update)
 
     async def _pollWorker(self): 
         while True and self._atv is not None:
@@ -373,24 +395,11 @@ class AppleTv(object):
                 try:
                     data = await self._atv.metadata.playing()
                     update['state'] = data.device_state                
-                    update['sourceList'] = []
                 except:
                     LOG.debug('Error while getting playing metadata')
 
-                if self._atv.features.in_state(pyatv.const.FeatureState.Available, pyatv.const.FeatureName.AppList):
-                    try:
-                        appList = await self._atv.apps.app_list()
-                        for app in appList:
-                            self._appList[app.name] = app.identifier
-                            update['sourceList'].append(app.name)
-                    except pyatv.exceptions.NotSupportedError:
-                        LOG.warning('App list is not supported')
-                    except pyatv.exceptions.ProtocolError:
-                        LOG.warning('App list: protocol error')
-
-                if self._isFeatureAvailable(pyatv.const.FeatureName.App):
-                    update['source'] = self._atv.metadata.app.name
-
+            if self._isFeatureAvailable(pyatv.const.FeatureName.App):
+                update['source'] = self._atv.metadata.app.name
 
             self.events.emit(EVENTS.UPDATE, update)
             await asyncio.sleep(self._pollInterval)

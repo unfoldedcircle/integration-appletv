@@ -245,6 +245,12 @@ async def event_handler():
 # When the core disconnects, we just set the device state
 @api.events.on(uc.uc.EVENTS.DISCONNECT)
 async def event_handler():
+    for entityId in configuredAppleTvs:
+        LOG.debug('Client disconnected, disconnecting all Apple TVs')
+        appleTv = configuredAppleTvs[entityId]
+        await appleTv.disconnect()
+        appleTv.events.remove_all_listeners()
+
     await api.setDeviceState(uc.uc.DEVICE_STATES.DISCONNECTED)
 
 # On standby, we disconnect every Apple TV objects
