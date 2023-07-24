@@ -47,7 +47,6 @@ class AppleTv(object):
         self._pairingProcess = None
         self._polling = None
         self._pollInterval = 2
-        self._prevUpdateHash = None
         self._state = None
         self._appList = {}
 
@@ -283,38 +282,42 @@ class AppleTv(object):
     async def _getUpdate(self):
         LOG.debug('Manually getting update')
         update = {}
+        data = None
 
-        try:
-            data = await self._atv.metadata.playing()
-        except:
-            LOG.warning('Could not get metadata yet')
-            return
+        if self._state == pyatv.const.DeviceState.Playing:
+            try:
+                data = await self._atv.metadata.playing()
+            except:
+                LOG.warning('Could not get metadata yet')
+                return
 
-        try:
-            artwork = await self._atv.metadata.artwork(width=ARTWORK_WIDTH, height=ARTWORK_HEIGHT)
-            artwork_encoded = 'data:image/png;base64,' + base64.b64encode(artwork.bytes).decode('utf-8')
-            update['artwork'] = artwork_encoded
-        except:
-            LOG.warning('Error while updating the artwork')
+            try:
+                artwork = await self._atv.metadata.artwork(width=ARTWORK_WIDTH, height=ARTWORK_HEIGHT)
+                artwork_encoded = 'data:image/png;base64,' + base64.b64encode(artwork.bytes).decode('utf-8')
+                update['artwork'] = artwork_encoded
+            except:
+                LOG.warning('Error while updating the artwork')
 
-        update['total_time'] = data.total_time
-        update['title'] = data.title
+            if data:
+                update['total_time'] = data.total_time
+                update['title'] = data.title
 
-        if data.artist is not None:
-            update['artist'] = data.artist
-        else:
-            update['artist'] = ""
-        
-        if data.album is not None:
-            update['album'] = data.album
-        else:
-            update['album'] = ""
+                if data.artist is not None:
+                    update['artist'] = data.artist
+                else:
+                    update['artist'] = ""
+                
+                if data.album is not None:
+                    update['album'] = data.album
+                else:
+                    update['album'] = ""
 
-        if data.media_type is not None:
-            update['media_type'] = data.media_type
+                if data.media_type is not None:
+                    update['media_type'] = data.media_type
 
-        if data:
-            self.events.emit(EVENTS.UPDATE, update)
+            if update:
+                LOG.debug('Manual update done')
+                self.events.emit(EVENTS.UPDATE, update)
 
 
     async def _processUpdate(self, data):
@@ -325,6 +328,7 @@ class AppleTv(object):
         # We only update device state (playing, paused, etc) if the power state is On
         # otherwise we'll set the state to Off in the polling method
         self._state = data.device_state
+        update['state'] = data.device_state 
 
         if self._atv.power.power_state is pyatv.const.PowerState.On:
             update['state'] = data.device_state
@@ -336,14 +340,13 @@ class AppleTv(object):
         update['position'] = data.position
 
         # image operations are expensive, so we only do it when the hash changed
-        if data.hash != self._prevUpdateHash:
-            if self._state == pyatv.const.DeviceState.Playing:
-                try:
-                    artwork = await self._atv.metadata.artwork(width=ARTWORK_WIDTH, height=ARTWORK_HEIGHT)
-                    artwork_encoded = 'data:image/png;base64,' + base64.b64encode(artwork.bytes).decode('utf-8')
-                    update['artwork'] = artwork_encoded
-                except:
-                    LOG.warning('Error while updating the artwork')
+        if self._state == pyatv.const.DeviceState.Playing:
+            try:
+                artwork = await self._atv.metadata.artwork(width=ARTWORK_WIDTH, height=ARTWORK_HEIGHT)
+                artwork_encoded = 'data:image/png;base64,' + base64.b64encode(artwork.bytes).decode('utf-8')
+                update['artwork'] = artwork_encoded
+            except:
+                LOG.warning('Error while updating the artwork')
 
         update['total_time'] = data.total_time
         update['title'] = data.title
@@ -365,7 +368,6 @@ class AppleTv(object):
         # TODO: data.repeat: All, Off, Track
         # TODO: data.shuffle
 
-        self._prevUpdateHash = data.hash
         self.events.emit(EVENTS.UPDATE, update)
 
     async def _updateAppList(self):
@@ -391,12 +393,6 @@ class AppleTv(object):
             
             if self._atv.power.power_state is pyatv.const.PowerState.Off:
                 update['state'] = self._atv.power.power_state
-            else:
-                try:
-                    data = await self._atv.metadata.playing()
-                    update['state'] = data.device_state                
-                except:
-                    LOG.debug('Error while getting playing metadata')
 
             if self._isFeatureAvailable(pyatv.const.FeatureName.App):
                 update['source'] = self._atv.metadata.app.name
