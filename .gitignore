@@ -1,4 +1,6 @@
-
 credentials.json
 .DS_Store
 config.json
+env
+licenses.json
+tools/licenses.md
