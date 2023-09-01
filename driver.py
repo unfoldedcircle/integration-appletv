@@ -36,7 +36,7 @@ async def storeCofig():
     global config
     f = None
     try:
-        f= open(dataPath + '/config.json', 'w+')
+        f= open(dataPath + '/config.json', 'w+', encoding='utf-8')
     except OSError:
         LOG.error('Cannot write the config file')
         return
@@ -50,7 +50,7 @@ async def loadConfig():
     global config
     f = None
     try:
-        f = open(dataPath + '/config.json', 'r')
+        f = open(dataPath + '/config.json', 'r', encoding='utf-8')
     except OSError:
         LOG.error('Cannot open the config file')
     
