@@ -41,9 +41,7 @@ async def storeCofig():
         LOG.error('Cannot write the config file')
         return
 
-    processed_json_data = config.encode('utf-8').decode('unicode_escape')
-
-    json.dump(processed_json_data, f, ensure_ascii=False)
+    json.dump(config, f, ensure_ascii=False)
 
     f.close()
 
