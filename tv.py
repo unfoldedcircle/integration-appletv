@@ -372,10 +372,7 @@ class AppleTv(object):
         return False
                 
 
-    async def _commandWrapper(self, fn):     
-        if self._atv is None:
-            return False
-           
+    async def _commandWrapper(self, fn):   
         try:
             await fn()
             return True
@@ -384,53 +381,104 @@ class AppleTv(object):
         
 
     async def turnOn(self):
+        if self._atv is None:
+            return False
+        
         return await self._commandWrapper(self._atv.power.turn_on)
     
     async def turnOff(self):
+        if self._atv is None:
+            return False
+        
         return await self._commandWrapper(self._atv.power.turn_off)
     
     async def playPause(self):
+        if self._atv is None:
+            return False
+        
         return await self._commandWrapper(self._atv.remote_control.play_pause)
     
     async def next(self):
+        if self._atv is None:
+            return False
+        
         return await self._commandWrapper(self._atv.remote_control.next)
     
     async def previous(self):
+        if self._atv is None:
+            return False
+        
         return await self._commandWrapper(self._atv.remote_control.previous)
     
     async def volumeUp(self):
+        if self._atv is None:
+            return False
+        
         return await self._commandWrapper(self._atv.audio.volume_up)
     
     async def volumeDown(self):
+        if self._atv is None:
+            return False
+        
         return await self._commandWrapper(self._atv.audio.volume_down)
     
     async def cursorUp(self):
+        if self._atv is None:
+            return False
+        
         return await self._commandWrapper(self._atv.remote_control.up)
     
     async def cursorDown(self):
+        if self._atv is None:
+            return False
+        
         return await self._commandWrapper(self._atv.remote_control.down)
     
     async def cursorLeft(self):
+        if self._atv is None:
+            return False
+        
         return await self._commandWrapper(self._atv.remote_control.left)
     
     async def cursorRight(self):
+        if self._atv is None:
+            return False
+        
         return await self._commandWrapper(self._atv.remote_control.right)
     
     async def cursorEnter(self):
+        if self._atv is None:
+            return False
+        
         return await self._commandWrapper(self._atv.remote_control.select)
     
     async def home(self):
+        if self._atv is None:
+            return False
+        
         return await self._commandWrapper(self._atv.remote_control.home)
     
     async def menu(self):
+        if self._atv is None:
+            return False
+        
         return await self._commandWrapper(self._atv.remote_control.menu)
     
     async def channelUp(self):
+        if self._atv is None:
+            return False
+        
         return await self._commandWrapper(self._atv.remote_control.channel_up)
     
     async def channelDown(self):
+        if self._atv is None:
+            return False
+        
         return await self._commandWrapper(self._atv.remote_control.channel_down)
     
     async def launchApp(self, appName):
+        if self._atv is None:
+            return False
+        
         await self._atv.apps.launch_app(self._appList[appName])
         return True
