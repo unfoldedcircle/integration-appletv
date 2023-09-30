@@ -16,7 +16,7 @@ miniaudio==1.56
 multidict==6.0.4
 mutagen==1.46.0
 protobuf==4.22.3
-pyatv==0.13.2
+pyatv==0.14.1
 pycparser==2.21
 pyee==9.0.4
 requests==2.29.0
@@ -26,4 +26,4 @@ typing_extensions==4.5.0
 urllib3==1.26.15
 websockets==11.0.2
 yarl==1.9.2
-zeroconf==0.58.2
+zeroconf>=0.72.0
