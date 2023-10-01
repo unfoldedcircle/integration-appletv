@@ -29,7 +29,7 @@
 				"field": {
 					"label": {
 						"value": {
-							"en": "The integration will discover your Apple TV on your network. During the process, you might need to enter multiple PINs that are shown on your Apple Tv.",
+							"en": "The integration will discover your Apple TV on your network. During the process, you might need to enter multiple PINs that are shown on your Apple Tv. Please make sure to set Airplay access to `Anyone on the Same Network` in Apple Tv settings.",
 							"de": "Diese Integration dient zur Apple TV Steuerung."
 						}
 					}
