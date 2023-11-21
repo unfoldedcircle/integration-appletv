@@ -33,13 +33,6 @@ jobs:
           git fetch origin +refs/tags/*:refs/tags/*
           echo "VERSION=$(git describe --match "v[0-9]*" --tags HEAD --always)" >> $GITHUB_ENV
 
-      # We need the integration library, this is temporary until we decide to publish it to pypi
-      - name: Clone integrations library
-        shell: bash
-        run: |
-          git clone https://martonborzak:${{ secrets.PAT }}@github.com/aitatoi/integration-python-library.git --branch v0.0.10
-          ls -lah
-          
       - name: Verify driver.json version for release build
         if: contains(github.ref, 'tags/v')
         run: |
@@ -60,19 +53,10 @@ jobs:
             -v ${GITHUB_WORKSPACE}:/workspace \
             docker.io/unfoldedcircle/r2-pyinstaller:${PYTHON_VER} \
             bash -c \
-            "cd /workspace/integration-python-library && \
-              python setup.py bdist_wheel && \
-              pip install -I dist/ucapi-0.0.10-py3-none-any.whl && \
-              cd /workspace && \
+            "cd /workspace && \
               python -m pip install -r requirements.txt && \
-              pyinstaller --clean --onefile --name intg-appletv --collect-all zeroconf driver.py"
+              pyinstaller --clean --onefile --name intg-appletv --collect-all zeroconf intg-appletv/driver.py"
 
-      - name: Add version
-        run: |
-          mkdir -p artifacts
-          cd artifacts
-          echo ${{ env.VERSION }} > version.txt
-          
       - name: Prepare artifacts
         shell: bash
         run: |

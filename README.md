@@ -26,50 +26,89 @@ Supported commands:
 - Play/pause
 
 
+## Usage
+### Setup
+
+- Requires Python 3.11
+- Install required libraries:  
+  (using a [virtual environment](https://docs.python.org/3/library/venv.html) is highly recommended)
+```shell
+pip3 install -r requirements.txt
+```
+
+For running a separate integration driver on your network for Remote Two, the configuration in file
+[driver.json](driver.json) needs to be changed:
+
+- Set `driver_id` to a unique value, `uc_appletv_driver` is already used for the embedded driver in the firmware.
+- Change `name` to easily identify the driver for discovery & setup  with Remote Two or the web-configurator.
+- Optionally add a `"port": 8090` field for the WebSocket server listening port.
+    - Default port: `9090`
+    - Also overrideable with environment variable `UC_INTEGRATION_HTTP_PORT`
+
+### Run
+
+```shell
+python3 intg-appletv/driver.py
+```
+
+See available [environment variables](https://github.com/unfoldedcircle/integration-python-library#environment-variables)
+in the Python integration library to control certain runtime features like listening interface and configuration directory.
+
 ## Build self-contained binary
 
-After some tests, turns out python stuff on embedded is a nightmare. So we're better off creating a single binary file that has everything in it.
+After some tests, turns out python stuff on embedded is a nightmare. So we're better off creating a single binary file
+that has everything in it.
 
 To do that, we need to compile it on the target architecture as `pyinstaller` does not support cross compilation.
 
-The following can be used on x86 Linux:
+### x86-64 Linux
 
+On x86-64 Linux we need Qemu to emulate the aarch64 target platform:
 ```bash
-sudo apt-get install qemu binfmt-support qemu-user-static
+sudo apt install qemu binfmt-support qemu-user-static
 docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-docker run --platform=aarch64 -v "$PWD:/io" -it ubuntu:focal
-
-cd /io
-apt-get update && apt-get install -y python3-pip
-pip3 install pyinstaller -r requirements.txt
-pyinstaller --clean --onefile driver.py
 ```
 
-## Licenses
-
-To generate the license overview file for remote-ui, [pip-licenses](https://pypi.org/project/pip-licenses/) is used
-to extract the license information in JSON format. The output JSON is then transformed in a Markdown file with a
-custom script.
-
-Create a virtual environment for pip-licenses, since it operates on the packages installed with pip:
-```bash
-python3 -m venv env
-source env/bin/activate
-pip3 install -r requirements.txt
-```
-Exit `venv` with `deactivate`.
-
-Gather licenses:
-```bash
-pip-licenses --python ./env/bin/python \
-  --with-description --with-urls \
-  --with-license-file --no-license-path \
-  --with-notice-file \
-  --format=json > licenses.json
+Run pyinstaller:
+```shell
+docker run --rm --name builder \
+    --platform=aarch64 \
+    --user=$(id -u):$(id -g) \
+    -v "$PWD":/workspace \
+    docker.io/unfoldedcircle/r2-pyinstaller:3.11.6  \
+    bash -c \
+      "python -m pip install -r requirements.txt && \
+      pyinstaller --clean --onefile --name intg-appletv intg-appletv/driver.py"
 ```
 
-Transform:
-```bash
-cd tools
-node transform-pip-licenses.js ../licenses.json licenses.md
+### aarch64 Linux / Mac
+
+On an aarch64 host platform, the build image can be run directly (and much faster):
+```shell
+docker run --rm --name builder \
+    --user=$(id -u):$(id -g) \
+    -v "$PWD":/workspace \
+    docker.io/unfoldedcircle/r2-pyinstaller:3.11.6  \
+    bash -c \
+      "python -m pip install -r requirements.txt && \
+      pyinstaller --clean --onefile --name intg-appletv intg-appletv/driver.py"
 ```
+
+## Versioning
+
+We use [SemVer](http://semver.org/) for versioning. For the versions available, see the
+[tags and releases in this repository](https://github.com/unfoldedcircle/integration-appletv/releases).
+
+## Changelog
+
+The major changes found in each new release are listed in the [changelog](CHANGELOG.md)
+and under the GitHub [releases](https://github.com/unfoldedcircle/integration-appletv/releases).
+
+## Contributions
+
+Please read our [contribution guidelines](CONTRIBUTING.md) before opening a pull request.
+
+## License
+
+This project is licensed under the [**Mozilla Public License 2.0**](https://choosealicense.com/licenses/mpl-2.0/).
+See the [LICENSE](LICENSE) file for details.
