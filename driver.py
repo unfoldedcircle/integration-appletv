@@ -266,8 +266,6 @@ async def event_handler():
 async def event_handler():
     global configuredAppleTvs
 
-    await asyncio.sleep(2)
-
     for appleTv in configuredAppleTvs:
         await configuredAppleTvs[appleTv].connect()
 
