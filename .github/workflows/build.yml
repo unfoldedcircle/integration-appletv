@@ -37,7 +37,7 @@ jobs:
       - name: Clone integrations library
         shell: bash
         run: |
-          git clone https://martonborzak:${{ secrets.PAT }}@github.com/aitatoi/integration-python-library.git
+          git clone https://martonborzak:${{ secrets.PAT }}@github.com/aitatoi/integration-python-library.git --branch v0.0.10
           ls -lah
           
       - name: Verify driver.json version for release build
