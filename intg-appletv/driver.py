@@ -29,38 +29,38 @@ pairing_apple_tv = None
 
 
 # DRIVER SETUP
-@api.events.on(uc.uc.EVENTS.SETUP_DRIVER)
-async def on_setup_driver(websocket, req_id, _data):
-    LOG.debug("Starting driver setup")
-    config.devices.clear()
-    await api.acknowledge_command(websocket, req_id)
-    await api.driver_setup_progress(websocket)
-
-    LOG.debug("Starting Apple TV discovery")
-    tvs = await discover.apple_tvs(LOOP)
-    dropdown_items = []
-
-    for device in tvs:
-        tv_data = {"id": device.identifier, "label": {"en": device.name + " TvOS " + str(device.device_info.version)}}
-
-        dropdown_items.append(tv_data)
-
-    if not dropdown_items:
-        LOG.warning("No Apple TVs found")
-        await api.driver_setup_error(websocket)
-        return
-
-    await api.request_driver_setup_user_input(
-        websocket,
-        "Please choose your Apple TV",
-        [
-            {
-                "field": {"dropdown": {"value": dropdown_items[0]["id"], "items": dropdown_items}},
-                "id": "choice",
-                "label": {"en": "Choose your Apple TV"},
-            }
-        ],
-    )
+# @api.events.on(uc.uc.EVENTS.SETUP_DRIVER)
+# async def on_setup_driver(websocket, req_id, _data):
+#     LOG.debug("Starting driver setup")
+#     config.devices.clear()
+#     await api.acknowledge_command(websocket, req_id)
+#     await api.driver_setup_progress(websocket)
+#
+#     LOG.debug("Starting Apple TV discovery")
+#     tvs = await discover.apple_tvs(LOOP)
+#     dropdown_items = []
+#
+#     for device in tvs:
+#         tv_data = {"id": device.identifier, "label": {"en": device.name + " TvOS " + str(device.device_info.version)}}
+#
+#         dropdown_items.append(tv_data)
+#
+#     if not dropdown_items:
+#         LOG.warning("No Apple TVs found")
+#         await api.driver_setup_error(websocket)
+#         return
+#
+#     await api.request_driver_setup_user_input(
+#         websocket,
+#         "Please choose your Apple TV",
+#         [
+#             {
+#                 "field": {"dropdown": {"value": dropdown_items[0]["id"], "items": dropdown_items}},
+#                 "id": "choice",
+#                 "label": {"en": "Choose your Apple TV"},
+#             }
+#         ],
+#     )
 
 
 @api.events.on(uc.uc.EVENTS.SETUP_DRIVER_USER_DATA)
