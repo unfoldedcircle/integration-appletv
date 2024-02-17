@@ -15,37 +15,58 @@ on:
 env:
   INTG_NAME: appletv
   HASH_FILENAME: uc-intg-appletv.hash
-  
+  # Python version to use in the builder image. See https://hub.docker.com/r/unfoldedcircle/r2-pyinstaller for possible versions.
+  PYTHON_VER: 3.11.6-0.2.0
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-        
-      # We need the integration library, this is temporary until we decide to publish it to pypi  
-      - name: Clone integrations library
-        shell: bash
-        run: |
-          git clone https://martonborzak:${{ secrets.PAT }}@github.com/aitatoi/integration-python-library.git
-          ls -lah
-          
-      - name: Prepare
-        run: |
-          sudo apt-get update && sudo apt-get install -y qemu binfmt-support qemu-user-static
-          docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-          docker run --name builder --platform=aarch64 -v ${GITHUB_WORKSPACE}:/io -d ubuntu:focal tail -f /dev/null
-          
-          docker exec builder bash -c "apt-get update && apt-get install -y python3-pip"
-          docker exec builder bash -c "cd /io/integration-python-library && python3 setup.py bdist_wheel && pip3 install -I dist/ucapi-0.0.10-py3-none-any.whl"
-          docker exec builder bash -c "pip3 install pyinstaller -r /io/requirements.txt"
-          docker exec builder bash -c "cd /io && pyinstaller --clean --onefile --name intg-appletv driver.py"
-            
+        with:
+          # History of 200 should be more than enough to calculate commit count since last release tag.
+          fetch-depth: 200
+
       - name: Fetch all tags to determine version
         run: |
           git fetch origin +refs/tags/*:refs/tags/*
           echo "VERSION=$(git describe --match "v[0-9]*" --tags HEAD --always)" >> $GITHUB_ENV
+
+      # We need the integration library, this is temporary until we decide to publish it to pypi
+      - name: Clone integrations library
+        shell: bash
+        run: |
+          git clone https://martonborzak:${{ secrets.PAT }}@github.com/aitatoi/integration-python-library.git --branch v0.0.10
+          ls -lah
           
+      - name: Verify driver.json version for release build
+        if: contains(github.ref, 'tags/v')
+        run: |
+          DRIVER_VERSION="v$(jq .version -r driver.json)"
+          if [ "${{ env.VERSION }}" != "$DRIVER_VERSION" ]; then
+            echo "Version in driver.json ($DRIVER_VERSION) doesn't match git version tag (${{ env.VERSION }})!"
+            exit 1
+          fi
+
+      - name: Build
+        run: |
+          sudo apt-get update && sudo apt-get install -y qemu binfmt-support qemu-user-static
+          docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+          echo "Starting pyinstaller build"
+          docker run --rm --name builder \
+            --platform=aarch64 \
+            --user=$(id -u):$(id -g) \
+            -v ${GITHUB_WORKSPACE}:/workspace \
+            docker.io/unfoldedcircle/r2-pyinstaller:${PYTHON_VER} \
+            bash -c \
+            "cd /workspace/integration-python-library && \
+              python setup.py bdist_wheel && \
+              pip install -I dist/ucapi-0.0.10-py3-none-any.whl && \
+              cd /workspace && \
+              python -m pip install -r requirements.txt && \
+              pyinstaller --clean --onefile --name intg-appletv --collect-all zeroconf driver.py"
+
       - name: Add version
         run: |
           mkdir -p artifacts
