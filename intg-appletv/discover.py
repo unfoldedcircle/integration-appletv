@@ -1,7 +1,7 @@
 """
 Apple TV device discovery.
 
-:copyright: (c) 2023 by Unfolded Circle ApS.
+:copyright: (c) 2023-2024 by Unfolded Circle ApS.
 :license: Mozilla Public License Version 2.0, see LICENSE for more details.
 """
 
@@ -15,7 +15,7 @@ _LOG = logging.getLogger(__name__)
 
 
 async def apple_tvs(loop: AbstractEventLoop) -> list[dict]:
-    """"Discover Apple TVs on the network using pyatv.scan"""
+    """Discover Apple TVs on the network using pyatv.scan."""
     _LOG.debug("Starting discovery")
 
     # extra safety, if anything goes wrong here the reconnection logic is dead

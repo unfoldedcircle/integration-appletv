@@ -2,7 +2,7 @@
 """
 This module implements a Remote Two integration driver for Apple TV devices.
 
-:copyright: (c) 2023 by Unfolded Circle ApS.
+:copyright: (c) 2023-2024 by Unfolded Circle ApS.
 :license: Mozilla Public License Version 2.0, see LICENSE for more details.
 """
 
@@ -11,7 +11,6 @@ import logging
 import os
 
 import config
-import discover
 import pyatv
 import pyatv.const
 import tv

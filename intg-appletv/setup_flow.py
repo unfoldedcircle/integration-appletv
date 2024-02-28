@@ -1,8 +1,8 @@
 """
 Setup flow for Apple TV Remote integration.
 
-:copyright: (c) 2023 by Unfolded Circle ApS.
-:license: MPL-2.0, see LICENSE for more details.
+:copyright: (c) 2023-2024 by Unfolded Circle ApS.
+:license: Mozilla Public License Version 2.0, see LICENSE for more details.
 """
 
 import asyncio
@@ -11,15 +11,14 @@ from enum import IntEnum
 
 import config
 import discover
+import pyatv
 import tv
-import ucapi
-from config import AtvDevice
 from ucapi import (
     AbortDriverSetup,
     DriverSetupRequest,
     IntegrationSetupError,
-    RequestUserInput,
     RequestUserConfirmation,
+    RequestUserInput,
     SetupAction,
     SetupComplete,
     SetupDriver,
@@ -102,7 +101,7 @@ async def handle_driver_setup(_msg: DriverSetupRequest) -> RequestUserInput | Se
     #     _pairing_android_tv = None
     config.devices.clear()
 
-    tvs = await discover.apple_tvs(LOOP)
+    tvs = await discover.apple_tvs(asyncio.get_event_loop())
     dropdown_items = []
 
     for device in tvs:
@@ -137,14 +136,13 @@ async def handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Setu
     :return: the setup action on how to continue.
     """
     global pairing_apple_tv
-    global _setup_step
 
     choice = msg.input_values["choice"]
     # name = ""
     _LOG.debug("Chosen Apple TV: %s", choice)
 
     # Create a new AppleTv object
-    pairing_apple_tv = tv.AppleTv(LOOP)
+    pairing_apple_tv = tv.AppleTv(asyncio.get_event_loop())
     pairing_apple_tv.pairing_atv = await pairing_apple_tv.find_atv(choice)
 
     if pairing_apple_tv.pairing_atv is None:
@@ -171,11 +169,10 @@ async def handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Setu
             ],
         )
 
-    else:
-        _LOG.debug("We provide PIN")
-        # FIXME handle finish_pairing() in next step!
-        await pairing_apple_tv.finish_pairing()
-        return RequestUserConfirmation("Please enter the following PIN on your Apple TV:" + res)
+    _LOG.debug("We provide PIN")
+    # FIXME handle finish_pairing() in next step!
+    await pairing_apple_tv.finish_pairing()
+    return RequestUserConfirmation("Please enter the following PIN on your Apple TV:" + res)
 
     # # no better error code right now
     # return SetupError(error_type=IntegrationSetupError.CONNECTION_REFUSED)
@@ -217,11 +214,10 @@ async def handle_user_data_airplay_pin(msg: UserDataResponse) -> RequestUserInpu
             ],
         )
 
-    else:
-        _LOG.debug("We provide PIN")
-        # FIXME handle finish_pairing() in next step!
-        await pairing_apple_tv.finish_pairing()
-        return RequestUserConfirmation("Please enter the following PIN on your Apple TV:" + res)
+    _LOG.debug("We provide PIN")
+    # FIXME handle finish_pairing() in next step!
+    await pairing_apple_tv.finish_pairing()
+    return RequestUserConfirmation("Please enter the following PIN on your Apple TV:" + res)
 
     # global _pairing_android_tv
     #
