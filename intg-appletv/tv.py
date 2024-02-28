@@ -103,6 +103,7 @@ class AppleTv:
     """Representing an Apple TV Device."""
 
     _loop: AbstractEventLoop
+    identifier: str | None
     _pairing_process = pyatv.interface.PairingHandler | None
     _credentials = list[dict[str, str]]
 
