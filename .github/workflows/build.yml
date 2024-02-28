@@ -58,6 +58,12 @@ jobs:
               python -m pip install -r requirements.txt && \
               pyinstaller --clean --onefile --name intg-appletv --collect-all zeroconf intg-appletv/driver.py"
 
+      - name: Add version
+        run: |
+          mkdir -p artifacts
+          cd artifacts
+          echo ${{ env.VERSION }} > version.txt
+
       - name: Prepare artifacts
         shell: bash
         run: |
