@@ -17,6 +17,7 @@ from typing import Any, Awaitable, Callable, Concatenate, Coroutine, ParamSpec, 
 import pyatv
 import pyatv.const
 import ucapi
+from pyatv.const import InputAction
 from pyee import AsyncIOEventEmitter
 
 LOG = logging.getLogger(__name__)
@@ -176,7 +177,7 @@ class AppleTv:
         """Volume level change callback."""
         LOG.debug("Volume level: %d", new_level)
         update = {"volume": new_level}
-        self.events.emit(EVENTS.UPDATE, update)
+        self.events.emit(EVENTS.UPDATE, self.identifier, update)
 
     def outputdevices_update(self, old_devices, new_devices) -> None:
         """Output device change callback handler, for example airplay speaker."""
@@ -412,7 +413,7 @@ class AppleTv:
         # TODO: data.repeat: All, Off, Track
         # TODO: data.shuffle
 
-        self.events.emit(EVENTS.UPDATE, update)
+        self.events.emit(EVENTS.UPDATE, self.identifier, update)
 
     async def _update_app_list(self) -> None:
         LOG.debug("Updating app list")
@@ -429,7 +430,7 @@ class AppleTv:
         except pyatv.exceptions.ProtocolError:
             LOG.warning("App list: protocol error")
 
-        self.events.emit(EVENTS.UPDATE, update)
+        self.events.emit(EVENTS.UPDATE, self.identifier, update)
 
     async def _poll_worker(self) -> None:
         while self._atv is not None:
@@ -456,7 +457,7 @@ class AppleTv:
             if self._is_feature_available(pyatv.const.FeatureName.App):
                 update["source"] = self._atv.metadata.app.name
 
-            self.events.emit(EVENTS.UPDATE, update)
+            self.events.emit(EVENTS.UPDATE, self.identifier, update)
             await asyncio.sleep(self._poll_interval)
 
     def _is_feature_available(self, feature: pyatv.const.FeatureName) -> bool:
@@ -525,14 +526,29 @@ class AppleTv:
         await self._atv.remote_control.select()
 
     @async_handle_atvlib_errors
+    async def cursor_enter_hold(self) -> ucapi.StatusCodes:
+        """Press and hold select key for one second."""
+        await self._atv.remote_control.select(InputAction.Hold)
+
+    @async_handle_atvlib_errors
     async def home(self) -> ucapi.StatusCodes:
         """Press key home."""
         await self._atv.remote_control.home()
 
     @async_handle_atvlib_errors
+    async def home_hold(self) -> ucapi.StatusCodes:
+        """Press and hold home key for one second."""
+        await self._atv.remote_control.home(InputAction.Hold)
+
+    @async_handle_atvlib_errors
     async def menu(self) -> ucapi.StatusCodes:
         """Press key menu."""
         await self._atv.remote_control.menu()
+
+    @async_handle_atvlib_errors
+    async def menu_hold(self) -> ucapi.StatusCodes:
+        """Press and hold menu key for one second."""
+        await self._atv.remote_control.menu(InputAction.Hold)
 
     @async_handle_atvlib_errors
     async def channel_up(self) -> ucapi.StatusCodes:
@@ -548,3 +564,8 @@ class AppleTv:
     async def launch_app(self, app_name: str) -> ucapi.StatusCodes:
         """Launch an app based on bundle ID or URL."""
         await self._atv.apps.launch_app(self._app_list[app_name])
+
+    @async_handle_atvlib_errors
+    async def app_switcher(self) -> ucapi.StatusCodes:
+        """Press the TV/Control Center button two times to open the App Switcher."""
+        await self._atv.remote_control.home(InputAction.DoubleTap)
