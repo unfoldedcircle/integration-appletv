@@ -92,7 +92,7 @@ def async_handle_atvlib_errors(
                 self._receiver.host,
                 err,
             )
-        except Exception as err:
+        except Exception as err:  # pylint: disable=broad-exception-caught
             LOG.exception("Error %s occurred in method %s%s for ATV %s", err, func.__name__, args, self._receiver.host)
         return result
 
@@ -114,7 +114,7 @@ class AppleTv:
         """Create instance."""
         self._loop = loop or asyncio.get_running_loop()
         self.events = AsyncIOEventEmitter(self._loop)
-        self.is_on = False
+        self._is_on = False
         self._atv = None
         self.name = ""
         self.identifier = None
@@ -127,6 +127,13 @@ class AppleTv:
         self._poll_interval = 2
         self._state = None
         self._app_list = {}
+
+    @property
+    def is_on(self) -> bool | None:
+        """Whether the Apple TV is on or off. Returns None if not connected."""
+        if self._atv is None:
+            return None
+        return self._is_on
 
     def _backoff(self) -> float:
         if self._connection_attempts * BACKOFF_SEC >= BACKOFF_MAX:
@@ -238,21 +245,21 @@ class AppleTv:
 
     async def connect(self) -> None:
         """Establish connection to ATV."""
-        if self.is_on is True:
+        if self._is_on is True:
             return
-        self.is_on = True
+        self._is_on = True
         self.events.emit(EVENTS.CONNECTING, self.identifier)
         self._start_connect_loop()
 
     def _start_connect_loop(self) -> None:
-        if not self._connect_task and self._atv is None and self.is_on:
+        if not self._connect_task and self._atv is None and self._is_on:
             self._connect_task = asyncio.create_task(self._connect_loop())
         else:
-            LOG.debug("Not starting connect loop (Atv: %s, isOn: %s)", self._atv is None, self.is_on)
+            LOG.debug("Not starting connect loop (Atv: %s, isOn: %s)", self._atv is None, self._is_on)
 
     async def _connect_loop(self) -> None:
         LOG.debug("Starting connect loop")
-        while self.is_on and self._atv is None:
+        while self._is_on and self._atv is None:
             await self._connect_once()
             if self._atv is not None:
                 break
@@ -292,7 +299,7 @@ class AppleTv:
             return
         except asyncio.CancelledError:
             pass
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             LOG.warning("Could not connect")
             self._atv = None
 
@@ -324,9 +331,10 @@ class AppleTv:
     async def disconnect(self) -> None:
         """Disconnect from ATV."""
         LOG.debug("Disconnecting from device")
-        self.is_on = False
+        self._is_on = False
         await self._stop_polling()
 
+        # FIXME error handling
         try:
             if self._atv:
                 self._atv.close()
@@ -335,8 +343,8 @@ class AppleTv:
                 self._connect_task.cancel()
                 self._connect_task = None
             self.events.emit(EVENTS.DISCONNECTED, self.identifier)
-        except Exception:
-            LOG.exception("An error occured while disconnecting")
+        except Exception:  # pylint: disable=broad-exception-caught
+            LOG.exception("An error occurred while disconnecting")
 
     async def _start_polling(self) -> None:
         if self._atv is None:
@@ -377,7 +385,7 @@ class AppleTv:
                 artwork = await self._atv.metadata.artwork(width=ARTWORK_WIDTH, height=ARTWORK_HEIGHT)
                 artwork_encoded = "data:image/png;base64," + base64.b64encode(artwork.bytes).decode("utf-8")
                 update["artwork"] = artwork_encoded
-            except Exception as err:
+            except Exception as err:  # pylint: disable=broad-exception-caught
                 LOG.warning("Error while updating the artwork: %s", err)
 
         update["total_time"] = data.total_time

@@ -14,30 +14,30 @@ from typing import Any
 import config
 import pyatv
 import pyatv.const
+import setup_flow
 import tv
 import ucapi
 import ucapi.api as uc
 from ucapi import MediaPlayer, media_player
 
-LOG = logging.getLogger(__name__)
-LOOP = asyncio.get_event_loop()
+_LOG = logging.getLogger("driver")  # avoid having __main__ in log messages
+_LOOP = asyncio.get_event_loop()
 
 # Global variables
-api = uc.IntegrationAPI(LOOP)
-configuredAppleTvs = {}
-pairing_apple_tv = None
+api = uc.IntegrationAPI(_LOOP)
+_configured_atvs: dict[str, tv.AppleTv] = {}
 
 
 # DRIVER SETUP
 # @api.events.on(uc.uc.EVENTS.SETUP_DRIVER)
 # async def on_setup_driver(websocket, req_id, _data):
-#     LOG.debug("Starting driver setup")
+#     _LOG.debug("Starting driver setup")
 #     config.devices.clear()
 #     await api.acknowledge_command(websocket, req_id)
 #     await api.driver_setup_progress(websocket)
 #
-#     LOG.debug("Starting Apple TV discovery")
-#     tvs = await discover.apple_tvs(LOOP)
+#     _LOG.debug("Starting Apple TV discovery")
+#     tvs = await discover.apple_tvs(_LOOP)
 #     dropdown_items = []
 #
 #     for device in tvs:
@@ -46,7 +46,7 @@ pairing_apple_tv = None
 #         dropdown_items.append(tv_data)
 #
 #     if not dropdown_items:
-#         LOG.warning("No Apple TVs found")
+#         _LOG.warning("No Apple TVs found")
 #         await api.driver_setup_error(websocket)
 #         return
 #
@@ -72,7 +72,7 @@ pairing_apple_tv = None
 #
 #     # We pair with companion second
 #     if "pin_companion" in data:
-#         LOG.debug("User has entered the Companion PIN")
+#         _LOG.debug("User has entered the Companion PIN")
 #         await pairing_apple_tv.enter_pin(data["pin_companion"])
 #
 #         res = await pairing_apple_tv.finish_pairing()
@@ -99,7 +99,7 @@ pairing_apple_tv = None
 #
 #     # We pair with airplay first
 #     elif "pin_airplay" in data:
-#         LOG.debug("User has entered the Airplay PIN")
+#         _LOG.debug("User has entered the Airplay PIN")
 #         await pairing_apple_tv.enter_pin(data["pin_airplay"])
 #
 #         res = await pairing_apple_tv.finish_pairing()
@@ -114,7 +114,7 @@ pairing_apple_tv = None
 #             res = await pairing_apple_tv.start_pairing(pyatv.const.Protocol.Companion, "Remote Two Companion")
 #
 #             if res == 0:
-#                 LOG.debug("Device provides PIN")
+#                 _LOG.debug("Device provides PIN")
 #                 await api.request_driver_setup_user_input(
 #                     websocket,
 #                     "Please enter the PIN from your Apple TV",
@@ -128,7 +128,7 @@ pairing_apple_tv = None
 #                 )
 #
 #             else:
-#                 LOG.debug("We provide PIN")
+#                 _LOG.debug("We provide PIN")
 #                 await api.request_driver_setup_user_confirmation(
 #                     websocket, "Please enter the following PIN on your Apple TV:" + res
 #                 )
@@ -136,25 +136,25 @@ pairing_apple_tv = None
 #
 #     elif "choice" in data:
 #         choice = data["choice"]
-#         LOG.debug("Chosen Apple TV: %s", choice)
+#         _LOG.debug("Chosen Apple TV: %s", choice)
 #
 #         # Create a new AppleTv object
-#         pairing_apple_tv = tv.AppleTv(LOOP)
+#         pairing_apple_tv = tv.AppleTv(_LOOP)
 #         pairing_apple_tv.pairing_atv = await pairing_apple_tv.find_atv(choice)
 #
 #         if pairing_apple_tv.pairing_atv is None:
-#             LOG.error("Cannot find the chosen AppleTV")
+#             _LOG.error("Cannot find the chosen AppleTV")
 #             await api.driver_setup_error(websocket)
 #             return
 #
 #         await pairing_apple_tv.init(choice, name=pairing_apple_tv.pairing_atv.name)
 #
-#         LOG.debug("Pairing process begin")
+#         _LOG.debug("Pairing process begin")
 #         # Hook up to signals
 #         res = await pairing_apple_tv.start_pairing(pyatv.const.Protocol.AirPlay, "Remote Two Airplay")
 #
 #         if res == 0:
-#             LOG.debug("Device provides PIN")
+#             _LOG.debug("Device provides PIN")
 #             await api.request_driver_setup_user_input(
 #                 websocket,
 #                 "Please enter the PIN from your Apple TV",
@@ -168,14 +168,14 @@ pairing_apple_tv = None
 #             )
 #
 #         else:
-#             LOG.debug("We provide PIN")
+#             _LOG.debug("We provide PIN")
 #             await api.request_driver_setup_user_confirmation(
 #                 websocket, "Please enter the following PIN on your Apple TV:" + res
 #             )
 #             await pairing_apple_tv.finish_pairing()
 #
 #     else:
-#         LOG.error("No choice was received")
+#         _LOG.error("No choice was received")
 #         await api.driver_setup_error(websocket)
 
 
@@ -189,9 +189,10 @@ async def on_r2_connect_cmd() -> None:
 @api.listens_to(ucapi.Events.DISCONNECT)
 async def on_r2_disconnect_cmd():
     """Disconnect all configured ATVs when the Remote Two sends the disconnect command."""
-    for device in configuredAppleTvs.values():
-        LOG.debug("Client disconnected, disconnecting all Apple TVs")
+    _LOG.debug("Client disconnected, disconnecting all Apple TVs")
+    for device in _configured_atvs.values():
         await device.disconnect()
+        # TODO still required?
         device.events.remove_all_listeners()
 
     await api.set_device_state(ucapi.DeviceStates.DISCONNECTED)
@@ -204,7 +205,9 @@ async def on_r2_enter_standby() -> None:
 
     Disconnect every ATV instances.
     """
-    for device in configuredAppleTvs.values():
+    _LOG.debug("Enter standby event: disconnecting device(s)")
+
+    for device in _configured_atvs.values():
         await device.disconnect()
 
 
@@ -215,7 +218,9 @@ async def on_r2_exit_standby() -> None:
 
     Connect all ATV instances.
     """
-    for device in configuredAppleTvs.values():
+    _LOG.debug("Exit standby event: connecting device(s)")
+
+    for device in _configured_atvs.values():
         await device.connect()
 
 
@@ -226,42 +231,36 @@ async def on_subscribe_entities(entity_ids: list[str]) -> None:
 
     :param entity_ids: entity identifiers.
     """
+    _LOG.debug("Subscribe entities event: %s", entity_ids)
     for entity_id in entity_ids:
-        if entity_id in configuredAppleTvs:
-            LOG.debug("We have a match, start listening to events")
+        # TODO add atv_id -> list(entities_id) mapping. Right now the atv_id == entity_id!
+        atv_id = entity_id
+        if atv_id in _configured_atvs:
+            _LOG.debug("We have a match, start listening to events")
+            atv = _configured_atvs[atv_id]
+            if atv.is_on is None:
+                state = media_player.States.UNAVAILABLE
+            else:
+                state = media_player.States.ON if atv.is_on else media_player.States.OFF
+            api.configured_entities.update_attributes(entity_id, {media_player.Attributes.STATE: state})
+            continue
 
-            api.configured_entities.update_attributes(
-                entity_id, {media_player.Attributes.STATE: media_player.States.UNAVAILABLE}
-            )
-
-            device = configuredAppleTvs[entity_id]
-
-            @device.events.on(tv.EVENTS.CONNECTED)
-            async def _on_connected(identifier):
-                await on_atv_connected(identifier)
-
-            @device.events.on(tv.EVENTS.DISCONNECTED)
-            async def _on_disconnected(identifier):
-                await on_atv_disconnected(identifier)
-
-            @device.events.on(tv.EVENTS.ERROR)
-            async def _on_disconnected(identifier, message):
-                await on_atv_connection_error(identifier, message)
-
-            @device.events.on(tv.EVENTS.UPDATE)
-            async def on_update(update):
-                await on_atv_update(entity_id, update)
-
-            await device.connect()
+        device = config.devices.get(atv_id)
+        if device:
+            _add_configured_atv(device)
+        else:
+            _LOG.error("Failed to subscribe entity %s: no Apple TV instance found", entity_id)
 
 
 @api.listens_to(ucapi.Events.UNSUBSCRIBE_ENTITIES)
 async def on_unsubscribe_entities(entity_ids: list[str]) -> None:
     """On unsubscribe, we disconnect the objects and remove listeners for events."""
+    _LOG.debug("Unsubscribe entities event: %s", entity_ids)
+    # TODO add entity_id --> atv_id mapping. Right now the atv_id == entity_id!
     for entity_id in entity_ids:
-        if entity_id in configuredAppleTvs:
-            LOG.debug("We have a match, stop listening to events")
-            device = configuredAppleTvs[entity_id]
+        if entity_id in _configured_atvs:
+            _LOG.debug("We have a match, stop listening to events")
+            device = _configured_atvs[entity_id]
             await device.disconnect()
             device.events.remove_all_listeners()
 
@@ -279,7 +278,7 @@ async def media_player_cmd_handler(
     :param params: optional command parameters
     :return:
     """
-    LOG.info("Got %s command request: %s %s", entity.id, cmd_id, params)
+    _LOG.info("Got %s command request: %s %s", entity.id, cmd_id, params)
 
     # TODO map from device id to entities (see Denon integration)
     # atv_id = _tv_from_entity_id(entity.id)
@@ -287,7 +286,7 @@ async def media_player_cmd_handler(
     #     return ucapi.StatusCodes.NOT_FOUND
     atv_id = entity.id
 
-    device = configuredAppleTvs[atv_id]
+    device = _configured_atvs[atv_id]
 
     # If the device is not on we send SERVICE_UNAVAILABLE
     if device.is_on is False:
@@ -296,64 +295,65 @@ async def media_player_cmd_handler(
     configured_entity = api.configured_entities.get(entity.id)
 
     if configured_entity is None:
-        LOG.warning("No Apple TV device found for entity: %s", entity.id)
+        _LOG.warning("No Apple TV device found for entity: %s", entity.id)
         return ucapi.StatusCodes.SERVICE_UNAVAILABLE
 
     # If the entity is OFF, we send the turnOn command regardless of the actual command
     if configured_entity.attributes[media_player.Attributes.STATE] == media_player.States.OFF:
-        LOG.debug("Apple TV is off, sending turn on command")
+        _LOG.debug("Apple TV is off, sending turn on command")
         return await device.turn_on()
 
     res = ucapi.StatusCodes.NOT_IMPLEMENTED
 
-    if cmd_id == media_player.Commands.PLAY_PAUSE:
-        res = await device.play_pause()
-    elif cmd_id == media_player.Commands.NEXT:
-        res = await device.next()
-    elif cmd_id == media_player.Commands.PREVIOUS:
-        res = await device.previous()
-    elif cmd_id == media_player.Commands.VOLUME_UP:
-        res = await device.volume_up()
-    elif cmd_id == media_player.Commands.VOLUME_DOWN:
-        res = await device.volume_down()
-    elif cmd_id == media_player.Commands.ON:
-        res = await device.turn_on()
-    elif cmd_id == media_player.Commands.OFF:
-        res = await device.turn_off()
-    elif cmd_id == media_player.Commands.CURSOR_UP:
-        res = await device.cursor_up()
-    elif cmd_id == media_player.Commands.CURSOR_DOWN:
-        res = await device.cursor_down()
-    elif cmd_id == media_player.Commands.CURSOR_LEFT:
-        res = await device.cursor_left()
-    elif cmd_id == media_player.Commands.CURSOR_RIGHT:
-        res = await device.cursor_right()
-    elif cmd_id == media_player.Commands.CURSOR_ENTER:
-        res = await device.cursor_enter()
-    elif cmd_id == media_player.Commands.HOME:
-        res = await device.home()
+    match cmd_id:
+        case media_player.Commands.PLAY_PAUSE:
+            res = await device.play_pause()
+        case media_player.Commands.NEXT:
+            res = await device.next()
+        case media_player.Commands.PREVIOUS:
+            res = await device.previous()
+        case media_player.Commands.VOLUME_UP:
+            res = await device.volume_up()
+        case media_player.Commands.VOLUME_DOWN:
+            res = await device.volume_down()
+        case media_player.Commands.ON:
+            res = await device.turn_on()
+        case media_player.Commands.OFF:
+            res = await device.turn_off()
+        case media_player.Commands.CURSOR_UP:
+            res = await device.cursor_up()
+        case media_player.Commands.CURSOR_DOWN:
+            res = await device.cursor_down()
+        case media_player.Commands.CURSOR_LEFT:
+            res = await device.cursor_left()
+        case media_player.Commands.CURSOR_RIGHT:
+            res = await device.cursor_right()
+        case media_player.Commands.CURSOR_ENTER:
+            res = await device.cursor_enter()
+        case media_player.Commands.HOME:
+            res = await device.home()
 
-        # we wait a bit to get a push update, because music can play in the background
-        await asyncio.sleep(1)
-        if configured_entity.attributes[media_player.Attributes.STATE] != media_player.States.PLAYING:
-            # if nothing is playing we clear the playing information
-            attributes = {}
-            attributes[media_player.Attributes.MEDIA_IMAGE_URL] = ""
-            attributes[media_player.Attributes.MEDIA_ALBUM] = ""
-            attributes[media_player.Attributes.MEDIA_ARTIST] = ""
-            attributes[media_player.Attributes.MEDIA_TITLE] = ""
-            attributes[media_player.Attributes.MEDIA_TYPE] = ""
-            attributes[media_player.Attributes.SOURCE] = ""
-            attributes[media_player.Attributes.MEDIA_DURATION] = 0
-            api.configured_entities.update_attributes(entity.id, attributes)
-    elif cmd_id == media_player.Commands.BACK:
-        res = await device.menu()
-    elif cmd_id == media_player.Commands.CHANNEL_DOWN:
-        res = await device.channel_down()
-    elif cmd_id == media_player.Commands.CHANNEL_UP:
-        res = await device.channel_up()
-    elif cmd_id == media_player.Commands.SELECT_SOURCE:
-        res = await device.launch_app(params["source"])
+            # we wait a bit to get a push update, because music can play in the background
+            await asyncio.sleep(1)
+            if configured_entity.attributes[media_player.Attributes.STATE] != media_player.States.PLAYING:
+                # if nothing is playing we clear the playing information
+                attributes = {}
+                attributes[media_player.Attributes.MEDIA_IMAGE_URL] = ""
+                attributes[media_player.Attributes.MEDIA_ALBUM] = ""
+                attributes[media_player.Attributes.MEDIA_ARTIST] = ""
+                attributes[media_player.Attributes.MEDIA_TITLE] = ""
+                attributes[media_player.Attributes.MEDIA_TYPE] = ""
+                attributes[media_player.Attributes.SOURCE] = ""
+                attributes[media_player.Attributes.MEDIA_DURATION] = 0
+                api.configured_entities.update_attributes(entity.id, attributes)
+        case media_player.Commands.BACK:
+            res = await device.menu()
+        case media_player.Commands.CHANNEL_DOWN:
+            res = await device.channel_down()
+        case media_player.Commands.CHANNEL_UP:
+            res = await device.channel_up()
+        case media_player.Commands.SELECT_SOURCE:
+            res = await device.launch_app(params["source"])
 
     return res
 
@@ -373,7 +373,7 @@ def _key_update_helper(key, value, attributes, configured_entity):
 
 async def on_atv_connected(identifier: str) -> None:
     """Handle ATV connection."""
-    LOG.debug("Apple TV connected: %s", identifier)
+    _LOG.debug("Apple TV connected: %s", identifier)
     configured_entity = api.configured_entities.get(identifier)
 
     if configured_entity.attributes[media_player.Attributes.STATE] == media_player.States.UNAVAILABLE:
@@ -384,7 +384,7 @@ async def on_atv_connected(identifier: str) -> None:
 
 async def on_atv_disconnected(identifier: str) -> None:
     """Handle ATV disconnection."""
-    LOG.debug("Apple TV disconnected: %s", identifier)
+    _LOG.debug("Apple TV disconnected: %s", identifier)
     api.configured_entities.update_attributes(
         identifier, {media_player.Attributes.STATE: media_player.States.UNAVAILABLE}
     )
@@ -392,13 +392,15 @@ async def on_atv_disconnected(identifier: str) -> None:
 
 async def on_atv_connection_error(identifier: str, message) -> None:
     """Set entities of ATV to state UNAVAILABLE if ATV connection error occurred."""
-    LOG.error(message)
+    _LOG.error(message)
     api.configured_entities.update_attributes(
         identifier, {media_player.Attributes.STATE: media_player.States.UNAVAILABLE}
     )
     await api.set_device_state(ucapi.DeviceStates.ERROR)
 
 
+# TODO refactor & simply on_atv_update, then remove pylint exceptions
+# pylint: disable=too-many-branches,too-many-statements
 async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
     """
     Update attributes of configured media-player entity if ATV properties changed.
@@ -413,20 +415,21 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
         return
 
     if "state" in update:
-        state = media_player.States.UNKNOWN
-
-        if update["state"] == pyatv.const.PowerState.On:
-            state = media_player.States.ON
-        elif update["state"] == pyatv.const.DeviceState.Playing:
-            state = media_player.States.PLAYING
-        elif update["state"] == pyatv.const.DeviceState.Playing:
-            state = media_player.States.PLAYING
-        elif update["state"] == pyatv.const.DeviceState.Paused:
-            state = media_player.States.PAUSED
-        elif update["state"] == pyatv.const.DeviceState.Idle:
-            state = media_player.States.PAUSED
-        elif update["state"] == pyatv.const.PowerState.Off:
-            state = media_player.States.OFF
+        match update["state"]:
+            case pyatv.const.PowerState.On:
+                state = media_player.States.ON
+            case pyatv.const.DeviceState.Playing:
+                state = media_player.States.PLAYING
+            case pyatv.const.DeviceState.Playing:
+                state = media_player.States.PLAYING
+            case pyatv.const.DeviceState.Paused:
+                state = media_player.States.PAUSED
+            case pyatv.const.DeviceState.Idle:
+                state = media_player.States.PAUSED
+            case pyatv.const.PowerState.Off:
+                state = media_player.States.OFF
+            case _:
+                state = media_player.States.UNKNOWN
 
         attributes = _key_update_helper(media_player.Attributes.STATE, state, attributes, configured_entity)
 
@@ -491,7 +494,35 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
         api.configured_entities.update_attributes(entity_id, attributes)
 
 
-def add_available_apple_tv(identifier: str, name: str) -> bool:
+def _add_configured_atv(device: config.AtvDevice, connect: bool = True) -> None:
+    # the device should not yet be configured, but better be safe
+    if device.identifier in _configured_atvs:
+        atv = _configured_atvs[device.identifier]
+        atv.disconnect()
+    else:
+        _LOG.debug("Adding new ATV device: %s (%s)", device.identifier, device.name)
+        atv = tv.AppleTv(_LOOP)
+        atv.init(device.identifier, device.credentials, device.name)
+        atv.events.on(tv.EVENTS.CONNECTED, on_atv_connected)
+        atv.events.on(tv.EVENTS.DISCONNECTED, on_atv_disconnected)
+        atv.events.on(tv.EVENTS.ERROR, on_atv_connection_error)
+        atv.events.on(tv.EVENTS.UPDATE, on_atv_update)
+
+        _configured_atvs[device.identifier] = atv
+
+        # await atv.connect()
+
+    async def start_connection():
+        await atv.connect()
+
+    if connect:
+        # start background task
+        _LOOP.create_task(start_connection())
+
+    _register_available_entities(device.identifier, device.name)
+
+
+def _register_available_entities(identifier: str, name: str) -> bool:
     """
     Add a new ATV device to the available entities.
 
@@ -499,8 +530,11 @@ def add_available_apple_tv(identifier: str, name: str) -> bool:
     :param name: Friendly name
     :return: True if added, False if the device was already in storage.
     """
+    # TODO map entity IDs from device identifier
+    entity_id = identifier
+    # plain and simple for now: only one media_player per ATV device
     entity = MediaPlayer(
-        identifier,
+        entity_id,
         name,
         [
             media_player.Features.ON_OFF,
@@ -537,22 +571,24 @@ def add_available_apple_tv(identifier: str, name: str) -> bool:
         cmd_handler=media_player_cmd_handler,
     )
 
+    if api.available_entities.contains(entity.id):
+        api.available_entities.remove(entity.id)
     return api.available_entities.add(entity)
 
 
 def on_device_added(device: config.AtvDevice) -> None:
     """Handle a newly added device in the configuration."""
-    LOG.debug("New device added: %s", device)
-    # TODO
+    _LOG.debug("New device added: %s", device)
+    _add_configured_atv(device, connect=False)
 
 
 def on_device_removed(device: config.AtvDevice | None) -> None:
     """Handle a removed device in the configuration."""
     if device is None:
-        LOG.debug("Configuration cleared, disconnecting & removing all configured ATV instances")
+        _LOG.debug("Configuration cleared, disconnecting & removing all configured ATV instances")
         # TODO
     else:
-        LOG.debug("Device removed: %s", device)
+        _LOG.debug("Device removed: %s", device)
         # TODO
 
 
@@ -562,21 +598,17 @@ async def main():
 
     level = os.getenv("UC_LOG_LEVEL", "DEBUG").upper()
     logging.getLogger("tv").setLevel(level)
-    logging.getLogger("discover").setLevel(level)
     logging.getLogger("driver").setLevel(level)
+    logging.getLogger("discover").setLevel(level)
+    logging.getLogger("setup_flow").setLevel(level)
 
     config.devices = config.Devices(api.config_dir_path, on_device_added, on_device_removed)
     for device in config.devices.all():
-        # _add_configured_apple_tv(device, connect=False)
-        apple_tv = tv.AppleTv(LOOP)
-        await apple_tv.init(device.identifier, device.credentials, device.name)
-        configuredAppleTvs[apple_tv.identifier] = apple_tv
+        _add_configured_atv(device, connect=False)
 
-        add_available_apple_tv(device.identifier, device.name)
-
-    await api.init("driver.json")
+    await api.init("driver.json", setup_flow.driver_setup_handler)
 
 
 if __name__ == "__main__":
-    LOOP.run_until_complete(main())
-    LOOP.run_forever()
+    _LOOP.run_until_complete(main())
+    _LOOP.run_forever()
