@@ -183,6 +183,17 @@ async def media_player_cmd_handler(
             res = await device.cursor_right()
         case media_player.Commands.CURSOR_ENTER:
             res = await device.cursor_enter()
+        # TODO for testing only
+        case media_player.Commands.FUNCTION_GREEN:
+            res = await device.cursor_enter_hold()
+        case media_player.Commands.FUNCTION_YELLOW:
+            res = await device.home_hold()
+        case media_player.Commands.FUNCTION_RED:
+            res = await device.menu_hold()
+        case media_player.Commands.FUNCTION_BLUE:
+            res = await device.app_switcher()
+        # TODO end testing
+
         case media_player.Commands.HOME:
             res = await device.home()
 
@@ -405,6 +416,10 @@ def _register_available_entities(identifier: str, name: str) -> bool:
             media_player.Features.CHANNEL_SWITCHER,
             media_player.Features.DPAD,
             media_player.Features.SELECT_SOURCE,
+            # for testing
+            media_player.Features.COLOR_BUTTONS,
+            media_player.Features.MENU,
+            media_player.Features.GUIDE,
         ],
         {
             media_player.Attributes.STATE: media_player.States.UNAVAILABLE,
