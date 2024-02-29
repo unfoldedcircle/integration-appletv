@@ -103,25 +103,32 @@ class AppleTv:
     """Representing an Apple TV Device."""
 
     _loop: AbstractEventLoop
-    identifier: str | None
+    identifier: str
+    _pairing_atv: pyatv.interface.BaseConfig | None
     _pairing_process = pyatv.interface.PairingHandler | None
     _credentials = list[dict[str, str]]
 
     def __init__(
         self,
+        identifier: str,
+        name: str,
+        credentials: list[dict[str, str]] | None = None,
         loop: AbstractEventLoop | None = None,
+        pairing_atv: pyatv.interface.BaseConfig | None = None,
     ):
         """Create instance."""
         self._loop = loop or asyncio.get_running_loop()
         self.events = AsyncIOEventEmitter(self._loop)
         self._is_on = False
         self._atv = None
-        self.name = ""
-        self.identifier = None
-        self._credentials = []
+        self.name = name
+        self.identifier = identifier
+        if credentials is None:
+            credentials = []
+        self._credentials = credentials
         self._connect_task = None
         self._connection_attempts = 0
-        self.pairing_atv = None
+        self._pairing_atv = pairing_atv
         self._pairing_process = None
         self._polling = None
         self._poll_interval = 2
@@ -189,14 +196,6 @@ class AppleTv:
 
         return atvs[0]
 
-    async def init(self, identifier: str, credentials=None, name: str = "") -> None:
-        """Initialize identifier, credentials and name."""
-        if credentials is None:
-            credentials = []
-        self.identifier = identifier
-        self._credentials = credentials
-        self.name = name
-
     def add_credentials(self, credentials: dict[str, str]) -> None:
         """Add credentials for a protocol."""
         self._credentials.append(credentials)
@@ -205,10 +204,14 @@ class AppleTv:
         """Return stored credentials."""
         return self._credentials
 
-    async def start_pairing(self, protocol: pyatv.const.Protocol, name: str) -> int:
+    async def start_pairing(self, protocol: pyatv.const.Protocol, name: str) -> int | None:
         """Start the pairing process with the Apple TV."""
+        if not self._pairing_atv:
+            LOG.error("Pairing requires initialized atv device!")
+            return None
+
         LOG.debug("Pairing started")
-        self._pairing_process = await pyatv.pair(self.pairing_atv, protocol, self._loop, name=name)
+        self._pairing_process = await pyatv.pair(self._pairing_atv, protocol, self._loop, name=name)
         await self._pairing_process.begin()
 
         if self._pairing_process.device_provides_pin:
@@ -299,8 +302,8 @@ class AppleTv:
             return
         except asyncio.CancelledError:
             pass
-        except Exception:  # pylint: disable=broad-exception-caught
-            LOG.warning("Could not connect")
+        except Exception as err:  # pylint: disable=broad-exception-caught
+            LOG.warning("Could not connect: %s", err)
             self._atv = None
 
     async def _connect(self, conf) -> None:
@@ -310,6 +313,7 @@ class AppleTv:
 
         for credential in self._credentials:
             protocol = None
+            # TODO use enum
             if credential["protocol"] == "companion":
                 protocol = pyatv.const.Protocol.Companion
             elif credential["protocol"] == "airplay":
@@ -463,82 +467,82 @@ class AppleTv:
     @async_handle_atvlib_errors
     async def turn_on(self) -> ucapi.StatusCodes:
         """Turn device on."""
-        await self._atv.power.turn_on
+        await self._atv.power.turn_on()
 
     @async_handle_atvlib_errors
     async def turn_off(self) -> ucapi.StatusCodes:
         """Turn device off."""
-        await self._atv.power.turn_off
+        await self._atv.power.turn_off()
 
     @async_handle_atvlib_errors
     async def play_pause(self) -> ucapi.StatusCodes:
         """Toggle between play and pause."""
-        await self._atv.remote_control.play_pause
+        await self._atv.remote_control.play_pause()
 
     @async_handle_atvlib_errors
     async def next(self) -> ucapi.StatusCodes:
         """Press key next."""
-        await self._atv.remote_control.next
+        await self._atv.remote_control.next()
 
     @async_handle_atvlib_errors
     async def previous(self) -> ucapi.StatusCodes:
         """Press key previous."""
-        await self._atv.remote_control.previous
+        await self._atv.remote_control.previous()
 
     @async_handle_atvlib_errors
     async def volume_up(self) -> ucapi.StatusCodes:
         """Press key volume up."""
-        await self._atv.audio.volume_up
+        await self._atv.audio.volume_up()
 
     @async_handle_atvlib_errors
     async def volume_down(self) -> ucapi.StatusCodes:
         """Press key volume down."""
-        await self._atv.audio.volume_down
+        await self._atv.audio.volume_down()
 
     @async_handle_atvlib_errors
     async def cursor_up(self) -> ucapi.StatusCodes:
         """Press key up."""
-        await self._atv.remote_control.up
+        await self._atv.remote_control.up()
 
     @async_handle_atvlib_errors
     async def cursor_down(self) -> ucapi.StatusCodes:
         """Press key down."""
-        await self._atv.remote_control.down
+        await self._atv.remote_control.down()
 
     @async_handle_atvlib_errors
     async def cursor_left(self) -> ucapi.StatusCodes:
         """Press key left."""
-        await self._atv.remote_control.left
+        await self._atv.remote_control.left()
 
     @async_handle_atvlib_errors
     async def cursor_right(self) -> ucapi.StatusCodes:
         """Press key right."""
-        await self._atv.remote_control.right
+        await self._atv.remote_control.right()
 
     @async_handle_atvlib_errors
     async def cursor_enter(self) -> ucapi.StatusCodes:
         """Press key select."""
-        await self._atv.remote_control.select
+        await self._atv.remote_control.select()
 
     @async_handle_atvlib_errors
     async def home(self) -> ucapi.StatusCodes:
         """Press key home."""
-        await self._atv.remote_control.home
+        await self._atv.remote_control.home()
 
     @async_handle_atvlib_errors
     async def menu(self) -> ucapi.StatusCodes:
         """Press key menu."""
-        await self._atv.remote_control.menu
+        await self._atv.remote_control.menu()
 
     @async_handle_atvlib_errors
     async def channel_up(self) -> ucapi.StatusCodes:
         """Select next channel."""
-        await self._atv.remote_control.channel_up
+        await self._atv.remote_control.channel_up()
 
     @async_handle_atvlib_errors
     async def channel_down(self) -> ucapi.StatusCodes:
         """Select previous channel."""
-        await self._atv.remote_control.channel_down
+        await self._atv.remote_control.channel_down()
 
     @async_handle_atvlib_errors
     async def launch_app(self, app_name: str) -> ucapi.StatusCodes:

@@ -74,7 +74,7 @@ async def driver_setup_handler(msg: SetupDriver) -> SetupAction:
     elif isinstance(msg, AbortDriverSetup):
         _LOG.info("Setup was aborted with code: %s", msg.error)
         if _pairing_apple_tv is not None:
-            _pairing_apple_tv.disconnect()
+            await _pairing_apple_tv.disconnect()
             _pairing_apple_tv = None
         _setup_step = SetupSteps.INIT
 
@@ -145,7 +145,7 @@ async def handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput |
 
     # clear all configured devices and any previous pairing attempt
     if _pairing_apple_tv:
-        _pairing_apple_tv.disconnect()
+        await _pairing_apple_tv.disconnect()
         _pairing_apple_tv = None
     # TODO allow multiple devices!
     config.devices.clear()  # triggers device instance removal
@@ -164,7 +164,8 @@ async def handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput |
     tvs = await discover.apple_tvs(asyncio.get_event_loop(), hosts=search_hosts)
 
     for device in tvs:
-        tv_data = {"id": device.identifier, "label": {"en": device.name + " TvOS " + str(device.device_info.version)}}
+        _LOG.info("Found Apple TV: %s", device)
+        tv_data = {"id": device.identifier, "label": {"en": device.name + " tvOS " + str(device.device_info.version)}}
 
         dropdown_items.append(tv_data)
 
@@ -173,6 +174,7 @@ async def handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput |
         return SetupError(error_type=IntegrationSetupError.NOT_FOUND)
 
     _setup_step = SetupSteps.DEVICE_CHOICE
+    # TODO externalize language texts
     return RequestUserInput(
         {"en": "Please choose your Apple TV", "de": "Bitte wähle deinen Apple TV", "fr": "Choisissez votre Apple TV"},
         [
@@ -199,47 +201,50 @@ async def handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Setu
     :return: the setup action on how to continue.
     """
     global _pairing_apple_tv
+    global _setup_step
 
     choice = msg.input_values["choice"]
     # name = ""
     _LOG.debug("Chosen Apple TV: %s", choice)
 
     # Create a new AppleTv object
-    _pairing_apple_tv = tv.AppleTv(asyncio.get_event_loop())
-    _pairing_apple_tv.pairing_atv = await _pairing_apple_tv.find_atv(choice)
-
-    if _pairing_apple_tv.pairing_atv is None:
-        _LOG.error("Cannot find the chosen AppleTV")
+    # TODO refactor for manually entered IP --> this will most likely NOT work if in different subnet!
+    # TODO exception handling?
+    atvs = await pyatv.scan(asyncio.get_event_loop(), identifier=choice)
+    if not atvs:
+        _LOG.error("Cannot find the chosen Apple TV: %s", choice)
         return SetupError(error_type=IntegrationSetupError.NOT_FOUND)
 
-    await _pairing_apple_tv.init(choice, name=_pairing_apple_tv.pairing_atv.name)
+    atv = atvs[0]
+    _pairing_apple_tv = tv.AppleTv(choice, atv.name, loop=asyncio.get_event_loop(), pairing_atv=atv)
 
     _LOG.debug("Pairing process begin")
     # Hook up to signals
     # TODO error conditions in start_pairing?
     res = await _pairing_apple_tv.start_pairing(pyatv.const.Protocol.AirPlay, "Remote Two Airplay")
+    if res is None:
+        return SetupError()
 
     if res == 0:
-        _LOG.debug("Device provides PIN")
+        _LOG.debug("Device provides AirPlay-Code")
+        _setup_step = SetupSteps.PAIRING_AIRPLAY
         return RequestUserInput(
             {
-                "en": "Please enter the shown PIN on your Apple TV",
-                "de": "Bitte gib die angezeigte PIN auf deinem Apple TV ein",
-                "fr": "Veuillez entrer le code PIN affiché sur votre Apple TV",
+                "en": "Please enter the shown AirPlay-Code on your Apple TV",
+                "de": "Bitte gib die angezeigte AirPlay-Code auf deinem Apple TV ein",
+                "fr": "Veuillez entrer le code AirPlay affiché sur votre Apple TV",
             },
             [
                 {
                     "field": {"number": {"max": 9999, "min": 0, "value": 0000}},
                     "id": "pin_airplay",
-                    "label": {"en": "Apple TV PIN"},
+                    "label": {"en": "Apple TV AirPlay-Code"},
                 }
             ],
         )
 
-    _LOG.debug("We provide PIN")
-    # FIXME handle finish_pairing() in next step!
-    await _pairing_apple_tv.finish_pairing()
-    return RequestUserConfirmation("Please enter the following PIN on your Apple TV:" + res)
+    _LOG.debug("We provide AirPlay-Code")
+    return RequestUserConfirmation("Please enter the following PIN on your Apple TV: " + res)
 
     # # no better error code right now
     # return SetupError(error_type=IntegrationSetupError.CONNECTION_REFUSED)
@@ -254,8 +259,15 @@ async def handle_user_data_airplay_pin(msg: UserDataResponse) -> RequestUserInpu
     :param msg: response data from the requested user data
     :return: the setup action on how to continue
     """
-    _LOG.debug("User has entered the Airplay PIN")
-    await _pairing_apple_tv.enter_pin(msg.input_values["pin"])
+    global _setup_step
+
+    _LOG.debug("User has entered the AirPlay PIN")
+
+    if _pairing_apple_tv is None:
+        _LOG.error("Pairing Apple TV device no longer available after entering AirPlay pin. Aborting setup")
+        return SetupError()
+
+    await _pairing_apple_tv.enter_pin(msg.input_values["pin_airplay"])
 
     res = await _pairing_apple_tv.finish_pairing()
     if res is None:
@@ -267,12 +279,15 @@ async def handle_user_data_airplay_pin(msg: UserDataResponse) -> RequestUserInpu
 
     # Start new pairing process
     res = await _pairing_apple_tv.start_pairing(pyatv.const.Protocol.Companion, "Remote Two Companion")
+    if res is None:
+        return SetupError()
 
     if res == 0:
         _LOG.debug("Device provides PIN")
+        _setup_step = SetupSteps.PAIRING_COMPANION
         return RequestUserInput(
             {
-                "en": "Please enter the shown PIN on your Apple TV",
+                "en": "Please enter the shown companion PIN on your Apple TV",
                 "de": "Bitte gib die angezeigte PIN auf deinem Apple TV ein",
                 "fr": "Veuillez entrer le code PIN affiché sur votre Apple TV",
             },
@@ -280,15 +295,13 @@ async def handle_user_data_airplay_pin(msg: UserDataResponse) -> RequestUserInpu
                 {
                     "field": {"number": {"max": 9999, "min": 0, "value": 0000}},
                     "id": "pin_companion",
-                    "label": {"en": "Apple TV PIN"},
+                    "label": {"en": "Apple TV Companion PIN"},
                 }
             ],
         )
 
-    _LOG.debug("We provide PIN")
-    # FIXME handle finish_pairing() in next step!
-    await _pairing_apple_tv.finish_pairing()
-    return RequestUserConfirmation("Please enter the following PIN on your Apple TV:" + res)
+    _LOG.debug("We provide companion PIN")
+    return RequestUserConfirmation("Please enter the following PIN on your Apple TV: " + res)
 
 
 async def handle_user_data_companion_pin(msg: UserDataResponse) -> SetupComplete | SetupError:
@@ -305,13 +318,13 @@ async def handle_user_data_companion_pin(msg: UserDataResponse) -> SetupComplete
     _LOG.debug("User has entered the Companion PIN")
 
     if _pairing_apple_tv is None:
-        _LOG.error("Can't handle pairing pin: no device instance! Aborting setup")
+        _LOG.error("Pairing Apple TV device no longer available after entering companion pin. Aborting setup")
         return SetupError()
 
     await _pairing_apple_tv.enter_pin(msg.input_values["pin_companion"])
 
     res = await _pairing_apple_tv.finish_pairing()
-    _pairing_apple_tv.disconnect()
+    await _pairing_apple_tv.disconnect()
 
     if res is None:
         _pairing_apple_tv = None

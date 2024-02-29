@@ -14,7 +14,7 @@ import pyatv.const
 _LOG = logging.getLogger(__name__)
 
 
-async def apple_tvs(loop: AbstractEventLoop, hosts: list[str] | None = None) -> list[dict]:
+async def apple_tvs(loop: AbstractEventLoop, hosts: list[str] | None = None) -> list[pyatv.interface.BaseConfig]:
     """Discover Apple TVs on the network using pyatv.scan."""
     if hosts:
         _LOG.info("Connecting to %s")

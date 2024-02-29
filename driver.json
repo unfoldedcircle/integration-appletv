@@ -30,7 +30,7 @@
 					"label": {
 						"value": {
 							"en": "The integration will discover your Apple TV on your network. During the process, you might need to enter multiple PINs that are shown on your Apple TV. Please make sure to set Airplay access to `Anyone on the Same Network` in Apple TV settings.",
-							"de": "Die Integration wird dein Apple TV in deinem Netzwerk erkennen. Während des Prozesses must du möglicherweise mehrere PINs eingeben, die auf deinem Apple TV angezeigt werden. Bitte stelle sicher, dass der Airplay-Zugriff in den Apple TV-Einstellungen auf `Jeder im selben Netzwerk` eingestellt ist."
+							"de": "Die Integration wird dein Apple TV in deinem Netzwerk erkennen. Während des Prozesses must du möglicherweise mehrere PINs eingeben, die auf deinem Apple TV angezeigt werden. Bitte stelle sicher, dass der Airplay-Zugriff in den Apple TV-Einstellungen auf `Selbes Netzwerk` eingestellt ist."
 						}
 					}
 				}

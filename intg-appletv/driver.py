@@ -28,174 +28,27 @@ api = uc.IntegrationAPI(_LOOP)
 _configured_atvs: dict[str, tv.AppleTv] = {}
 
 
-# DRIVER SETUP
-# @api.events.on(uc.uc.EVENTS.SETUP_DRIVER)
-# async def on_setup_driver(websocket, req_id, _data):
-#     _LOG.debug("Starting driver setup")
-#     config.devices.clear()
-#     await api.acknowledge_command(websocket, req_id)
-#     await api.driver_setup_progress(websocket)
-#
-#     _LOG.debug("Starting Apple TV discovery")
-#     tvs = await discover.apple_tvs(_LOOP)
-#     dropdown_items = []
-#
-#     for device in tvs:
-#         tv_data = {"id": device.identifier, "label": {"en": device.name + " TvOS " + str(device.device_info.version)}}
-#
-#         dropdown_items.append(tv_data)
-#
-#     if not dropdown_items:
-#         _LOG.warning("No Apple TVs found")
-#         await api.driver_setup_error(websocket)
-#         return
-#
-#     await api.request_driver_setup_user_input(
-#         websocket,
-#         "Please choose your Apple TV",
-#         [
-#             {
-#                 "field": {"dropdown": {"value": dropdown_items[0]["id"], "items": dropdown_items}},
-#                 "id": "choice",
-#                 "label": {"en": "Choose your Apple TV"},
-#             }
-#         ],
-#     )
-
-
-# @api.events.on(uc.uc.EVENTS.SETUP_DRIVER_USER_DATA)
-# async def on_setup_driver_user_data(websocket, req_id, data):
-#     global pairing_apple_tv
-#
-#     await api.acknowledge_command(websocket, req_id)
-#     await api.driver_setup_progress(websocket)
-#
-#     # We pair with companion second
-#     if "pin_companion" in data:
-#         _LOG.debug("User has entered the Companion PIN")
-#         await pairing_apple_tv.enter_pin(data["pin_companion"])
-#
-#         res = await pairing_apple_tv.finish_pairing()
-#         if res is None:
-#             await api.driver_setup_error(websocket)
-#         else:
-#             c = {"protocol": res.protocol.name.lower(), "credentials": res.credentials}
-#             pairing_apple_tv.add_credentials(c)
-#
-#             configuredAppleTvs[pairing_apple_tv.identifier] = pairing_apple_tv
-#
-#             config.devices.add(
-#                 config.AtvDevice(
-#                     identifier=pairing_apple_tv.identifier,
-#                     name=pairing_apple_tv.name,
-#                     credentials=pairing_apple_tv.get_credentials(),
-#                 )
-#             )
-#             config.devices.store()
-#
-#             add_available_apple_tv(pairing_apple_tv.identifier, pairing_apple_tv.name)
-#
-#             await api.driver_setup_complete(websocket)
-#
-#     # We pair with airplay first
-#     elif "pin_airplay" in data:
-#         _LOG.debug("User has entered the Airplay PIN")
-#         await pairing_apple_tv.enter_pin(data["pin_airplay"])
-#
-#         res = await pairing_apple_tv.finish_pairing()
-#         if res is None:
-#             await api.driver_setup_error(websocket)
-#         else:
-#             # Store credentials
-#             c = {"protocol": res.protocol.name.lower(), "credentials": res.credentials}
-#             pairing_apple_tv.add_credentials(c)
-#
-#             # Start new pairing process
-#             res = await pairing_apple_tv.start_pairing(pyatv.const.Protocol.Companion, "Remote Two Companion")
-#
-#             if res == 0:
-#                 _LOG.debug("Device provides PIN")
-#                 await api.request_driver_setup_user_input(
-#                     websocket,
-#                     "Please enter the PIN from your Apple TV",
-#                     [
-#                         {
-#                             "field": {"number": {"max": 9999, "min": 0, "value": 0000}},
-#                             "id": "pin_companion",
-#                             "label": {"en": "Apple TV PIN"},
-#                         }
-#                     ],
-#                 )
-#
-#             else:
-#                 _LOG.debug("We provide PIN")
-#                 await api.request_driver_setup_user_confirmation(
-#                     websocket, "Please enter the following PIN on your Apple TV:" + res
-#                 )
-#                 await pairing_apple_tv.finish_pairing()
-#
-#     elif "choice" in data:
-#         choice = data["choice"]
-#         _LOG.debug("Chosen Apple TV: %s", choice)
-#
-#         # Create a new AppleTv object
-#         pairing_apple_tv = tv.AppleTv(_LOOP)
-#         pairing_apple_tv.pairing_atv = await pairing_apple_tv.find_atv(choice)
-#
-#         if pairing_apple_tv.pairing_atv is None:
-#             _LOG.error("Cannot find the chosen AppleTV")
-#             await api.driver_setup_error(websocket)
-#             return
-#
-#         await pairing_apple_tv.init(choice, name=pairing_apple_tv.pairing_atv.name)
-#
-#         _LOG.debug("Pairing process begin")
-#         # Hook up to signals
-#         res = await pairing_apple_tv.start_pairing(pyatv.const.Protocol.AirPlay, "Remote Two Airplay")
-#
-#         if res == 0:
-#             _LOG.debug("Device provides PIN")
-#             await api.request_driver_setup_user_input(
-#                 websocket,
-#                 "Please enter the PIN from your Apple TV",
-#                 [
-#                     {
-#                         "field": {"number": {"max": 9999, "min": 0, "value": 0000}},
-#                         "id": "pin_airplay",
-#                         "label": {"en": "Apple TV PIN"},
-#                     }
-#                 ],
-#             )
-#
-#         else:
-#             _LOG.debug("We provide PIN")
-#             await api.request_driver_setup_user_confirmation(
-#                 websocket, "Please enter the following PIN on your Apple TV:" + res
-#             )
-#             await pairing_apple_tv.finish_pairing()
-#
-#     else:
-#         _LOG.error("No choice was received")
-#         await api.driver_setup_error(websocket)
-
-
 @api.listens_to(ucapi.Events.CONNECT)
 async def on_r2_connect_cmd() -> None:
     """Connect all configured ATVs when the Remote Two sends the connect command."""
-    # FIXME connect all configured ATVs !!!
     await api.set_device_state(ucapi.DeviceStates.CONNECTED)
+    for atv in _configured_atvs.values():
+        # start background task
+        _LOOP.create_task(atv.connect())
 
 
 @api.listens_to(ucapi.Events.DISCONNECT)
 async def on_r2_disconnect_cmd():
     """Disconnect all configured ATVs when the Remote Two sends the disconnect command."""
     _LOG.debug("Client disconnected, disconnecting all Apple TVs")
-    for device in _configured_atvs.values():
-        await device.disconnect()
-        # TODO still required?
-        device.events.remove_all_listeners()
-
-    await api.set_device_state(ucapi.DeviceStates.DISCONNECTED)
+    # for device in _configured_atvs.values():
+    #     await device.disconnect()
+    #     # TODO still required?
+    #     device.events.remove_all_listeners()
+    #
+    # await api.set_device_state(ucapi.DeviceStates.DISCONNECTED)
+    for atv in _configured_atvs.values():
+        _LOOP.create_task(atv.disconnect())
 
 
 @api.listens_to(ucapi.Events.ENTER_STANDBY)
@@ -374,12 +227,10 @@ def _key_update_helper(key, value, attributes, configured_entity):
 async def on_atv_connected(identifier: str) -> None:
     """Handle ATV connection."""
     _LOG.debug("Apple TV connected: %s", identifier)
-    configured_entity = api.configured_entities.get(identifier)
-
-    if configured_entity.attributes[media_player.Attributes.STATE] == media_player.States.UNAVAILABLE:
-        api.configured_entities.update_attributes(
-            identifier, {media_player.Attributes.STATE: media_player.States.STANDBY}
-        )
+    # TODO is this the correct state?
+    api.configured_entities.update_attributes(identifier, {media_player.Attributes.STATE: media_player.States.STANDBY})
+    # TODO when multiple devices are supported, the device state logic isn't that simple anymore!
+    await api.set_device_state(ucapi.DeviceStates.CONNECTED)
 
 
 async def on_atv_disconnected(identifier: str) -> None:
@@ -388,6 +239,8 @@ async def on_atv_disconnected(identifier: str) -> None:
     api.configured_entities.update_attributes(
         identifier, {media_player.Attributes.STATE: media_player.States.UNAVAILABLE}
     )
+    # TODO when multiple devices are supported, the device state logic isn't that simple anymore!
+    await api.set_device_state(ucapi.DeviceStates.DISCONNECTED)
 
 
 async def on_atv_connection_error(identifier: str, message) -> None:
@@ -498,19 +351,16 @@ def _add_configured_atv(device: config.AtvDevice, connect: bool = True) -> None:
     # the device should not yet be configured, but better be safe
     if device.identifier in _configured_atvs:
         atv = _configured_atvs[device.identifier]
-        atv.disconnect()
+        _LOOP.create_task(atv.disconnect())
     else:
         _LOG.debug("Adding new ATV device: %s (%s)", device.identifier, device.name)
-        atv = tv.AppleTv(_LOOP)
-        atv.init(device.identifier, device.credentials, device.name)
+        atv = tv.AppleTv(device.identifier, device.name, device.credentials, loop=_LOOP)
         atv.events.on(tv.EVENTS.CONNECTED, on_atv_connected)
         atv.events.on(tv.EVENTS.DISCONNECTED, on_atv_disconnected)
         atv.events.on(tv.EVENTS.ERROR, on_atv_connection_error)
         atv.events.on(tv.EVENTS.UPDATE, on_atv_update)
 
         _configured_atvs[device.identifier] = atv
-
-        # await atv.connect()
 
     async def start_connection():
         await atv.connect()
@@ -601,6 +451,8 @@ async def main():
     logging.getLogger("driver").setLevel(level)
     logging.getLogger("discover").setLevel(level)
     logging.getLogger("setup_flow").setLevel(level)
+
+    # logging.getLogger("pyatv").setLevel(logging.DEBUG)
 
     config.devices = config.Devices(api.config_dir_path, on_device_added, on_device_removed)
     for device in config.devices.all():
