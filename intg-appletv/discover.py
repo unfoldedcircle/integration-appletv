@@ -14,13 +14,16 @@ import pyatv.const
 _LOG = logging.getLogger(__name__)
 
 
-async def apple_tvs(loop: AbstractEventLoop) -> list[dict]:
+async def apple_tvs(loop: AbstractEventLoop, hosts: list[str] | None = None) -> list[dict]:
     """Discover Apple TVs on the network using pyatv.scan."""
-    _LOG.debug("Starting discovery")
+    if hosts:
+        _LOG.info("Connecting to %s")
+    else:
+        _LOG.info("Starting Apple TV device discovery")
 
     # extra safety, if anything goes wrong here the reconnection logic is dead
     try:
-        atvs = await pyatv.scan(loop)
+        atvs = await pyatv.scan(loop, hosts=hosts)
         res = []
 
         for tv in atvs:

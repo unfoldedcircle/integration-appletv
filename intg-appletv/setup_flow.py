@@ -34,6 +34,7 @@ class SetupSteps(IntEnum):
     """Enumeration of setup steps to keep track of user data responses."""
 
     INIT = 0
+    CONFIGURATION_MODE = 1
     DEVICE_CHOICE = 2
     PAIRING_AIRPLAY = 3
     PAIRING_COMPANION = 4
@@ -60,7 +61,9 @@ async def driver_setup_handler(msg: SetupDriver) -> SetupAction:
         _setup_step = SetupSteps.INIT
         return await handle_driver_setup(msg)
     if isinstance(msg, UserDataResponse):
-        _LOG.debug("UserDataResponse: %s", msg)
+        _LOG.debug("%s", msg)
+        if _setup_step == SetupSteps.CONFIGURATION_MODE and "address" in msg.input_values:
+            return await handle_configuration_mode(msg)
         if _setup_step == SetupSteps.DEVICE_CHOICE and "choice" in msg.input_values:
             return await handle_device_choice(msg)
         if _setup_step == SetupSteps.PAIRING_AIRPLAY and "pin_airplay" in msg.input_values:
@@ -87,22 +90,78 @@ async def handle_driver_setup(_msg: DriverSetupRequest) -> RequestUserInput | Se
     Start driver setup.
 
     Initiated by Remote Two to set up the driver.
+    Ask user to enter ip-address for manual configuration, otherwise auto-discovery is used.
 
     :param _msg: not used, we don't have any input fields in the first setup screen.
     :return: the setup action on how to continue
     """
     global _setup_step
 
-    _LOG.debug("Starting driver setup with Apple TV discovery")
+    _LOG.debug("Starting driver setup")
+    _setup_step = SetupSteps.CONFIGURATION_MODE
+    # pylint: disable=line-too-long
+    return RequestUserInput(
+        {"en": "Setup mode", "de": "Setup Modus"},
+        [
+            {
+                "id": "info",
+                "label": {
+                    "en": "Discover or connect to Apple TV device",
+                    "de": "Suche oder Verbinde auf Apple TV Gerät",
+                    "fr": "Découvrir ou connexion à l'appareil Apple TV",
+                },
+                "field": {
+                    "label": {
+                        "value": {
+                            "en": "Leave blank to use auto-discovery and click _Next_.",
+                            "de": "Leer lassen, um automatische Erkennung zu verwenden und auf _Weiter_ klicken.",
+                            "fr": "Laissez le champ vide pour utiliser la découverte automatique et cliquez sur _Suivant_.",  # noqa: E501
+                        }
+                    }
+                },
+            },
+            {
+                "field": {"text": {"value": ""}},
+                "id": "address",
+                "label": {"en": "IP address", "de": "IP-Adresse", "fr": "Adresse IP"},
+            },
+        ],
+    )
+
+
+async def handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput | SetupError:
+    """
+    Process user data response from the first setup process screen.
+
+    If ``address`` field is set by the user: try connecting to device and retrieve device information.
+    Otherwise, start Apple TV discovery and present the found devices to the user to choose from.
+
+    :param msg: response data from the requested user data
+    :return: the setup action on how to continue
+    """
+    # global _discovered_atvs
+    global _pairing_apple_tv
+    global _setup_step
 
     # clear all configured devices and any previous pairing attempt
-    # if _pairing_apple_tv:
-    #     _pairing_apple_tv.disconnect()
-    #     _pairing_apple_tv = None
-    config.devices.clear()
+    if _pairing_apple_tv:
+        _pairing_apple_tv.disconnect()
+        _pairing_apple_tv = None
+    # TODO allow multiple devices!
+    config.devices.clear()  # triggers device instance removal
 
-    tvs = await discover.apple_tvs(asyncio.get_event_loop())
+    search_hosts: list[str] | None = None
     dropdown_items = []
+    address = msg.input_values["address"]
+
+    if address:
+        _LOG.debug("Starting manual driver setup for: %s", address)
+        # Connect to specific device and retrieve name
+        search_hosts = [address]
+    else:
+        _LOG.debug("Starting driver setup with Apple TV discovery")
+
+    tvs = await discover.apple_tvs(asyncio.get_event_loop(), hosts=search_hosts)
 
     for device in tvs:
         tv_data = {"id": device.identifier, "label": {"en": device.name + " TvOS " + str(device.device_info.version)}}
@@ -115,12 +174,16 @@ async def handle_driver_setup(_msg: DriverSetupRequest) -> RequestUserInput | Se
 
     _setup_step = SetupSteps.DEVICE_CHOICE
     return RequestUserInput(
-        {"en": "Please choose your Apple TV", "de": "Bitte wähle deinen Apple TV"},
+        {"en": "Please choose your Apple TV", "de": "Bitte wähle deinen Apple TV", "fr": "Choisissez votre Apple TV"},
         [
             {
                 "field": {"dropdown": {"value": dropdown_items[0]["id"], "items": dropdown_items}},
                 "id": "choice",
-                "label": {"en": "Choose your Apple TV", "de": "Wähle deinen Apple TV"},
+                "label": {
+                    "en": "Choose your Apple TV",
+                    "de": "Wähle deinen Apple TV",
+                    "fr": "Choisissez votre Apple TV",
+                },
             }
         ],
     )
@@ -159,7 +222,11 @@ async def handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Setu
     if res == 0:
         _LOG.debug("Device provides PIN")
         return RequestUserInput(
-            "Please enter the PIN from your Apple TV",
+            {
+                "en": "Please enter the shown PIN on your Apple TV",
+                "de": "Bitte gib die angezeigte PIN auf deinem Apple TV ein",
+                "fr": "Veuillez entrer le code PIN affiché sur votre Apple TV",
+            },
             [
                 {
                     "field": {"number": {"max": 9999, "min": 0, "value": 0000}},
@@ -204,7 +271,11 @@ async def handle_user_data_airplay_pin(msg: UserDataResponse) -> RequestUserInpu
     if res == 0:
         _LOG.debug("Device provides PIN")
         return RequestUserInput(
-            "Please enter the PIN from your Apple TV",
+            {
+                "en": "Please enter the shown PIN on your Apple TV",
+                "de": "Bitte gib die angezeigte PIN auf deinem Apple TV ein",
+                "fr": "Veuillez entrer le code PIN affiché sur votre Apple TV",
+            },
             [
                 {
                     "field": {"number": {"max": 9999, "min": 0, "value": 0000}},
@@ -218,35 +289,6 @@ async def handle_user_data_airplay_pin(msg: UserDataResponse) -> RequestUserInpu
     # FIXME handle finish_pairing() in next step!
     await _pairing_apple_tv.finish_pairing()
     return RequestUserConfirmation("Please enter the following PIN on your Apple TV:" + res)
-
-    # global _pairing_apple_tv
-    #
-    # _LOG.info("User has entered the PIN")
-    #
-    # if _pairing_apple_tv is None:
-    #     _LOG.error("Can't handle pairing pin: no device instance! Aborting setup")
-    #     return SetupError()
-    #
-    # res = await _pairing_apple_tv.finish_pairing(msg.input_values["pin"])
-    # _pairing_apple_tv.disconnect()
-    #
-    # if res != ucapi.StatusCodes.OK:
-    #     _pairing_apple_tv = None
-    #     if res == ucapi.StatusCodes.UNAUTHORIZED:
-    #         return SetupError(error_type=IntegrationSetupError.AUTHORIZATION_ERROR)
-    #     return SetupError(error_type=IntegrationSetupError.CONNECTION_REFUSED)
-    #
-    # device = AtvDevice(_pairing_apple_tv.identifier, _pairing_apple_tv.name, _pairing_apple_tv.address)
-    # config.devices.add(device)  # triggers AndroidTv instance creation
-    # config.devices.store()
-    #
-    # # ATV device connection will be triggered with subscribe_entities request
-    #
-    # _pairing_apple_tv = None
-    # await asyncio.sleep(1)
-    #
-    # _LOG.info("Setup successfully completed for %s", device.name)
-    # return SetupComplete()
 
 
 async def handle_user_data_companion_pin(msg: UserDataResponse) -> SetupComplete | SetupError:
