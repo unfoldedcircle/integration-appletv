@@ -144,8 +144,8 @@ class Devices:
             return True
         except OSError:
             _LOG.error("Cannot open the config file")
-        except ValueError:
-            _LOG.error("Empty or invalid config file")
+        except (ValueError, TypeError) as err:
+            _LOG.error("Empty or invalid config file: %s", err)
 
         return False
 
