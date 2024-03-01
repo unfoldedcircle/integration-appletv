@@ -27,6 +27,10 @@ _LOOP = asyncio.get_event_loop()
 api = uc.IntegrationAPI(_LOOP)
 _configured_atvs: dict[str, tv.AppleTv] = {}
 
+# Experimental features, don't seem to work / supported (yet) with ATV4
+ENABLE_REPEAT_FEAT = False
+ENABLE_SHUFFLE_FEAT = False
+
 
 @api.listens_to(ucapi.Events.CONNECT)
 async def on_r2_connect_cmd() -> None:
@@ -41,12 +45,6 @@ async def on_r2_connect_cmd() -> None:
 async def on_r2_disconnect_cmd():
     """Disconnect all configured ATVs when the Remote Two sends the disconnect command."""
     _LOG.debug("Client disconnected, disconnecting all Apple TVs")
-    # for device in _configured_atvs.values():
-    #     await device.disconnect()
-    #     # TODO still required?
-    #     device.events.remove_all_listeners()
-    #
-    # await api.set_device_state(ucapi.DeviceStates.DISCONNECTED)
     for atv in _configured_atvs.values():
         _LOOP.create_task(atv.disconnect())
 
@@ -86,7 +84,7 @@ async def on_subscribe_entities(entity_ids: list[str]) -> None:
     """
     _LOG.debug("Subscribe entities event: %s", entity_ids)
     for entity_id in entity_ids:
-        # TODO add atv_id -> list(entities_id) mapping. Right now the atv_id == entity_id!
+        # TODO #11 add atv_id -> list(entities_id) mapping. Right now the atv_id == entity_id!
         atv_id = entity_id
         if atv_id in _configured_atvs:
             _LOG.debug("We have a match, start listening to events")
@@ -109,7 +107,7 @@ async def on_subscribe_entities(entity_ids: list[str]) -> None:
 async def on_unsubscribe_entities(entity_ids: list[str]) -> None:
     """On unsubscribe, we disconnect the objects and remove listeners for events."""
     _LOG.debug("Unsubscribe entities event: %s", entity_ids)
-    # TODO add entity_id --> atv_id mapping. Right now the atv_id == entity_id!
+    # TODO #11 add entity_id --> atv_id mapping. Right now the atv_id == entity_id!
     for entity_id in entity_ids:
         if entity_id in _configured_atvs:
             _LOG.debug("We have a match, stop listening to events")
@@ -118,6 +116,7 @@ async def on_unsubscribe_entities(entity_ids: list[str]) -> None:
             device.events.remove_all_listeners()
 
 
+# pylint: disable=too-many-statements
 async def media_player_cmd_handler(
     entity: MediaPlayer, cmd_id: str, params: dict[str, Any] | None
 ) -> ucapi.StatusCodes:
@@ -133,7 +132,7 @@ async def media_player_cmd_handler(
     """
     _LOG.info("Got %s command request: %s %s", entity.id, cmd_id, params)
 
-    # TODO map from device id to entities (see Denon integration)
+    # TODO #11 map from device id to entities (see Denon integration)
     # atv_id = _tv_from_entity_id(entity.id)
     # if atv_id is None:
     #     return ucapi.StatusCodes.NOT_FOUND
@@ -182,17 +181,38 @@ async def media_player_cmd_handler(
         case media_player.Commands.CURSOR_RIGHT:
             res = await device.cursor_right()
         case media_player.Commands.CURSOR_ENTER:
-            res = await device.cursor_enter()
+            res = await device.cursor_select()
         # TODO for testing only
         case media_player.Commands.FUNCTION_GREEN:
-            res = await device.cursor_enter_hold()
+            res = await device.context_menu()
         case media_player.Commands.FUNCTION_YELLOW:
-            res = await device.home_hold()
+            res = await device.control_center()
         case media_player.Commands.FUNCTION_RED:
-            res = await device.menu_hold()
+            res = await device.top_menu()
         case media_player.Commands.FUNCTION_BLUE:
             res = await device.app_switcher()
         # TODO end testing
+        case media_player.Commands.REWIND:  # TODO not yet tested
+            res = await device.skip_backward()
+        case media_player.Commands.FAST_FORWARD:  # TODO not yet tested
+            res = await device.skip_forward()
+
+        case media_player.Commands.REPEAT:
+            mode = params.get("repeat")
+            if mode is None:
+                res = ucapi.StatusCodes.BAD_REQUEST
+            else:
+                res = await device.set_repeat(mode)
+        case media_player.Commands.SHUFFLE:
+            mode = params.get("shuffle")
+            if mode is None:
+                res = ucapi.StatusCodes.BAD_REQUEST
+            else:
+                res = await device.set_shuffle(mode == "true")
+        case "context_menu":  # TODO enhance integration lib media_player.Features.CONTEXT_MENU
+            res = await device.context_menu()
+        case "settings":  # TODO enhance integration lib media_player.Features.SETTINGS
+            res = await device.control_center()
 
         case media_player.Commands.HOME:
             res = await device.home()
@@ -201,14 +221,15 @@ async def media_player_cmd_handler(
             await asyncio.sleep(1)
             if configured_entity.attributes[media_player.Attributes.STATE] != media_player.States.PLAYING:
                 # if nothing is playing we clear the playing information
-                attributes = {}
-                attributes[media_player.Attributes.MEDIA_IMAGE_URL] = ""
-                attributes[media_player.Attributes.MEDIA_ALBUM] = ""
-                attributes[media_player.Attributes.MEDIA_ARTIST] = ""
-                attributes[media_player.Attributes.MEDIA_TITLE] = ""
-                attributes[media_player.Attributes.MEDIA_TYPE] = ""
-                attributes[media_player.Attributes.SOURCE] = ""
-                attributes[media_player.Attributes.MEDIA_DURATION] = 0
+                attributes = {
+                    media_player.Attributes.MEDIA_IMAGE_URL: "",
+                    media_player.Attributes.MEDIA_ALBUM: "",
+                    media_player.Attributes.MEDIA_ARTIST: "",
+                    media_player.Attributes.MEDIA_TITLE: "",
+                    media_player.Attributes.MEDIA_TYPE: "",
+                    media_player.Attributes.SOURCE: "",
+                    media_player.Attributes.MEDIA_DURATION: 0,
+                }
                 api.configured_entities.update_attributes(entity.id, attributes)
         case media_player.Commands.BACK:
             res = await device.menu()
@@ -218,6 +239,13 @@ async def media_player_cmd_handler(
             res = await device.channel_up()
         case media_player.Commands.SELECT_SOURCE:
             res = await device.launch_app(params["source"])
+        # --- simple commands ---
+        case "TOP_MENU":
+            res = await device.top_menu()
+        case "APP_SWITCHER":
+            res = await device.app_switcher()
+        case "SCREENSAVER":
+            res = await device.screensaver()
 
     return res
 
@@ -240,7 +268,7 @@ async def on_atv_connected(identifier: str) -> None:
     _LOG.debug("Apple TV connected: %s", identifier)
     # TODO is this the correct state?
     api.configured_entities.update_attributes(identifier, {media_player.Attributes.STATE: media_player.States.STANDBY})
-    # TODO when multiple devices are supported, the device state logic isn't that simple anymore!
+    # TODO #11 when multiple devices are supported, the device state logic isn't that simple anymore!
     await api.set_device_state(ucapi.DeviceStates.CONNECTED)
 
 
@@ -250,7 +278,7 @@ async def on_atv_disconnected(identifier: str) -> None:
     api.configured_entities.update_attributes(
         identifier, {media_player.Attributes.STATE: media_player.States.UNAVAILABLE}
     )
-    # TODO when multiple devices are supported, the device state logic isn't that simple anymore!
+    # TODO #11 when multiple devices are supported, the device state logic isn't that simple anymore!
     await api.set_device_state(ucapi.DeviceStates.DISCONNECTED)
 
 
@@ -263,7 +291,7 @@ async def on_atv_connection_error(identifier: str, message) -> None:
     await api.set_device_state(ucapi.DeviceStates.ERROR)
 
 
-# TODO refactor & simply on_atv_update, then remove pylint exceptions
+# TODO refactor & simplify on_atv_update, then remove pylint exceptions
 # pylint: disable=too-many-branches,too-many-statements
 async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
     """
@@ -344,6 +372,12 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
     if "volume" in update:
         attributes[media_player.Attributes.VOLUME] = update["volume"]
 
+    if ENABLE_REPEAT_FEAT and "repeat" in update:
+        attributes[media_player.Attributes.REPEAT] = update["repeat"]
+
+    if ENABLE_SHUFFLE_FEAT and "shuffle" in update:
+        attributes[media_player.Attributes.SHUFFLE] = update["shuffle"]
+
     if media_player.Attributes.STATE in attributes:
         if attributes[media_player.Attributes.STATE] == media_player.States.OFF:
             attributes[media_player.Attributes.MEDIA_IMAGE_URL] = ""
@@ -391,36 +425,45 @@ def _register_available_entities(identifier: str, name: str) -> bool:
     :param name: Friendly name
     :return: True if added, False if the device was already in storage.
     """
-    # TODO map entity IDs from device identifier
+    # TODO #11 map entity IDs from device identifier
     entity_id = identifier
     # plain and simple for now: only one media_player per ATV device
+    features = [
+        media_player.Features.ON_OFF,
+        media_player.Features.VOLUME,
+        media_player.Features.VOLUME_UP_DOWN,
+        # media_player.Features.MUTE_TOGGLE,
+        media_player.Features.PLAY_PAUSE,
+        media_player.Features.NEXT,
+        media_player.Features.PREVIOUS,
+        media_player.Features.MEDIA_DURATION,
+        media_player.Features.MEDIA_POSITION,
+        media_player.Features.MEDIA_TITLE,
+        media_player.Features.MEDIA_ARTIST,
+        media_player.Features.MEDIA_ALBUM,
+        media_player.Features.MEDIA_IMAGE_URL,
+        media_player.Features.MEDIA_TYPE,
+        media_player.Features.HOME,
+        media_player.Features.CHANNEL_SWITCHER,
+        media_player.Features.DPAD,
+        media_player.Features.SELECT_SOURCE,
+        "context_menu",  # TODO media_player.Features.CONTEXT_MENU
+        "settings",  # TODO media_player.Features.SETTINGS
+        media_player.Features.MENU,
+        media_player.Features.REWIND,
+        media_player.Features.FAST_FORWARD,
+        # for testing
+        media_player.Features.COLOR_BUTTONS,
+    ]
+    if ENABLE_REPEAT_FEAT:
+        features.append(media_player.Features.REPEAT)
+    if ENABLE_SHUFFLE_FEAT:
+        features.append(media_player.Features.SHUFFLE)
+
     entity = MediaPlayer(
         entity_id,
         name,
-        [
-            media_player.Features.ON_OFF,
-            media_player.Features.VOLUME,
-            media_player.Features.VOLUME_UP_DOWN,
-            # media_player.Features.MUTE_TOGGLE,
-            media_player.Features.PLAY_PAUSE,
-            media_player.Features.NEXT,
-            media_player.Features.PREVIOUS,
-            media_player.Features.MEDIA_DURATION,
-            media_player.Features.MEDIA_POSITION,
-            media_player.Features.MEDIA_TITLE,
-            media_player.Features.MEDIA_ARTIST,
-            media_player.Features.MEDIA_ALBUM,
-            media_player.Features.MEDIA_IMAGE_URL,
-            media_player.Features.MEDIA_TYPE,
-            media_player.Features.HOME,
-            media_player.Features.CHANNEL_SWITCHER,
-            media_player.Features.DPAD,
-            media_player.Features.SELECT_SOURCE,
-            # for testing
-            media_player.Features.COLOR_BUTTONS,
-            media_player.Features.MENU,
-            media_player.Features.GUIDE,
-        ],
+        features,
         {
             media_player.Attributes.STATE: media_player.States.UNAVAILABLE,
             media_player.Attributes.VOLUME: 0,
@@ -433,6 +476,7 @@ def _register_available_entities(identifier: str, name: str) -> bool:
             media_player.Attributes.MEDIA_ALBUM: "",
         },
         device_class=media_player.DeviceClasses.TV,
+        options={media_player.Options.SIMPLE_COMMANDS: ["TOP_MENU", "APP_SWITCHER", "SCREENSAVER"]},
         cmd_handler=media_player_cmd_handler,
     )
 
@@ -451,10 +495,22 @@ def on_device_removed(device: config.AtvDevice | None) -> None:
     """Handle a removed device in the configuration."""
     if device is None:
         _LOG.debug("Configuration cleared, disconnecting & removing all configured ATV instances")
-        # TODO
+        for atv in _configured_atvs.values():
+            atv.disconnect()
+            atv.events.remove_all_listeners()
+        _configured_atvs.clear()
+        api.configured_entities.clear()
+        api.available_entities.clear()
     else:
-        _LOG.debug("Device removed: %s", device)
-        # TODO
+        if device.id in _configured_atvs:
+            _LOG.debug("Disconnecting from removed ATV %s", device.identifier)
+            atv = _configured_atvs.pop(device.identifier)
+            atv.disconnect()
+            atv.events.remove_all_listeners()
+            # TODO #11 map entity IDs from device identifier
+            entity_id = atv.identifier
+            api.configured_entities.remove(entity_id)
+            api.available_entities.remove(entity_id)
 
 
 async def main():

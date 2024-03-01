@@ -21,7 +21,6 @@ from pyatv.const import InputAction
 from pyee import AsyncIOEventEmitter
 
 LOG = logging.getLogger(__name__)
-LOG.setLevel(logging.DEBUG)
 
 BACKOFF_MAX = 30
 BACKOFF_SEC = 2
@@ -66,23 +65,23 @@ def async_handle_atvlib_errors(
         try:
             await func(self, *args, **kwargs)
             return ucapi.StatusCodes.OK
-        except pyatv.exceptions.OperationTimeoutError:
+        except (TimeoutError, pyatv.exceptions.OperationTimeoutError):
             result = ucapi.StatusCodes.TIMEOUT
             LOG.warning(
                 "Operation timeout on ATV %s. (%s%s)",
-                self._receiver.host,
+                self.identifier,
                 func.__name__,
                 args,
             )
         except (pyatv.exceptions.ConnectionFailedError, pyatv.exceptions.ConnectionLostError) as err:
             result = ucapi.StatusCodes.SERVICE_UNAVAILABLE
-            LOG.warning("ATV network error %s (%s%s). %s", self._receiver.host, func.__name__, args, err)
+            LOG.warning("ATV network error %s (%s%s). %s", self.identifier, func.__name__, args, err)
         except pyatv.exceptions.AuthenticationError as err:
             result = ucapi.StatusCodes.UNAUTHORIZED
-            LOG.warning("Authentication error on ATV %s (%s%s): %s", self._receiver.host, func.__name__, args, err)
+            LOG.warning("Authentication error on ATV %s (%s%s): %s", self.identifier, func.__name__, args, err)
         except (pyatv.exceptions.NoCredentialsError, pyatv.exceptions.InvalidCredentialsError) as err:
             result = ucapi.StatusCodes.UNAUTHORIZED
-            LOG.warning("ATV credential error %s (%s%s): %s", self._receiver.host, func.__name__, args, err)
+            LOG.warning("ATV credential error %s (%s%s): %s", self.identifier, func.__name__, args, err)
 
         except pyatv.exceptions.CommandError as err:
             result = ucapi.StatusCodes.BAD_REQUEST
@@ -90,11 +89,12 @@ def async_handle_atvlib_errors(
                 "Command %s%s failed on ATV %s with error: %s",
                 func.__name__,
                 args,
-                self._receiver.host,
+                self.identifier,
                 err,
             )
         except Exception as err:  # pylint: disable=broad-exception-caught
-            LOG.exception("Error %s occurred in method %s%s for ATV %s", err, func.__name__, args, self._receiver.host)
+            LOG.exception("Error %s occurred in method %s%s for ATV %s", err, func.__name__, args, self.identifier)
+
         return result
 
     return wrapper
@@ -104,6 +104,7 @@ class AppleTv:
     """Representing an Apple TV Device."""
 
     _loop: AbstractEventLoop
+    _atv: pyatv.interface.AppleTV | None
     identifier: str
     _pairing_atv: pyatv.interface.BaseConfig | None
     _pairing_process = pyatv.interface.PairingHandler | None
@@ -122,6 +123,7 @@ class AppleTv:
         self.events = AsyncIOEventEmitter(self._loop)
         self._is_on = False
         self._atv = None
+        # TODO use properties
         self.name = name
         self.identifier = identifier
         if credentials is None:
@@ -151,8 +153,7 @@ class AppleTv:
 
     def playstatus_update(self, _updater, playstatus) -> None:
         """Play status push update callback handler."""
-        LOG.debug("Push update")
-        LOG.debug(str(playstatus))
+        LOG.debug("Push update: %s", str(playstatus))
         _ = asyncio.ensure_future(self._process_update(playstatus))
 
     def playstatus_error(self, _updater, exception) -> None:
@@ -343,13 +344,14 @@ class AppleTv:
         try:
             if self._atv:
                 self._atv.close()
-                self._atv = None
             if self._connect_task:
                 self._connect_task.cancel()
-                self._connect_task = None
             self.events.emit(EVENTS.DISCONNECTED, self.identifier)
-        except Exception:  # pylint: disable=broad-exception-caught
-            LOG.exception("An error occurred while disconnecting")
+        except Exception as err:  # pylint: disable=broad-exception-caught
+            LOG.exception("An error occurred while disconnecting: %s", err)
+        finally:
+            self._atv = None
+            self._connect_task = None
 
     async def _start_polling(self) -> None:
         if self._atv is None:
@@ -369,8 +371,8 @@ class AppleTv:
         else:
             LOG.debug("Polling was already stopped")
 
-    async def _process_update(self, data) -> None:
-        LOG.debug("Push update")
+    async def _process_update(self, data) -> None:  # pylint: disable=too-many-branches
+        LOG.debug("Process update")
 
         update = {}
 
@@ -388,13 +390,23 @@ class AppleTv:
         if self._state == pyatv.const.DeviceState.Playing:
             try:
                 artwork = await self._atv.metadata.artwork(width=ARTWORK_WIDTH, height=ARTWORK_HEIGHT)
-                artwork_encoded = "data:image/png;base64," + base64.b64encode(artwork.bytes).decode("utf-8")
-                update["artwork"] = artwork_encoded
+                if artwork:
+                    artwork_encoded = "data:image/png;base64," + base64.b64encode(artwork.bytes).decode("utf-8")
+                    update["artwork"] = artwork_encoded
             except Exception as err:  # pylint: disable=broad-exception-caught
                 LOG.warning("Error while updating the artwork: %s", err)
 
         update["total_time"] = data.total_time
-        update["title"] = data.title
+        if data.title is not None:
+            # TODO filter out non-printable characters
+            # workaround for Plex DVR
+            if data.title.startswith("(null):"):
+                title = data.title.removeprefix("(null):").strip()
+            else:
+                title = data.title
+            update["title"] = title
+        else:
+            update["title"] = ""
 
         if data.artist is not None:
             update["artist"] = data.artist
@@ -410,8 +422,20 @@ class AppleTv:
             update["media_type"] = data.media_type
 
         # TODO: data.genre
-        # TODO: data.repeat: All, Off, Track
-        # TODO: data.shuffle
+        # if data.genre is not None:
+        #     pass
+
+        if data.repeat is not None:
+            match data.repeat:
+                case pyatv.const.RepeatState.Off:
+                    update["repeat"] = "OFF"
+                case pyatv.const.RepeatState.All:
+                    update["repeat"] = "ALL"
+                case pyatv.const.RepeatState.Track:
+                    update["repeat"] = "ONE"
+
+        if data.shuffle is not None:
+            update["shuffle"] = data.shuffle in (pyatv.const.ShuffleState.Albums, pyatv.const.ShuffleState.Songs)
 
         self.events.emit(EVENTS.UPDATE, self.identifier, update)
 
@@ -491,6 +515,43 @@ class AppleTv:
         await self._atv.remote_control.previous()
 
     @async_handle_atvlib_errors
+    async def skip_forward(self) -> ucapi.StatusCodes:
+        """Skip forward a time interval.
+
+        Skip interval is typically 15-30s, but is decided by the app.
+        """
+        await self._atv.remote_control.skip_forward()
+
+    @async_handle_atvlib_errors
+    async def skip_backward(self) -> ucapi.StatusCodes:
+        """Skip backwards a time interval.
+
+        Skip interval is typically 15-30s, but is decided by the app.
+        """
+        await self._atv.remote_control.skip_backward()
+
+    @async_handle_atvlib_errors
+    async def set_repeat(self, mode: str) -> ucapi.StatusCodes:
+        """Change repeat state."""
+        match mode:
+            case "OFF":
+                repeat = pyatv.const.RepeatState.Off
+            case "ALL":
+                repeat = pyatv.const.RepeatState.All
+            case "ONE":
+                repeat = pyatv.const.RepeatState.Track
+            case _:
+                return ucapi.StatusCodes.BAD_REQUEST
+        await self._atv.remote_control.set_repeat(repeat)
+
+    @async_handle_atvlib_errors
+    async def set_shuffle(self, mode: bool) -> ucapi.StatusCodes:
+        """Change shuffle mode to on or off."""
+        await self._atv.remote_control.set_shuffle(
+            pyatv.const.ShuffleState.Albums if mode else pyatv.const.ShuffleState.Off
+        )
+
+    @async_handle_atvlib_errors
     async def volume_up(self) -> ucapi.StatusCodes:
         """Press key volume up."""
         await self._atv.audio.volume_up()
@@ -521,13 +582,13 @@ class AppleTv:
         await self._atv.remote_control.right()
 
     @async_handle_atvlib_errors
-    async def cursor_enter(self) -> ucapi.StatusCodes:
+    async def cursor_select(self) -> ucapi.StatusCodes:
         """Press key select."""
         await self._atv.remote_control.select()
 
     @async_handle_atvlib_errors
-    async def cursor_enter_hold(self) -> ucapi.StatusCodes:
-        """Press and hold select key for one second."""
+    async def context_menu(self) -> ucapi.StatusCodes:
+        """Press and hold select key for one second to bring up context menu in most apps."""
         await self._atv.remote_control.select(InputAction.Hold)
 
     @async_handle_atvlib_errors
@@ -536,8 +597,8 @@ class AppleTv:
         await self._atv.remote_control.home()
 
     @async_handle_atvlib_errors
-    async def home_hold(self) -> ucapi.StatusCodes:
-        """Press and hold home key for one second."""
+    async def control_center(self) -> ucapi.StatusCodes:
+        """Show control center: press and hold home key for one second."""
         await self._atv.remote_control.home(InputAction.Hold)
 
     @async_handle_atvlib_errors
@@ -546,8 +607,8 @@ class AppleTv:
         await self._atv.remote_control.menu()
 
     @async_handle_atvlib_errors
-    async def menu_hold(self) -> ucapi.StatusCodes:
-        """Press and hold menu key for one second."""
+    async def top_menu(self) -> ucapi.StatusCodes:
+        """Go to top menu: press and hold menu key for one second."""
         await self._atv.remote_control.menu(InputAction.Hold)
 
     @async_handle_atvlib_errors
@@ -559,6 +620,11 @@ class AppleTv:
     async def channel_down(self) -> ucapi.StatusCodes:
         """Select previous channel."""
         await self._atv.remote_control.channel_down()
+
+    @async_handle_atvlib_errors
+    async def screensaver(self) -> ucapi.StatusCodes:
+        """Select previous channel."""
+        await self._atv.remote_control.screensaver()
 
     @async_handle_atvlib_errors
     async def launch_app(self, app_name: str) -> ucapi.StatusCodes:
