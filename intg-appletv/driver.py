@@ -9,6 +9,7 @@ This module implements a Remote Two integration driver for Apple TV devices.
 import asyncio
 import logging
 import os
+from enum import Enum
 from typing import Any
 
 import config
@@ -30,6 +31,17 @@ _configured_atvs: dict[str, tv.AppleTv] = {}
 # Experimental features, don't seem to work / supported (yet) with ATV4
 ENABLE_REPEAT_FEAT = False
 ENABLE_SHUFFLE_FEAT = False
+
+
+class SimpleCommands(str, Enum):
+    """Additional simple commands of the Apple TV not covered by media-player features."""
+
+    TOP_MENU = "TOP_MENU"
+    """Go to home screen."""
+    APP_SWITCHER = "APP_SWITCHER"
+    """Show running applications."""
+    SCREENSAVER = "SCREENSAVER"
+    """Run screensaver."""
 
 
 @api.listens_to(ucapi.Events.CONNECT)
@@ -209,9 +221,9 @@ async def media_player_cmd_handler(
                 res = ucapi.StatusCodes.BAD_REQUEST
             else:
                 res = await device.set_shuffle(mode == "true")
-        case "context_menu":  # TODO enhance integration lib media_player.Features.CONTEXT_MENU
+        case media_player.Commands.CONTEXT_MENU:
             res = await device.context_menu()
-        case "settings":  # TODO enhance integration lib media_player.Features.SETTINGS
+        case media_player.Commands.SETTINGS:
             res = await device.control_center()
 
         case media_player.Commands.HOME:
@@ -240,11 +252,11 @@ async def media_player_cmd_handler(
         case media_player.Commands.SELECT_SOURCE:
             res = await device.launch_app(params["source"])
         # --- simple commands ---
-        case "TOP_MENU":
+        case SimpleCommands.TOP_MENU:
             res = await device.top_menu()
-        case "APP_SWITCHER":
+        case SimpleCommands.APP_SWITCHER:
             res = await device.app_switcher()
-        case "SCREENSAVER":
+        case SimpleCommands.SCREENSAVER:
             res = await device.screensaver()
 
     return res
@@ -447,8 +459,8 @@ def _register_available_entities(identifier: str, name: str) -> bool:
         media_player.Features.CHANNEL_SWITCHER,
         media_player.Features.DPAD,
         media_player.Features.SELECT_SOURCE,
-        "context_menu",  # TODO media_player.Features.CONTEXT_MENU
-        "settings",  # TODO media_player.Features.SETTINGS
+        media_player.Features.CONTEXT_MENU,
+        media_player.Features.SETTINGS,
         media_player.Features.MENU,
         media_player.Features.REWIND,
         media_player.Features.FAST_FORWARD,
@@ -476,7 +488,13 @@ def _register_available_entities(identifier: str, name: str) -> bool:
             media_player.Attributes.MEDIA_ALBUM: "",
         },
         device_class=media_player.DeviceClasses.TV,
-        options={media_player.Options.SIMPLE_COMMANDS: ["TOP_MENU", "APP_SWITCHER", "SCREENSAVER"]},
+        options={
+            media_player.Options.SIMPLE_COMMANDS: [
+                SimpleCommands.TOP_MENU.value,
+                SimpleCommands.APP_SWITCHER.value,
+                SimpleCommands.SCREENSAVER.value,
+            ]
+        },
         cmd_handler=media_player_cmd_handler,
     )
 
