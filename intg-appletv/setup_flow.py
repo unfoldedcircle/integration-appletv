@@ -41,6 +41,8 @@ class SetupSteps(IntEnum):
 
 
 _setup_step = SetupSteps.INIT
+_manual_address: bool = False
+_discovered_atvs: list[pyatv.interface.BaseConfig] = None
 _pairing_apple_tv: tv.AppleTv | None = None
 
 
@@ -140,12 +142,14 @@ async def handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput |
     """
     global _pairing_apple_tv
     global _setup_step
+    global _manual_address
+    global _discovered_atvs
 
     # clear all configured devices and any previous pairing attempt
     if _pairing_apple_tv:
         await _pairing_apple_tv.disconnect()
         _pairing_apple_tv = None
-    # TODO allow multiple devices!
+    # TODO #11 allow multiple devices!
     config.devices.clear()  # triggers device instance removal
 
     search_hosts: list[str] | None = None
@@ -154,25 +158,32 @@ async def handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput |
 
     if address:
         _LOG.debug("Starting manual driver setup for: %s", address)
+        _manual_address = True
         # Connect to specific device and retrieve name
         search_hosts = [address]
     else:
         _LOG.debug("Starting driver setup with Apple TV discovery")
+        _manual_address = False
 
-    tvs = await discover.apple_tvs(asyncio.get_event_loop(), hosts=search_hosts)
+    _discovered_atvs = await discover.apple_tvs(asyncio.get_event_loop(), hosts=search_hosts)
 
-    for device in tvs:
-        _LOG.info("Found Apple TV: %s", device)
-        tv_data = {"id": device.identifier, "label": {"en": device.name + " tvOS " + str(device.device_info.version)}}
+    for device in _discovered_atvs:
+        _LOG.info(
+            "Found: %s, %s (%s)",
+            device.device_info,
+            device.name,
+            device.address,
+        )
 
-        dropdown_items.append(tv_data)
+        label = f"{device.name} ({device.address})"
+        dropdown_items.append({"id": device.identifier, "label": {"en": label}})
 
     if not dropdown_items:
         _LOG.warning("No Apple TVs found")
         return SetupError(error_type=IntegrationSetupError.NOT_FOUND)
 
     _setup_step = SetupSteps.DEVICE_CHOICE
-    # TODO externalize language texts
+    # TODO #12 externalize language texts
     return RequestUserInput(
         {"en": "Please choose your Apple TV", "de": "Bitte wähle deinen Apple TV", "fr": "Choisissez votre Apple TV"},
         [
@@ -202,19 +213,27 @@ async def handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Setu
     global _setup_step
 
     choice = msg.input_values["choice"]
-    # name = ""
+
+    atv = discovered_atv_from_identifier(choice)
+    if atv is None:
+        _LOG.error("Chosen Apple TV not found in discovery: %s", choice)
+        return SetupError(error_type=IntegrationSetupError.NOT_FOUND)
+
     _LOG.debug("Chosen Apple TV: %s", choice)
 
     # Create a new AppleTv object
-    # TODO refactor for manually entered IP --> this will most likely NOT work if in different subnet!
     # TODO exception handling?
-    atvs = await pyatv.scan(asyncio.get_event_loop(), identifier=choice)
+    atvs = await pyatv.scan(asyncio.get_event_loop(), identifier=choice, hosts=[str(atv.address)])
     if not atvs:
-        _LOG.error("Cannot find the chosen Apple TV: %s", choice)
+        _LOG.error("Cannot connect the chosen Apple TV: %s", choice)
         return SetupError(error_type=IntegrationSetupError.NOT_FOUND)
 
     atv = atvs[0]
-    _pairing_apple_tv = tv.AppleTv(choice, atv.name, loop=asyncio.get_event_loop(), pairing_atv=atv)
+    _pairing_apple_tv = tv.AppleTv(
+        AtvDevice(choice, atv.name, [], str(atv.address) if _manual_address else None),
+        loop=asyncio.get_event_loop(),
+        pairing_atv=atv,
+    )
 
     _LOG.debug("Pairing process begin")
     # Hook up to signals
@@ -243,9 +262,6 @@ async def handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Setu
 
     _LOG.debug("We provide AirPlay-Code")
     return RequestUserConfirmation("Please enter the following PIN on your Apple TV: " + res)
-
-    # # no better error code right now
-    # return SetupError(error_type=IntegrationSetupError.CONNECTION_REFUSED)
 
 
 async def handle_user_data_airplay_pin(msg: UserDataResponse) -> RequestUserInput | SetupError:
@@ -332,9 +348,10 @@ async def handle_user_data_companion_pin(msg: UserDataResponse) -> SetupComplete
     _pairing_apple_tv.add_credentials(c)
 
     device = AtvDevice(
-        identifier=_pairing_apple_tv.identifier,
-        name=_pairing_apple_tv.name,
-        credentials=_pairing_apple_tv.get_credentials(),
+        _pairing_apple_tv.identifier,
+        _pairing_apple_tv.name,
+        _pairing_apple_tv.get_credentials(),
+        _pairing_apple_tv.address,
     )
     config.devices.add(device)  # triggers ATV instance creation
     config.devices.store()
@@ -347,3 +364,16 @@ async def handle_user_data_companion_pin(msg: UserDataResponse) -> SetupComplete
     _LOG.info("Setup successfully completed for %s", device.name)
 
     return SetupComplete()
+
+
+def discovered_atv_from_identifier(identifier: str) -> pyatv.interface.BaseConfig | None:
+    """
+    Get discovery information from identifier.
+
+    :param identifier: ATV identifier
+    :return: Device configuration if found, None otherwise
+    """
+    for atv in _discovered_atvs:
+        if atv.identifier == identifier:
+            return atv
+    return None

@@ -1,6 +1,9 @@
 """
 This module implements the Apple TV communication of the Remote Two integration driver.
 
+Uses the [pyatv](https://github.com/postlund/pyatv) library with concepts borrowed from the Home Assistant
+[Apple TV integration](https://github.com/postlund/home-assistant/tree/dev/homeassistant/components/apple_tv)
+
 :copyright: (c) 2023-2024 by Unfolded Circle ApS.
 :license: Mozilla Public License Version 2.0, see LICENSE for more details.
 """
@@ -17,7 +20,7 @@ from typing import Any, Awaitable, Callable, Concatenate, Coroutine, ParamSpec, 
 import pyatv
 import pyatv.const
 import ucapi
-from config import AtvProtocol
+from config import AtvDevice, AtvProtocol
 from pyatv.const import (
     DeviceState,
     FeatureName,
@@ -58,9 +61,13 @@ _P = ParamSpec("_P")
 def async_handle_atvlib_errors(
     func: Callable[Concatenate[_AppleTvT, _P], Awaitable[ucapi.StatusCodes | None]],
 ) -> Callable[Concatenate[_AppleTvT, _P], Coroutine[Any, Any, ucapi.StatusCodes | None]]:
-    """Log errors occurred when calling an Apple TV library function.
+    """
+    Handle errors when calling commands in the AppleTv class.
 
-    Decorates methods of AppleTv class.
+    Decorator for the AppleTv class:
+    - Check if device is connected.
+    - Log errors occurred when calling an Apple TV library function.
+    - Translate errors into UC status codes to return to the Remote.
 
     Taken from Home-Assistant
     """
@@ -79,19 +86,19 @@ def async_handle_atvlib_errors(
             result = ucapi.StatusCodes.TIMEOUT
             LOG.warning(
                 "Operation timeout on ATV %s. (%s%s)",
-                self._identifier,
+                self._device.identifier,
                 func.__name__,
                 args,
             )
         except (pyatv.exceptions.ConnectionFailedError, pyatv.exceptions.ConnectionLostError) as err:
             result = ucapi.StatusCodes.SERVICE_UNAVAILABLE
-            LOG.warning("ATV network error %s (%s%s). %s", self._identifier, func.__name__, args, err)
+            LOG.warning("ATV network error %s (%s%s). %s", self._device.identifier, func.__name__, args, err)
         except pyatv.exceptions.AuthenticationError as err:
             result = ucapi.StatusCodes.UNAUTHORIZED
-            LOG.warning("Authentication error on ATV %s (%s%s): %s", self._identifier, func.__name__, args, err)
+            LOG.warning("Authentication error on ATV %s (%s%s): %s", self._device.identifier, func.__name__, args, err)
         except (pyatv.exceptions.NoCredentialsError, pyatv.exceptions.InvalidCredentialsError) as err:
             result = ucapi.StatusCodes.UNAUTHORIZED
-            LOG.warning("ATV credential error %s (%s%s): %s", self._identifier, func.__name__, args, err)
+            LOG.warning("ATV credential error %s (%s%s): %s", self._device.identifier, func.__name__, args, err)
 
         except pyatv.exceptions.CommandError as err:
             result = ucapi.StatusCodes.BAD_REQUEST
@@ -99,17 +106,21 @@ def async_handle_atvlib_errors(
                 "Command %s%s failed on ATV %s with error: %s",
                 func.__name__,
                 args,
-                self._identifier,
+                self._device.identifier,
                 err,
             )
         # pyatv: "Calling public interface methods after disconnecting now results in BlockedStateError being raised"
         # Even though we reconnect after a disconnect notification, this should handle remaining edge cases
         except pyatv.exceptions.BlockedStateError:
             result = ucapi.StatusCodes.SERVICE_UNAVAILABLE
-            LOG.error("Command is blocked (%s%s) for ATV %s, reconnecting...", func.__name__, args, self._identifier)
+            LOG.error(
+                "Command is blocked (%s%s) for ATV %s, reconnecting...", func.__name__, args, self._device.identifier
+            )
             self._handle_disconnect()
         except Exception as err:  # pylint: disable=broad-exception-caught
-            LOG.exception("Error %s occurred in method %s%s for ATV %s", err, func.__name__, args, self._identifier)
+            LOG.exception(
+                "Error %s occurred in method %s%s for ATV %s", err, func.__name__, args, self._device.identifier
+            )
 
         return result
 
@@ -119,51 +130,45 @@ def async_handle_atvlib_errors(
 class AppleTv:
     """Representing an Apple TV Device."""
 
-    _loop: AbstractEventLoop
-    _atv: pyatv.interface.AppleTV | None
-    _identifier: str
-    _pairing_atv: pyatv.interface.BaseConfig | None
-    _pairing_process = pyatv.interface.PairingHandler | None
-    _credentials = list[dict[AtvProtocol, str]]
-
     def __init__(
         self,
-        identifier: str,
-        name: str,
-        credentials: list[dict[AtvProtocol, str]] | None = None,
+        device: AtvDevice,
         loop: AbstractEventLoop | None = None,
         pairing_atv: pyatv.interface.BaseConfig | None = None,
-    ):
+    ) -> None:
         """Create instance."""
-        self._loop = loop or asyncio.get_running_loop()
+        self._loop: AbstractEventLoop = loop or asyncio.get_running_loop()
         self.events = AsyncIOEventEmitter(self._loop)
-        self._is_on = False
-        self._atv = None
-        self._name = name
-        self._identifier = identifier
-        if credentials is None:
-            credentials = []
-        self._credentials = credentials
+        self._is_on: bool = False
+        self._atv: pyatv.interface.AppleTV | None = None
+        if device.credentials is None:
+            device.credentials = []
+        self._device: AtvDevice = device
         self._connect_task = None
-        self._connection_attempts = 0
-        self._pairing_atv = pairing_atv
-        self._pairing_process = None
+        self._connection_attempts: int = 0
+        self._pairing_atv: pyatv.interface.BaseConfig | None = pairing_atv
+        self._pairing_process: pyatv.interface.PairingHandler | None = None
         self._polling = None
-        self._poll_interval = 2
-        self._state = None
-        self._app_list = {}
+        self._poll_interval: float = 2
+        self._state: DeviceState | None = None
+        self._app_list: dict[str, str] = {}
 
     @property
     def identifier(self) -> str:
         """Return the device identifier."""
-        if not self._identifier:
+        if not self._device.identifier:
             raise ValueError("Instance not initialized, no identifier available")
-        return self._identifier
+        return self._device.identifier
 
     @property
     def name(self) -> str:
         """Return the device name."""
-        return self._name
+        return self._device.name
+
+    @property
+    def address(self) -> str | None:
+        """Return the optional device address."""
+        return self._device.address
 
     @property
     def is_on(self) -> bool | None:
@@ -178,14 +183,15 @@ class AppleTv:
 
         return self._connection_attempts * BACKOFF_SEC
 
-    def playstatus_update(self, _updater, playstatus) -> None:
+    def playstatus_update(self, _updater, playstatus: pyatv.interface.Playing) -> None:
         """Play status push update callback handler."""
         LOG.debug("Push update: %s", str(playstatus))
         _ = asyncio.ensure_future(self._process_update(playstatus))
 
-    def playstatus_error(self, _updater, exception) -> None:
+    def playstatus_error(self, _updater, exception: Exception) -> None:
         """Play status push update error callback handler."""
-        LOG.debug(str(exception))
+        LOG.warning("A %s error occurred: %s", exception.__class__, exception)
+        # TODO restart push updates?
 
     def connection_lost(self, _exception) -> None:
         """
@@ -210,28 +216,29 @@ class AppleTv:
         if self._atv:
             self._atv.close()
             self._atv = None
-        self.events.emit(EVENTS.DISCONNECTED, self._identifier)
+        self.events.emit(EVENTS.DISCONNECTED, self._device.identifier)
         self._start_connect_loop()
 
-    def volume_update(self, _old_level, new_level) -> None:
+    def volume_update(self, _old_level: float, new_level: float) -> None:
         """Volume level change callback."""
         LOG.debug("Volume level: %d", new_level)
         update = {"volume": new_level}
-        self.events.emit(EVENTS.UPDATE, self._identifier, update)
+        self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
     def outputdevices_update(self, old_devices, new_devices) -> None:
         """Output device change callback handler, for example airplay speaker."""
         # print('Output devices changed from {0:s} to {1:s}'.format(old_devices, new_devices))
-        # TODO: implement me
+        # TODO check if this could be used to better handle volume control (if it's available or not)
 
     def focusstate_update(self, old_state, new_state) -> None:
         """Focus state callback handler."""
         # print('Focus state changed from {0:s} to {1:s}'.format(old_state, new_state))
-        # TODO: implement me
+        # TODO required?
 
-    async def find_atv(self, identifier: str) -> pyatv.interface.BaseConfig | None:
-        """Find a specific Apple TV on the network by _identifier."""
-        atvs = await pyatv.scan(self._loop, identifier=identifier)
+    async def find_atv(self) -> pyatv.interface.BaseConfig | None:
+        """Find a specific Apple TV on the network by identifier."""
+        hosts = [self._device.address] if self._device.address else None
+        atvs = await pyatv.scan(self._loop, identifier=self._device.identifier, hosts=hosts)
         if not atvs:
             return None
 
@@ -239,11 +246,11 @@ class AppleTv:
 
     def add_credentials(self, credentials: dict[AtvProtocol, str]) -> None:
         """Add credentials for a protocol."""
-        self._credentials.append(credentials)
+        self._device.credentials.append(credentials)
 
     def get_credentials(self) -> list[dict[AtvProtocol, str]]:
         """Return stored credentials."""
-        return self._credentials
+        return self._device.credentials
 
     async def start_pairing(self, protocol: Protocol, name: str) -> int | None:
         """Start the pairing process with the Apple TV."""
@@ -281,7 +288,7 @@ class AppleTv:
             res = self._pairing_process.service
         else:
             LOG.warning("Did not pair with device")
-            self.events.emit(EVENTS.ERROR, self._identifier, "Could not pair with device")
+            self.events.emit(EVENTS.ERROR, self._device.identifier, "Could not pair with device")
 
         await self._pairing_process.close()
         self._pairing_process = None
@@ -296,7 +303,7 @@ class AppleTv:
 
     def _start_connect_loop(self) -> None:
         if not self._connect_task and self._atv is None and self._is_on:
-            self.events.emit(EVENTS.CONNECTING, self._identifier)
+            self.events.emit(EVENTS.CONNECTING, self._device.identifier)
             self._connect_task = asyncio.create_task(self._connect_loop())
         else:
             LOG.debug("Not starting connect loop (Atv: %s, isOn: %s)", self._atv is None, self._is_on)
@@ -330,12 +337,12 @@ class AppleTv:
         if self._atv.features.in_state(FeatureState.Available, FeatureName.AppList):
             self._loop.create_task(self._update_app_list())
 
-        self.events.emit(EVENTS.CONNECTED, self._identifier)
+        self.events.emit(EVENTS.CONNECTED, self._device.identifier)
         LOG.debug("Connected")
 
     async def _connect_once(self) -> None:
         try:
-            if conf := await self.find_atv(self._identifier):
+            if conf := await self.find_atv():
                 await self._connect(conf)
         except pyatv.exceptions.AuthenticationError:
             LOG.warning("Could not connect: auth error")
@@ -352,7 +359,7 @@ class AppleTv:
         # If something is not ready yet, we try again afterward
         missing_protocols = []
 
-        for credential in self._credentials:
+        for credential in self._device.credentials:
             if credential["protocol"] == AtvProtocol.COMPANION:
                 protocol = Protocol.Companion
             elif credential["protocol"] == AtvProtocol.AIRPLAY:
@@ -386,7 +393,7 @@ class AppleTv:
                 self._atv.close()
             if self._connect_task:
                 self._connect_task.cancel()
-            self.events.emit(EVENTS.DISCONNECTED, self._identifier)
+            self.events.emit(EVENTS.DISCONNECTED, self._device.identifier)
         except Exception as err:  # pylint: disable=broad-exception-caught
             LOG.exception("An error occurred while disconnecting: %s", err)
         finally:
@@ -411,7 +418,7 @@ class AppleTv:
         else:
             LOG.debug("Polling was already stopped")
 
-    async def _process_update(self, data) -> None:  # pylint: disable=too-many-branches
+    async def _process_update(self, data: pyatv.interface.Playing) -> None:  # pylint: disable=too-many-branches
         LOG.debug("Process update")
 
         update = {}
@@ -461,10 +468,6 @@ class AppleTv:
         if data.media_type is not None:
             update["media_type"] = data.media_type
 
-        # TODO: data.genre
-        # if data.genre is not None:
-        #     pass
-
         if data.repeat is not None:
             match data.repeat:
                 case RepeatState.Off:
@@ -477,7 +480,7 @@ class AppleTv:
         if data.shuffle is not None:
             update["shuffle"] = data.shuffle in (ShuffleState.Albums, ShuffleState.Songs)
 
-        self.events.emit(EVENTS.UPDATE, self._identifier, update)
+        self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
     async def _update_app_list(self) -> None:
         LOG.debug("Updating app list")
@@ -494,7 +497,7 @@ class AppleTv:
         except pyatv.exceptions.ProtocolError:
             LOG.warning("App list: protocol error")
 
-        self.events.emit(EVENTS.UPDATE, self._identifier, update)
+        self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
     async def _poll_worker(self) -> None:
         while self._atv is not None:
@@ -521,7 +524,7 @@ class AppleTv:
             if self._is_feature_available(FeatureName.App):
                 update["source"] = self._atv.metadata.app.name
 
-            self.events.emit(EVENTS.UPDATE, self._identifier, update)
+            self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
             await asyncio.sleep(self._poll_interval)
 
     def _is_feature_available(self, feature: FeatureName) -> bool:
@@ -662,7 +665,12 @@ class AppleTv:
     @async_handle_atvlib_errors
     async def screensaver(self) -> ucapi.StatusCodes:
         """Select previous channel."""
-        await self._atv.remote_control.screensaver()
+        try:
+            await self._atv.remote_control.screensaver()
+        except pyatv.exceptions.ProtocolError:
+            # workaround: command succeeds and screensaver is started, but always returns
+            # ProtocolError: Command _hidC failed
+            pass
 
     @async_handle_atvlib_errors
     async def launch_app(self, app_name: str) -> ucapi.StatusCodes:

@@ -140,7 +140,7 @@ async def media_player_cmd_handler(
     :param entity: media-player entity
     :param cmd_id: command
     :param params: optional command parameters
-    :return:
+    :return: status code of the command. StatusCodes.OK if the command succeeded.
     """
     _LOG.info("Got %s command request: %s %s", entity.id, cmd_id, params)
 
@@ -167,7 +167,7 @@ async def media_player_cmd_handler(
         _LOG.debug("Apple TV is off, sending turn on command")
         return await device.turn_on()
 
-    res = ucapi.StatusCodes.NOT_IMPLEMENTED
+    res = ucapi.StatusCodes.BAD_REQUEST
 
     match cmd_id:
         case media_player.Commands.PLAY_PAUSE:
@@ -411,7 +411,7 @@ def _add_configured_atv(device: config.AtvDevice, connect: bool = True) -> None:
         _LOOP.create_task(atv.disconnect())
     else:
         _LOG.debug("Adding new ATV device: %s (%s)", device.identifier, device.name)
-        atv = tv.AppleTv(device.identifier, device.name, device.credentials, loop=_LOOP)
+        atv = tv.AppleTv(device, loop=_LOOP)
         atv.events.on(tv.EVENTS.CONNECTED, on_atv_connected)
         atv.events.on(tv.EVENTS.DISCONNECTED, on_atv_disconnected)
         atv.events.on(tv.EVENTS.ERROR, on_atv_connection_error)
