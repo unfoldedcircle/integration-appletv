@@ -13,7 +13,7 @@ import config
 import discover
 import pyatv
 import tv
-from config import AtvDevice
+from config import AtvDevice, AtvProtocol
 from ucapi import (
     AbortDriverSetup,
     DriverSetupRequest,
@@ -41,7 +41,6 @@ class SetupSteps(IntEnum):
 
 
 _setup_step = SetupSteps.INIT
-# _discovered_atvs: list[dict[str, str]] = []
 _pairing_apple_tv: tv.AppleTv | None = None
 
 
@@ -139,7 +138,6 @@ async def handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput |
     :param msg: response data from the requested user data
     :return: the setup action on how to continue
     """
-    # global _discovered_atvs
     global _pairing_apple_tv
     global _setup_step
 
@@ -274,7 +272,7 @@ async def handle_user_data_airplay_pin(msg: UserDataResponse) -> RequestUserInpu
         return SetupError()
 
     # Store credentials
-    c = {"protocol": res.protocol.name.lower(), "credentials": res.credentials}
+    c = {"protocol": AtvProtocol.AIRPLAY, "credentials": res.credentials}
     _pairing_apple_tv.add_credentials(c)
 
     # Start new pairing process
@@ -287,7 +285,7 @@ async def handle_user_data_airplay_pin(msg: UserDataResponse) -> RequestUserInpu
         _setup_step = SetupSteps.PAIRING_COMPANION
         return RequestUserInput(
             {
-                "en": "Please enter the shown companion PIN on your Apple TV",
+                "en": "Please enter the shown PIN on your Apple TV",
                 "de": "Bitte gib die angezeigte PIN auf deinem Apple TV ein",
                 "fr": "Veuillez entrer le code PIN affiché sur votre Apple TV",
             },
@@ -295,7 +293,7 @@ async def handle_user_data_airplay_pin(msg: UserDataResponse) -> RequestUserInpu
                 {
                     "field": {"number": {"max": 9999, "min": 0, "value": 0000}},
                     "id": "pin_companion",
-                    "label": {"en": "Apple TV Companion PIN"},
+                    "label": {"en": "Apple TV PIN"},
                 }
             ],
         )
@@ -330,7 +328,7 @@ async def handle_user_data_companion_pin(msg: UserDataResponse) -> SetupComplete
         _pairing_apple_tv = None
         return SetupError()
 
-    c = {"protocol": res.protocol.name.lower(), "credentials": res.credentials}
+    c = {"protocol": AtvProtocol.COMPANION, "credentials": res.credentials}
     _pairing_apple_tv.add_credentials(c)
 
     device = AtvDevice(
