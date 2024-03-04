@@ -235,7 +235,7 @@ class AppleTv:
         # print('Focus state changed from {0:s} to {1:s}'.format(old_state, new_state))
         # TODO required?
 
-    async def find_atv(self) -> pyatv.interface.BaseConfig | None:
+    async def _find_atv(self) -> pyatv.interface.BaseConfig | None:
         """Find a specific Apple TV on the network by identifier."""
         hosts = [self._device.address] if self._device.address else None
         atvs = await pyatv.scan(self._loop, identifier=self._device.identifier, hosts=hosts)
@@ -342,7 +342,7 @@ class AppleTv:
 
     async def _connect_once(self) -> None:
         try:
-            if conf := await self.find_atv():
+            if conf := await self._find_atv():
                 await self._connect(conf)
         except pyatv.exceptions.AuthenticationError:
             LOG.warning("Could not connect: auth error")
@@ -664,7 +664,7 @@ class AppleTv:
 
     @async_handle_atvlib_errors
     async def screensaver(self) -> ucapi.StatusCodes:
-        """Select previous channel."""
+        """Start screensaver."""
         try:
             await self._atv.remote_control.screensaver()
         except pyatv.exceptions.ProtocolError:
