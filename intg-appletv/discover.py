@@ -10,6 +10,7 @@ from asyncio import AbstractEventLoop
 
 import pyatv
 import pyatv.const
+from pyatv.const import DeviceModel
 
 _LOG = logging.getLogger(__name__)
 
@@ -27,10 +28,16 @@ async def apple_tvs(loop: AbstractEventLoop, hosts: list[str] | None = None) -> 
         res = []
 
         for tv in atvs:
-            # We only support TvOS
-            # TODO check for device model, TvOS is not sufficient!
+            # We only support Apple TV devices. Attention: HomePods are reported as TvOS!
             # https://github.com/unfoldedcircle/feature-and-bug-tracker/issues/173
-            if tv.device_info.operating_system == pyatv.const.OperatingSystem.TvOS:
+            if tv.device_info.model in [
+                DeviceModel.Gen2,
+                DeviceModel.Gen3,
+                DeviceModel.Gen4,
+                DeviceModel.Gen4K,
+                DeviceModel.AppleTV4KGen2,
+                DeviceModel.AppleTV4KGen3,
+            ]:
                 res.append(tv)
 
         return res
