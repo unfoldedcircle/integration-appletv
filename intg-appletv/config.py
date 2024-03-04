@@ -1,8 +1,8 @@
 """
 Configuration handling of the integration driver.
 
-:copyright: (c) 2023 by Unfolded Circle ApS.
-:license: MPL-2.0, see LICENSE for more details.
+:copyright: (c) 2023-2024 by Unfolded Circle ApS.
+:license: Mozilla Public License Version 2.0, see LICENSE for more details.
 """
 
 import dataclasses
@@ -10,6 +10,7 @@ import json
 import logging
 import os
 from dataclasses import dataclass
+from enum import Enum
 from typing import Iterator
 
 _LOG = logging.getLogger(__name__)
@@ -17,13 +18,25 @@ _LOG = logging.getLogger(__name__)
 _CFG_FILENAME = "config.json"
 
 
+class AtvProtocol(str, Enum):
+    """Apple TV protocols."""
+
+    AIRPLAY = "airplay"
+    COMPANION = "companion"
+
+
 @dataclass
 class AtvDevice:
     """Apple TV device configuration."""
 
     identifier: str
+    """Unique identifier of the device."""
     name: str
-    credentials: str
+    """Friendly name of the device."""
+    credentials: list[dict[AtvProtocol, str]]
+    """Credentials for different protocols."""
+    address: str | None = None
+    """Optional IP address of device. Disables IP discovery by identifier."""
 
 
 class _EnhancedJSONEncoder(json.JSONEncoder):
