@@ -266,7 +266,6 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
     """
     global _pairing_apple_tv
     global _setup_step
-    global _cfg_add_device
     global _manual_address
     global _discovered_atvs
 
