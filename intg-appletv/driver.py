@@ -106,6 +106,7 @@ async def on_subscribe_entities(entity_ids: list[str]) -> None:
             else:
                 state = media_player.States.ON if atv.is_on else media_player.States.OFF
             api.configured_entities.update_attributes(entity_id, {media_player.Attributes.STATE: state})
+            await atv.connect()
             continue
 
         device = config.devices.get(atv_id)
