@@ -11,7 +11,9 @@ _Changes in the next release_
 
 ### Added
 - New media-player entity features ([feature-and-bug-tracker#56](https://github.com/unfoldedcircle/feature-and-bug-tracker/issues/56)):
-- Manual setup option with IP address.
+  - context menu, control center, app switcher, top menu, rewind, fast-forward 
+- Enhanced reconfiguration and manual setup option with IP address.
+- Initial multi-device support.
 ### Fixed
 - Only discover Apple TV devices and no longer HomePods ([feature-and-bug-tracker#173](https://github.com/unfoldedcircle/feature-and-bug-tracker/issues/173)).
 - Improved disconnect & reconnect handling. This should prevent the reported BlockedStateError issues.

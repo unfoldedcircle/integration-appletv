@@ -17,25 +17,28 @@
 	"setup_data_schema": {
 		"title": {
 			"en": "Integration setup",
-			"de": "Integrationssetup"
+			"de": "Integrationssetup",
+			"fr": "Configuration de l'intégration"
 		},
 		"settings": [
 			{
 				"id": "info",
 				"label": {
 					"en": "Setup process",
-					"de": "Setup Fortschritt"
+					"de": "Setup Fortschritt",
+					"fr": "Progrès de la configuration"
 				},
 				"field": {
 					"label": {
 						"value": {
-							"en": "The integration will discover your Apple TV on your network. During the process, you might need to enter multiple PINs that are shown on your Apple TV. Please make sure to set Airplay access to `Anyone on the Same Network` in Apple TV settings.",
-							"de": "Die Integration wird dein Apple TV in deinem Netzwerk erkennen. Während des Prozesses must du möglicherweise mehrere PINs eingeben, die auf deinem Apple TV angezeigt werden. Bitte stelle sicher, dass der Airplay-Zugriff in den Apple TV-Einstellungen auf `Selbes Netzwerk` eingestellt ist."
+							"en": "The integration will discover your Apple TV on your network. During the process, you need to enter multiple PINs that are shown on your Apple TV. Please make sure to set AirPlay access to `Anyone on the Same Network` in Apple TV settings.",
+							"de": "Die Integration wird dein Apple TV in deinem Netzwerk erkennen. Während des Prozesses must du mehrere PINs eingeben, die auf deinem Apple TV angezeigt werden. Bitte stelle sicher, dass der AirPlay-Zugriff in den Apple TV-Einstellungen auf `Für jeden im selben Netzwerk` eingestellt ist.",
+							"fr": "L'intégration découvrira votre Apple TV sur votre réseau. Au cours du processus, vous devez saisir plusieurs codes PIN qui s'affichent sur votre Apple TV. Veillez à ce que l'accès AirPlay soit réglé sur `Toute personne sur le même réseau` dans les réglages de l'Apple TV."
 						}
 					}
 				}
 			}
 		]
 	},
-	"release_date": "2023-10-01"
+	"release_date": "2024-03-05"
 }

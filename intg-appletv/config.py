@@ -76,21 +76,27 @@ class Devices:
     def contains(self, atv_id: str) -> bool:
         """Check if there's a device with the given device identifier."""
         for item in self._config:
-            if item.id == atv_id:
+            if item.identifier == atv_id:
                 return True
         return False
 
-    def add(self, atv: AtvDevice) -> None:
-        """Add a new configured Apple TV device."""
-        # TODO duplicate check
-        self._config.append(atv)
-        if self._add_handler is not None:
-            self._add_handler(atv)
+    def add_or_update(self, atv: AtvDevice) -> None:
+        """
+        Add a new configured Apple TV device and persist configuration.
+
+        The device is updated if it already exists in the configuration.
+        """
+        # duplicate check
+        if not self.update(atv):
+            self._config.append(atv)
+            self.store()
+            if self._add_handler is not None:
+                self._add_handler(atv)
 
     def get(self, atv_id: str) -> AtvDevice | None:
         """Get device configuration for given identifier."""
         for item in self._config:
-            if item.id == atv_id:
+            if item.identifier == atv_id:
                 # return a copy
                 return dataclasses.replace(item)
         return None
@@ -98,9 +104,10 @@ class Devices:
     def update(self, atv: AtvDevice) -> bool:
         """Update a configured Apple TV device and persist configuration."""
         for item in self._config:
-            if item.id == atv.id:
+            if item.identifier == atv.identifier:
                 item.address = atv.address
                 item.name = atv.name
+                item.address = atv.address
                 return self.store()
         return False
 
@@ -138,8 +145,8 @@ class Devices:
             with open(self._cfg_file_path, "w+", encoding="utf-8") as f:
                 json.dump(self._config, f, ensure_ascii=False, cls=_EnhancedJSONEncoder)
             return True
-        except OSError:
-            _LOG.error("Cannot write the config file")
+        except OSError as err:
+            _LOG.error("Cannot write the config file: %s", err)
 
         return False
 
@@ -155,8 +162,8 @@ class Devices:
             for item in data:
                 self._config.append(AtvDevice(**item))
             return True
-        except OSError:
-            _LOG.error("Cannot open the config file")
+        except OSError as err:
+            _LOG.error("Cannot open the config file: %s", err)
         except (ValueError, TypeError) as err:
             _LOG.error("Empty or invalid config file: %s", err)
 

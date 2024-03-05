@@ -194,19 +194,9 @@ async def media_player_cmd_handler(
             res = await device.cursor_right()
         case media_player.Commands.CURSOR_ENTER:
             res = await device.cursor_select()
-        # TODO for testing only
-        case media_player.Commands.FUNCTION_GREEN:
-            res = await device.context_menu()
-        case media_player.Commands.FUNCTION_YELLOW:
-            res = await device.control_center()
-        case media_player.Commands.FUNCTION_RED:
-            res = await device.top_menu()
-        case media_player.Commands.FUNCTION_BLUE:
-            res = await device.app_switcher()
-        # TODO end testing
-        case media_player.Commands.REWIND:  # TODO not yet tested
+        case media_player.Commands.REWIND:
             res = await device.skip_backward()
-        case media_player.Commands.FAST_FORWARD:  # TODO not yet tested
+        case media_player.Commands.FAST_FORWARD:
             res = await device.skip_forward()
 
         case media_player.Commands.REPEAT:
@@ -303,7 +293,7 @@ async def on_atv_connection_error(identifier: str, message) -> None:
     await api.set_device_state(ucapi.DeviceStates.ERROR)
 
 
-# TODO refactor & simplify on_atv_update, then remove pylint exceptions
+# TODO refactor & simplify on_atv_update
 # pylint: disable=too-many-branches,too-many-statements
 async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
     """
@@ -410,7 +400,12 @@ def _add_configured_atv(device: config.AtvDevice, connect: bool = True) -> None:
         atv = _configured_atvs[device.identifier]
         _LOOP.create_task(atv.disconnect())
     else:
-        _LOG.debug("Adding new ATV device: %s (%s)", device.identifier, device.name)
+        _LOG.debug(
+            "Adding new ATV device: %s (%s) %s",
+            device.identifier,
+            device.name,
+            device.address if device.address else "",
+        )
         atv = tv.AppleTv(device, loop=_LOOP)
         atv.events.on(tv.EVENTS.CONNECTED, on_atv_connected)
         atv.events.on(tv.EVENTS.DISCONNECTED, on_atv_disconnected)
@@ -464,8 +459,6 @@ def _register_available_entities(identifier: str, name: str) -> bool:
         media_player.Features.MENU,
         media_player.Features.REWIND,
         media_player.Features.FAST_FORWARD,
-        # for testing
-        media_player.Features.COLOR_BUTTONS,
     ]
     if ENABLE_REPEAT_FEAT:
         features.append(media_player.Features.REPEAT)
@@ -514,16 +507,16 @@ def on_device_removed(device: config.AtvDevice | None) -> None:
     if device is None:
         _LOG.debug("Configuration cleared, disconnecting & removing all configured ATV instances")
         for atv in _configured_atvs.values():
-            atv.disconnect()
+            _LOOP.create_task(atv.disconnect())
             atv.events.remove_all_listeners()
         _configured_atvs.clear()
         api.configured_entities.clear()
         api.available_entities.clear()
     else:
-        if device.id in _configured_atvs:
+        if device.identifier in _configured_atvs:
             _LOG.debug("Disconnecting from removed ATV %s", device.identifier)
             atv = _configured_atvs.pop(device.identifier)
-            atv.disconnect()
+            _LOOP.create_task(atv.disconnect())
             atv.events.remove_all_listeners()
             # TODO #11 map entity IDs from device identifier
             entity_id = atv.identifier

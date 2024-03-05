@@ -191,6 +191,8 @@ class AppleTv:
     def playstatus_error(self, _updater, exception: Exception) -> None:
         """Play status push update error callback handler."""
         LOG.warning("A %s error occurred: %s", exception.__class__, exception)
+        data = pyatv.interface.Playing()
+        _ = asyncio.ensure_future(self._process_update(data))
         # TODO restart push updates?
 
     def connection_lost(self, _exception) -> None:
@@ -229,11 +231,6 @@ class AppleTv:
         """Output device change callback handler, for example airplay speaker."""
         # print('Output devices changed from {0:s} to {1:s}'.format(old_devices, new_devices))
         # TODO check if this could be used to better handle volume control (if it's available or not)
-
-    def focusstate_update(self, old_state, new_state) -> None:
-        """Focus state callback handler."""
-        # print('Focus state changed from {0:s} to {1:s}'.format(old_state, new_state))
-        # TODO required?
 
     async def _find_atv(self) -> pyatv.interface.BaseConfig | None:
         """Find a specific Apple TV on the network by identifier."""
@@ -327,7 +324,6 @@ class AppleTv:
         self._atv.push_updater.start()
         self._atv.listener = self
         self._atv.audio.listener = self
-        self._atv.keyboard.listener = self
 
         # Reset the backoff counter
         self._connection_attempts = 0
