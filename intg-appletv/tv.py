@@ -385,7 +385,7 @@ class AppleTv:
                 conf.name,
             )
 
-        _LOG.debug("Connecting to device: %s", conf.name)
+        _LOG.debug("[%s] Connecting to device", conf.name)
         self._atv = await pyatv.connect(conf, self._loop)
 
     async def disconnect(self) -> None:

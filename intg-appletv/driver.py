@@ -47,18 +47,19 @@ class SimpleCommands(str, Enum):
 @api.listens_to(ucapi.Events.CONNECT)
 async def on_r2_connect_cmd() -> None:
     """Connect all configured ATVs when the Remote Two sends the connect command."""
-    await api.set_device_state(ucapi.DeviceStates.CONNECTED)
+    _LOG.debug("Client connect command: connecting device(s)")
+    await api.set_device_state(ucapi.DeviceStates.CONNECTED)  # just to make sure the device state is set
     for atv in _configured_atvs.values():
         # start background task
-        _LOOP.create_task(atv.connect())
+        await atv.connect()
 
 
 @api.listens_to(ucapi.Events.DISCONNECT)
 async def on_r2_disconnect_cmd():
     """Disconnect all configured ATVs when the Remote Two sends the disconnect command."""
-    _LOG.debug("Client disconnected, disconnecting all Apple TVs")
+    _LOG.debug("Client disconnect command: disconnecting device(s)")
     for atv in _configured_atvs.values():
-        _LOOP.create_task(atv.disconnect())
+        await atv.disconnect()
 
 
 @api.listens_to(ucapi.Events.ENTER_STANDBY)
@@ -69,7 +70,6 @@ async def on_r2_enter_standby() -> None:
     Disconnect every ATV instances.
     """
     _LOG.debug("Enter standby event: disconnecting device(s)")
-
     for device in _configured_atvs.values():
         await device.disconnect()
 
@@ -82,7 +82,6 @@ async def on_r2_exit_standby() -> None:
     Connect all ATV instances.
     """
     _LOG.debug("Exit standby event: connecting device(s)")
-
     for device in _configured_atvs.values():
         await device.connect()
 
@@ -99,8 +98,8 @@ async def on_subscribe_entities(entity_ids: list[str]) -> None:
         # TODO #11 add atv_id -> list(entities_id) mapping. Right now the atv_id == entity_id!
         atv_id = entity_id
         if atv_id in _configured_atvs:
-            _LOG.debug("We have a match, start listening to events")
             atv = _configured_atvs[atv_id]
+            _LOG.info("Add '%s' to configured devices and connect", atv.name)
             if atv.is_on is None:
                 state = media_player.States.UNAVAILABLE
             else:
@@ -123,8 +122,8 @@ async def on_unsubscribe_entities(entity_ids: list[str]) -> None:
     # TODO #11 add entity_id --> atv_id mapping. Right now the atv_id == entity_id!
     for entity_id in entity_ids:
         if entity_id in _configured_atvs:
-            _LOG.debug("We have a match, stop listening to events")
-            device = _configured_atvs[entity_id]
+            device = _configured_atvs.pop(entity_id)
+            _LOG.info("Removed '%s' from configured devices and disconnect", device.name)
             await device.disconnect()
             device.events.remove_all_listeners()
 
@@ -143,7 +142,7 @@ async def media_player_cmd_handler(
     :param params: optional command parameters
     :return: status code of the command. StatusCodes.OK if the command succeeded.
     """
-    _LOG.info("Got %s command request: %s %s", entity.id, cmd_id, params)
+    _LOG.info("Got %s command request: %s %s", entity.id, cmd_id, params if params else "")
 
     # TODO #11 map from device id to entities (see Denon integration)
     # atv_id = _tv_from_entity_id(entity.id)
@@ -271,8 +270,7 @@ async def on_atv_connected(identifier: str) -> None:
     _LOG.debug("Apple TV connected: %s", identifier)
     # TODO is this the correct state?
     api.configured_entities.update_attributes(identifier, {media_player.Attributes.STATE: media_player.States.STANDBY})
-    # TODO #11 when multiple devices are supported, the device state logic isn't that simple anymore!
-    await api.set_device_state(ucapi.DeviceStates.CONNECTED)
+    await api.set_device_state(ucapi.DeviceStates.CONNECTED)  # just to make sure the device state is set
 
 
 async def on_atv_disconnected(identifier: str) -> None:
@@ -281,8 +279,6 @@ async def on_atv_disconnected(identifier: str) -> None:
     api.configured_entities.update_attributes(
         identifier, {media_player.Attributes.STATE: media_player.States.UNAVAILABLE}
     )
-    # TODO #11 when multiple devices are supported, the device state logic isn't that simple anymore!
-    await api.set_device_state(ucapi.DeviceStates.DISCONNECTED)
 
 
 async def on_atv_connection_error(identifier: str, message) -> None:
@@ -403,8 +399,8 @@ def _add_configured_atv(device: config.AtvDevice, connect: bool = True) -> None:
     else:
         _LOG.debug(
             "Adding new ATV device: %s (%s) %s",
-            device.identifier,
             device.name,
+            device.identifier,
             device.address if device.address else "",
         )
         atv = tv.AppleTv(device, loop=_LOOP)
@@ -537,9 +533,13 @@ async def main():
 
     # logging.getLogger("pyatv").setLevel(logging.DEBUG)
 
+    # load paired devices
     config.devices = config.Devices(api.config_dir_path, on_device_added, on_device_removed)
+    # and register them as available devices.
+    # Note: device will be moved to configured devices with the subscribe_events request!
+    # This will also start the device connection.
     for device in config.devices.all():
-        _add_configured_atv(device, connect=False)
+        _register_available_entities(device.identifier, device.name)
 
     await api.init("driver.json", setup_flow.driver_setup_handler)
 
