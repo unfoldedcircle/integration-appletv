@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Changes in the next release_
 
+---
+
+## v0.13.0 - 2024-03-06
 ### Added
 - New media-player entity features ([feature-and-bug-tracker#56](https://github.com/unfoldedcircle/feature-and-bug-tracker/issues/56)):
   - context menu, control center, app switcher, top menu, rewind, fast-forward.
@@ -23,6 +26,3 @@ _Changes in the next release_
 - Play/Pause will exit screensaver and continue playing paused media (tested with Apple TV+, YouTube).
 - Updated pyatv client library to latest 0.14.5 release for common bug fixes and improvements.
 - Major rewrite to support more features and to release it as open source project.
-
----
-
