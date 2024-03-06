@@ -17,7 +17,9 @@ _Changes in the next release_
 ### Fixed
 - Only discover Apple TV devices and no longer HomePods ([feature-and-bug-tracker#173](https://github.com/unfoldedcircle/feature-and-bug-tracker/issues/173)).
 - Improved disconnect & reconnect handling. This should prevent the reported BlockedStateError issues.
+- Automatically wake up Apple TV if a command is sent while it is in standby.
 ### Changed
+- Play/Pause will exit screensaver and continue playing paused media (tested with Apple TV+, YouTube)
 - Updated pyatv client library to 0.14.5
 
 ---

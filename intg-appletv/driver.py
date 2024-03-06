@@ -145,32 +145,41 @@ async def media_player_cmd_handler(
     _LOG.info("Got %s command request: %s %s", entity.id, cmd_id, params if params else "")
 
     # TODO #11 map from device id to entities (see Denon integration)
-    # atv_id = _tv_from_entity_id(entity.id)
-    # if atv_id is None:
-    #     return ucapi.StatusCodes.NOT_FOUND
     atv_id = entity.id
-
     device = _configured_atvs[atv_id]
-
-    # If the device is not on we send SERVICE_UNAVAILABLE
-    if device.is_on is False:
-        return ucapi.StatusCodes.SERVICE_UNAVAILABLE
 
     configured_entity = api.configured_entities.get(entity.id)
 
     if configured_entity is None:
-        _LOG.warning("No Apple TV device found for entity: %s", entity.id)
+        _LOG.warning("No device found for entity: %s", entity.id)
         return ucapi.StatusCodes.SERVICE_UNAVAILABLE
 
-    # If the entity is OFF, we send the turnOn command regardless of the actual command
+    # If the entity is OFF (device is in standby), we turn it on regardless of the actual command
     if configured_entity.attributes[media_player.Attributes.STATE] == media_player.States.OFF:
-        _LOG.debug("Apple TV is off, sending turn on command")
+        _LOG.debug("Device is off, sending turn on command")
         return await device.turn_on()
+
+    # Only proceed if device connection is established
+    if device.is_on is False:
+        return ucapi.StatusCodes.SERVICE_UNAVAILABLE
 
     res = ucapi.StatusCodes.BAD_REQUEST
 
     match cmd_id:
         case media_player.Commands.PLAY_PAUSE:
+            # Mimic the original ATV remote behaviour (one can also call it a bunch of workarounds).
+            # Screensaver active: play/pause button exits screensaver. If a playback was paused, resume it.
+            state = configured_entity.attributes[media_player.Attributes.STATE]
+            if state != media_player.States.PLAYING and await device.screensaver_active():
+                _LOG.debug("Screensaver is running, sending menu command for play_pause to exit")
+                await device.menu()
+                if state == media_player.States.PAUSED:
+                    # another awkwardness: the play_pause button doesn't work anymore after exiting the screensaver.
+                    # One has to send a dpad select first to start playback. Afterward, play_pause works again...
+                    await asyncio.sleep(1)  # delay required, otherwise the second button press is ignored
+                    return await device.cursor_select()
+                # Nothing was playing, only the screensaver was active
+                return ucapi.StatusCodes.OK
             res = await device.play_pause()
         case media_player.Commands.NEXT:
             res = await device.next()
@@ -222,7 +231,7 @@ async def media_player_cmd_handler(
             # we wait a bit to get a push update, because music can play in the background
             await asyncio.sleep(1)
             if configured_entity.attributes[media_player.Attributes.STATE] != media_player.States.PLAYING:
-                # if nothing is playing we clear the playing information
+                # if nothing is playing: clear the playing information
                 attributes = {
                     media_player.Attributes.MEDIA_IMAGE_URL: "",
                     media_player.Attributes.MEDIA_ALBUM: "",
@@ -252,24 +261,16 @@ async def media_player_cmd_handler(
     return res
 
 
-def _key_update_helper(key, value, attributes, configured_entity):
-    if value is None:
-        return attributes
-
-    if key in configured_entity.attributes:
-        if configured_entity.attributes[key] != value:
-            attributes[key] = value
-    else:
-        attributes[key] = value
-
-    return attributes
-
-
 async def on_atv_connected(identifier: str) -> None:
     """Handle ATV connection."""
     _LOG.debug("Apple TV connected: %s", identifier)
-    # TODO is this the correct state?
-    api.configured_entities.update_attributes(identifier, {media_player.Attributes.STATE: media_player.States.STANDBY})
+    state = media_player.States.UNKNOWN
+    if identifier in _configured_atvs:
+        atv = _configured_atvs[identifier]
+        if atv_state := atv.state:
+            state = _atv_state_to_media_player_state(atv_state)
+
+    api.configured_entities.update_attributes(identifier, {media_player.Attributes.STATE: state})
     await api.set_device_state(ucapi.DeviceStates.CONNECTED)  # just to make sure the device state is set
 
 
@@ -290,7 +291,31 @@ async def on_atv_connection_error(identifier: str, message) -> None:
     await api.set_device_state(ucapi.DeviceStates.ERROR)
 
 
-# TODO refactor & simplify on_atv_update
+def _atv_state_to_media_player_state(
+    device_state: pyatv.const.PowerState | pyatv.const.DeviceState,
+) -> media_player.States:
+    match device_state:
+        case pyatv.const.PowerState.On:
+            state = media_player.States.ON
+        case pyatv.const.PowerState.Off:
+            state = media_player.States.OFF
+        case pyatv.const.DeviceState.Idle:
+            state = media_player.States.ON
+        case pyatv.const.DeviceState.Loading:
+            state = media_player.States.BUFFERING
+        case pyatv.const.DeviceState.Paused:
+            state = media_player.States.PAUSED
+        case pyatv.const.DeviceState.Playing:
+            state = media_player.States.PLAYING
+        case pyatv.const.DeviceState.Seeking:
+            state = media_player.States.PLAYING
+        case pyatv.const.DeviceState.Stopped:
+            state = media_player.States.ON
+        case _:
+            state = media_player.States.UNKNOWN
+    return state
+
+
 # pylint: disable=too-many-branches,too-many-statements
 async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
     """
@@ -301,72 +326,60 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
     """
     attributes = {}
 
-    configured_entity = api.configured_entities.get(entity_id)
-    if configured_entity is None:
+    # FIXME temporary workaround until ucapi has been refactored:
+    #       there's shouldn't be separate lists for available and configured entities
+    if api.configured_entities.contains(entity_id):
+        target_entity = api.configured_entities.get(entity_id)
+    else:
+        target_entity = api.available_entities.get(entity_id)
+    if target_entity is None:
         return
 
     if "state" in update:
-        match update["state"]:
-            case pyatv.const.PowerState.On:
-                state = media_player.States.ON
-            case pyatv.const.DeviceState.Playing:
-                state = media_player.States.PLAYING
-            case pyatv.const.DeviceState.Playing:
-                state = media_player.States.PLAYING
-            case pyatv.const.DeviceState.Paused:
-                state = media_player.States.PAUSED
-            case pyatv.const.DeviceState.Idle:
-                state = media_player.States.PAUSED
-            case pyatv.const.PowerState.Off:
-                state = media_player.States.OFF
-            case _:
-                state = media_player.States.UNKNOWN
+        state = _atv_state_to_media_player_state(update["state"])
+        if target_entity.attributes.get(media_player.Attributes.STATE, None) != state:
+            attributes[media_player.Attributes.STATE] = state
 
-        attributes = _key_update_helper(media_player.Attributes.STATE, state, attributes, configured_entity)
+    # updates initiated by the poller always include the data, even if it hasn't changed
+    if (
+        "position" in update
+        and target_entity.attributes.get(media_player.Attributes.MEDIA_POSITION, 0) != update["position"]
+    ):
+        attributes[media_player.Attributes.MEDIA_POSITION] = update["position"]
+    if (
+        "total_time" in update
+        and target_entity.attributes.get(media_player.Attributes.MEDIA_DURATION, 0) != update["total_time"]
+    ):
+        attributes[media_player.Attributes.MEDIA_DURATION] = update["total_time"]
+    if "source" in update and target_entity.attributes.get(media_player.Attributes.SOURCE, "") != update["source"]:
+        attributes[media_player.Attributes.SOURCE] = update["source"]
+    # end poller update handling
 
-    if "position" in update:
-        attributes = _key_update_helper(
-            media_player.Attributes.MEDIA_POSITION, update["position"], attributes, configured_entity
-        )
     if "artwork" in update:
         attributes[media_player.Attributes.MEDIA_IMAGE_URL] = update["artwork"]
-    if "total_time" in update:
-        attributes = _key_update_helper(
-            media_player.Attributes.MEDIA_DURATION, update["total_time"], attributes, configured_entity
-        )
     if "title" in update:
-        attributes = _key_update_helper(
-            media_player.Attributes.MEDIA_TITLE, update["title"], attributes, configured_entity
-        )
+        attributes[media_player.Attributes.MEDIA_TITLE] = update["title"]
     if "artist" in update:
-        attributes = _key_update_helper(
-            media_player.Attributes.MEDIA_ARTIST, update["artist"], attributes, configured_entity
-        )
+        attributes[media_player.Attributes.MEDIA_ARTIST] = update["artist"]
     if "album" in update:
-        attributes = _key_update_helper(
-            media_player.Attributes.MEDIA_ALBUM, update["album"], attributes, configured_entity
-        )
-    if "source" in update:
-        attributes = _key_update_helper(media_player.Attributes.SOURCE, update["source"], attributes, configured_entity)
+        attributes[media_player.Attributes.MEDIA_ALBUM] = update["album"]
     if "sourceList" in update:
-        if media_player.Attributes.SOURCE_LIST in configured_entity.attributes:
-            if len(configured_entity.attributes[media_player.Attributes.SOURCE_LIST]) != len(update["sourceList"]):
+        if media_player.Attributes.SOURCE_LIST in target_entity.attributes:
+            if len(target_entity.attributes[media_player.Attributes.SOURCE_LIST]) != len(update["sourceList"]):
                 attributes[media_player.Attributes.SOURCE_LIST] = update["sourceList"]
         else:
             attributes[media_player.Attributes.SOURCE_LIST] = update["sourceList"]
     if "media_type" in update:
-        media_type = ""
-
         if update["media_type"] == pyatv.const.MediaType.Music:
             media_type = media_player.MediaType.MUSIC
         elif update["media_type"] == pyatv.const.MediaType.TV:
             media_type = media_player.MediaType.TVSHOW
         elif update["media_type"] == pyatv.const.MediaType.Video:
             media_type = media_player.MediaType.VIDEO
-        elif update["media_type"] == pyatv.const.MediaType.Unknown:
+        else:
             media_type = ""
 
-        attributes = _key_update_helper(media_player.Attributes.MEDIA_TYPE, media_type, attributes, configured_entity)
+        attributes[media_player.Attributes.MEDIA_TYPE] = media_type
 
     if "volume" in update:
         attributes[media_player.Attributes.VOLUME] = update["volume"]
@@ -388,7 +401,10 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
             attributes[media_player.Attributes.MEDIA_DURATION] = 0
 
     if attributes:
-        api.configured_entities.update_attributes(entity_id, attributes)
+        if api.configured_entities.contains(entity_id):
+            api.configured_entities.update_attributes(entity_id, attributes)
+        else:
+            api.available_entities.update_attributes(entity_id, attributes)
 
 
 def _add_configured_atv(device: config.AtvDevice, connect: bool = True) -> None:

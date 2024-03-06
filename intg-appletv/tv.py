@@ -31,6 +31,7 @@ from pyatv.const import (
     RepeatState,
     ShuffleState,
 )
+from pyatv.protocols.companion import CompanionAPI, SystemStatus
 from pyee import AsyncIOEventEmitter
 
 _LOG = logging.getLogger(__name__)
@@ -145,7 +146,7 @@ class AppleTv:
         self._pairing_atv: pyatv.interface.BaseConfig | None = pairing_atv
         self._pairing_process: pyatv.interface.PairingHandler | None = None
         self._polling = None
-        self._poll_interval: float = 2
+        self._poll_interval: int = 10
         self._state: DeviceState | None = None
         self._app_list: dict[str, str] = {}
 
@@ -177,6 +178,11 @@ class AppleTv:
         if self._atv is None:
             return None
         return self._is_on
+
+    @property
+    def state(self) -> DeviceState | None:
+        """Return the device state."""
+        return self._state
 
     def _backoff(self) -> float:
         if self._connection_attempts * BACKOFF_SEC >= BACKOFF_MAX:
@@ -394,7 +400,6 @@ class AppleTv:
         self._is_on = False
         await self._stop_polling()
 
-        # FIXME error handling
         try:
             if self._atv:
                 self._atv.close()
@@ -413,7 +418,6 @@ class AppleTv:
             self.events.emit(EVENTS.ERROR, "Polling not started, AppleTv object is None")
             return
 
-        await asyncio.sleep(2)
         self._polling = self._loop.create_task(self._poll_worker())
         _LOG.debug("[%s] Polling started", self.log_id)
 
@@ -435,10 +439,8 @@ class AppleTv:
         self._state = data.device_state
         update["state"] = data.device_state
 
-        if update["state"] == DeviceState.Playing:
-            self._poll_interval = 2
-
-        update["position"] = data.position
+        update["position"] = data.position if data.position else 0
+        update["total_time"] = data.total_time if data.total_time else 0
 
         # image operations are expensive, so we only do it when the hash changed
         if self._state == DeviceState.Playing:
@@ -450,9 +452,8 @@ class AppleTv:
             except Exception as err:  # pylint: disable=broad-exception-caught
                 _LOG.warning("[%s] Error while updating the artwork: %s", self.log_id, err)
 
-        update["total_time"] = data.total_time
         if data.title is not None:
-            # TODO filter out non-printable characters
+            # TODO filter out non-printable characters, for example all emojis
             # workaround for Plex DVR
             if data.title.startswith("(null):"):
                 title = data.title.removeprefix("(null):").strip()
@@ -462,15 +463,8 @@ class AppleTv:
         else:
             update["title"] = ""
 
-        if data.artist is not None:
-            update["artist"] = data.artist
-        else:
-            update["artist"] = ""
-
-        if data.album is not None:
-            update["album"] = data.album
-        else:
-            update["album"] = ""
+        update["artist"] = data.artist if data.artist else ""
+        update["album"] = data.album if data.album else ""
 
         if data.media_type is not None:
             update["media_type"] = data.media_type
@@ -507,37 +501,56 @@ class AppleTv:
         self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
     async def _poll_worker(self) -> None:
+        await asyncio.sleep(2)
         while self._atv is not None:
             update = {}
 
-            if self._is_feature_available(FeatureName.PowerState) and (
-                self._state
-                not in (
+            # Push updates are not reliable for power events, and if the device is in standby it reports state idle!
+            if self._is_feature_available(FeatureName.PowerState):
+                # Off isn't sent with push updates with the current pyatv library
+                # Care must be taken to not override certain states like playing and paused
+                if self._atv.power.power_state == PowerState.Off:
+                    # The Off state is important to wakeup the device in the command handler
+                    update["state"] = self._atv.power.power_state
+                elif self._atv.power.power_state == PowerState.On and self._state not in (
                     DeviceState.Playing,
                     DeviceState.Paused,
-                    DeviceState.Idle,
                     DeviceState.Stopped,
                     DeviceState.Seeking,
                     DeviceState.Loading,
-                )
-            ):
-                if self._atv.power.power_state == PowerState.Off:
+                ):
                     update["state"] = self._atv.power.power_state
-                    self._poll_interval = 10
-                elif self._atv.power.power_state == PowerState.On:
-                    update["state"] = self._atv.power.power_state
-                    self._poll_interval = 2
 
-            if self._is_feature_available(FeatureName.App):
+            if self._is_feature_available(FeatureName.App) and self._atv.metadata.app.name:
                 update["source"] = self._atv.metadata.app.name
+                if playing := await self._atv.metadata.playing():
+                    update["position"] = playing.position if playing.position else 0
+                    update["total_time"] = playing.total_time if playing.total_time else 0
 
-            self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
+            if update:
+                self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
+
             await asyncio.sleep(self._poll_interval)
 
     def _is_feature_available(self, feature: FeatureName) -> bool:
         if self._atv:
             return self._atv.features.in_state(FeatureState.Available, feature)
         return False
+
+    async def _system_status(self) -> SystemStatus:
+        try:
+            # TODO check if there's a nicer way to get to the CompanionAPI
+            # Screensaver state is only accessible in SystemStatus
+            if self._atv and isinstance(self._atv.apps.main_instance.api, CompanionAPI):
+                system_status = await self._atv.apps.main_instance.api.fetch_attention_state()
+                return system_status
+        except Exception:  # pylint: disable=broad-exception-caught
+            pass
+        return SystemStatus.Unknown
+
+    async def screensaver_active(self) -> bool:
+        """Check if screensaver is active."""
+        return await self._system_status() == SystemStatus.Screensaver
 
     @async_handle_atvlib_errors
     async def turn_on(self) -> ucapi.StatusCodes:
