@@ -2,7 +2,9 @@
 
 Using [pyatv](https://github.com/postlund/pyatv) and [uc-integration-api](https://github.com/aitatoi/integration-python-library)
 
-The driver discovers AppleTVs on the network and pairs them using AirPlay protocol. A media player entity is exposed to the core.
+The driver discovers Apple TV devices on the network and pairs them using AirPlay and companion protocols.
+A [media player entity](https://github.com/unfoldedcircle/core-api/blob/main/doc/entities/entity_media_player.md)
+is exposed to the Remote Two.
 
 Supported versions:
 - TvOS 16+
@@ -17,14 +19,20 @@ Supported attributes:
 - Media position
 
 Supported commands:
-- Turn on
-- Turn off
-- Next
-- Previous
-- Volume up
-- Volume down
+- Turn on & off (device will be put into standby)
+- Next / Previous
+- Rewind / Fast forward (skip +/- 15 sec)
+- Volume up / down
 - Play/pause
+- Directional pad navigation and select
+- Context menu
+- Home screen
+- Control center
+- Launch application
+- App switcher
+- Start screensaver
 
+Please note that certain commands like channel up & down are app dependant and don't work with every app!
 
 ## Usage
 ### Setup
@@ -43,7 +51,7 @@ For running a separate integration driver on your network for Remote Two, the co
 - Change `name` to easily identify the driver for discovery & setup  with Remote Two or the web-configurator.
 - Optionally add a `"port": 8090` field for the WebSocket server listening port.
     - Default port: `9090`
-    - Also overrideable with environment variable `UC_INTEGRATION_HTTP_PORT`
+    - This is also overrideable with environment variable `UC_INTEGRATION_HTTP_PORT`
 
 ### Run
 
@@ -53,6 +61,9 @@ python3 intg-appletv/driver.py
 
 See available [environment variables](https://github.com/unfoldedcircle/integration-python-library#environment-variables)
 in the Python integration library to control certain runtime features like listening interface and configuration directory.
+
+The configuration file is loaded & saved from the path specified in the environment variable `UC_CONFIG_HOME`.
+Otherwise, the `HOME` path is used or the working directory as fallback.
 
 ## Build self-contained binary
 
