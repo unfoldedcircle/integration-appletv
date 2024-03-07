@@ -1,4 +1,4 @@
-# AppleTV integration for Remote Two
+# Apple TV integration for Remote Two
 
 Using [pyatv](https://github.com/postlund/pyatv) and [uc-integration-api](https://github.com/aitatoi/integration-python-library)
 
@@ -7,7 +7,7 @@ A [media player entity](https://github.com/unfoldedcircle/core-api/blob/main/doc
 is exposed to the Remote Two.
 
 Supported versions:
-- TvOS 16+
+- Apple TV 4 and newer models with TvOS 16+
 
 Supported attributes:
 - State (on, off, playing, paused, unknown)

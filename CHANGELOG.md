@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Changes in the next release_
 
+### Changed
+- Limit discovery to Apple TV 4 and newer models. Generations 2 and 3 are not supported and would fail during pairing.
+
 ---
 
 ## v0.13.0 - 2024-03-06
