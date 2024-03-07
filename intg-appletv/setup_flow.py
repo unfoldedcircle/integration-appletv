@@ -234,6 +234,9 @@ async def _handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput 
 
     action = msg.input_values["action"]
 
+    # workaround for web-configurator not picking up first response
+    await asyncio.sleep(1)
+
     match action:
         case "add":
             _cfg_add_device = True
