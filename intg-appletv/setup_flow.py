@@ -143,6 +143,10 @@ async def _handle_driver_setup(msg: DriverSetupRequest) -> RequestUserInput | Se
     if reconfigure:
         _setup_step = SetupSteps.CONFIGURATION_MODE
 
+        # make sure configuration is up-to-date
+        if config.devices.migration_required():
+            await config.devices.migrate()
+
         # get all configured devices for the user to choose from
         dropdown_devices = []
         for device in config.devices.all():

@@ -15,7 +15,9 @@ from pyatv.const import DeviceModel
 _LOG = logging.getLogger(__name__)
 
 
-async def apple_tvs(loop: AbstractEventLoop, hosts: list[str] | None = None) -> list[pyatv.interface.BaseConfig]:
+async def apple_tvs(
+    loop: AbstractEventLoop, identifier: str | set[str] | None = None, hosts: list[str] | None = None
+) -> list[pyatv.interface.BaseConfig]:
     """Discover Apple TVs on the network using pyatv.scan."""
     if hosts:
         _LOG.info("Connecting to %s", hosts)
@@ -24,7 +26,7 @@ async def apple_tvs(loop: AbstractEventLoop, hosts: list[str] | None = None) -> 
 
     # extra safety, if anything goes wrong here the reconnection logic is dead
     try:
-        atvs = await pyatv.scan(loop, hosts=hosts)
+        atvs = await pyatv.scan(loop, identifier=identifier, hosts=hosts)
         res = []
 
         for tv in atvs:

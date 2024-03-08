@@ -160,7 +160,7 @@ class AppleTv:
     @property
     def log_id(self) -> str:
         """Return a log identifier."""
-        return self._device.name
+        return self._device.name if self._device.name else self._device.identifier
 
     @property
     def name(self) -> str:
