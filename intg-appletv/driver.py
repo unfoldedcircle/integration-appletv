@@ -213,7 +213,7 @@ async def media_player_cmd_handler(
             res = await device.set_repeat(mode) if mode else ucapi.StatusCodes.BAD_REQUEST
         case media_player.Commands.SHUFFLE:
             mode = _get_cmd_param("shuffle", params)
-            res = await device.set_shuffle(mode is True) if mode else ucapi.StatusCodes.BAD_REQUEST
+            res = await device.set_shuffle(mode) if isinstance(mode, bool) else ucapi.StatusCodes.BAD_REQUEST
         case media_player.Commands.CONTEXT_MENU:
             res = await device.context_menu()
         case media_player.Commands.SETTINGS:
