@@ -392,6 +392,10 @@ class AppleTv:
             )
 
         _LOG.debug("[%s] Connecting to device", conf.name)
+        # In case the device has been renamed
+        if self._device.name != conf.name:
+            self._device.name = conf.name
+
         self._atv = await pyatv.connect(conf, self._loop)
 
     async def disconnect(self) -> None:
