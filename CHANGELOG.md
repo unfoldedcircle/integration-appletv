@@ -11,6 +11,12 @@ _Changes in the next release_
 
 ---
 
+## v0.13.3 - 2024-03-08
+### Fixed
+- Shuffle command parameter handling
+### Changed
+- Feature check for not always available commands, which would just time out otherwise.
+
 ## v0.13.2 - 2024-03-08
 ### Fixed
 - Fast-forward and rewind commands.
