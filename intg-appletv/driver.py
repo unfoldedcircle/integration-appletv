@@ -544,6 +544,7 @@ async def main():
     level = os.getenv("UC_LOG_LEVEL", "DEBUG").upper()
     logging.getLogger("tv").setLevel(level)
     logging.getLogger("driver").setLevel(level)
+    logging.getLogger("config").setLevel(level)
     logging.getLogger("discover").setLevel(level)
     logging.getLogger("setup_flow").setLevel(level)
 
@@ -551,6 +552,8 @@ async def main():
 
     # load paired devices
     config.devices = config.Devices(api.config_dir_path, on_device_added, on_device_removed)
+    # best effort migration (if required): network might not be available during startup
+    await config.devices.migrate()
     # and register them as available devices.
     # Note: device will be moved to configured devices with the subscribe_events request!
     # This will also start the device connection.

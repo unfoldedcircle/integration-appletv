@@ -160,7 +160,7 @@ class AppleTv:
     @property
     def log_id(self) -> str:
         """Return a log identifier."""
-        return self._device.name
+        return self._device.name if self._device.name else self._device.identifier
 
     @property
     def name(self) -> str:
@@ -392,6 +392,10 @@ class AppleTv:
             )
 
         _LOG.debug("[%s] Connecting to device", conf.name)
+        # In case the device has been renamed
+        if self._device.name != conf.name:
+            self._device.name = conf.name
+
         self._atv = await pyatv.connect(conf, self._loop)
 
     async def disconnect(self) -> None:

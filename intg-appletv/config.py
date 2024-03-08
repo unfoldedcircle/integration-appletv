@@ -5,6 +5,7 @@ Configuration handling of the integration driver.
 :license: Mozilla Public License Version 2.0, see LICENSE for more details.
 """
 
+import asyncio
 import dataclasses
 import json
 import logging
@@ -12,6 +13,8 @@ import os
 from dataclasses import dataclass
 from enum import Enum
 from typing import Iterator
+
+import discover
 
 _LOG = logging.getLogger(__name__)
 
@@ -160,14 +163,47 @@ class Devices:
             with open(self._cfg_file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
             for item in data:
-                self._config.append(AtvDevice(**item))
+                # not using AtvDevice(**item) to be able to migrate old configuration files with missing attributes
+                atv = AtvDevice(
+                    item.get("identifier"), item.get("name", ""), item.get("credentials"), item.get("address")
+                )
+                self._config.append(atv)
             return True
         except OSError as err:
             _LOG.error("Cannot open the config file: %s", err)
-        except (ValueError, TypeError) as err:
+        except (AttributeError, ValueError, TypeError) as err:
             _LOG.error("Empty or invalid config file: %s", err)
 
         return False
+
+    def migration_required(self) -> bool:
+        """Check if configuration migration is required."""
+        for item in self._config:
+            if not item.name:
+                return True
+        return False
+
+    async def migrate(self) -> bool:
+        """Migrate configuration if required."""
+        result = True
+        for item in self._config:
+            if not item.name:
+                _LOG.info("Migrating configuration: scanning for device %s to update device name", item.identifier)
+                search_hosts = [item.address] if item.address else None
+                discovered_atvs = await discover.apple_tvs(
+                    asyncio.get_event_loop(), identifier=item.identifier, hosts=search_hosts
+                )
+                if discovered_atvs:
+                    item.name = discovered_atvs[0].name
+                    _LOG.info("Updating device configuration %s with name: %s", item.identifier, item.name)
+                    if not self.store():
+                        result = False
+                else:
+                    result = False
+                    _LOG.warning(
+                        "Could not migrate device configuration %s: device not found on network", item.identifier
+                    )
+        return result
 
 
 devices: Devices | None = None
