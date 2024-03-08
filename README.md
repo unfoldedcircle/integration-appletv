@@ -21,7 +21,7 @@ Supported attributes:
 Supported commands:
 - Turn on & off (device will be put into standby)
 - Next / Previous
-- Rewind / Fast forward (skip +/- 15 sec)
+- Rewind / Fast-forward
 - Volume up / down
 - Play/pause
 - Directional pad navigation and select

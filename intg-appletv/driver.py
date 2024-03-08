@@ -204,9 +204,9 @@ async def media_player_cmd_handler(
         case media_player.Commands.CURSOR_ENTER:
             res = await device.cursor_select()
         case media_player.Commands.REWIND:
-            res = await device.skip_backward()
+            res = await device.rewind()
         case media_player.Commands.FAST_FORWARD:
-            res = await device.skip_forward()
+            res = await device.fast_forward()
 
         case media_player.Commands.REPEAT:
             mode = params.get("repeat")

@@ -572,6 +572,16 @@ class AppleTv:
         await self._atv.remote_control.play_pause()
 
     @async_handle_atvlib_errors
+    async def fast_forward(self) -> ucapi.StatusCodes:
+        """Long press key right for fast-forward."""
+        await self._atv.remote_control.right(InputAction.Hold)
+
+    @async_handle_atvlib_errors
+    async def rewind(self) -> ucapi.StatusCodes:
+        """Long press key left for rewind."""
+        await self._atv.remote_control.left(InputAction.Hold)
+
+    @async_handle_atvlib_errors
     async def next(self) -> ucapi.StatusCodes:
         """Press key next."""
         await self._atv.remote_control.next()
