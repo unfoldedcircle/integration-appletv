@@ -1,12 +1,12 @@
 {
 	"driver_id": "uc_appletv_driver2",
-	"version": "0.13.1",
+	"version": "0.13.2",
 	"min_core_api": "0.7.0",
 	"name": { "en": "Apple TV2" },
 	"icon": "uc:integration",
 	"description": {
 		"en": "Control your Apple TV with Remote Two.",
-		"de": "Steuere AppleTV mit Remote Two.",
+		"de": "Steuere Apple TV mit Remote Two.",
 		"fr": "Contrôler votre Apple TV avec Remote Two."
 	},
 	"developer": {
@@ -41,5 +41,5 @@
 			}
 		]
 	},
-	"release_date": "2024-03-07"
+	"release_date": "2024-03-08"
 }

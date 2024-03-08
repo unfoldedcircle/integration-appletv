@@ -9,11 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Changes in the next release_
 
+---
+
+## v0.13.2 - 2024-03-08
 ### Fixed
 - Fast-forward and rewind commands.
-- Automatically migrate old configuration file at startup and configuration flow, otherwise the device must be paired again.
-
----
+- Automatically migrate old configuration file at startup and beginning of configuration flow, otherwise the device must be paired again.
 
 ## v0.13.1 - 2024-03-07
 ### Changed
