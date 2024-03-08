@@ -209,17 +209,11 @@ async def media_player_cmd_handler(
             res = await device.fast_forward()
 
         case media_player.Commands.REPEAT:
-            mode = params.get("repeat")
-            if mode is None:
-                res = ucapi.StatusCodes.BAD_REQUEST
-            else:
-                res = await device.set_repeat(mode)
+            mode = _get_cmd_param("repeat", params)
+            res = await device.set_repeat(mode) if mode else ucapi.StatusCodes.BAD_REQUEST
         case media_player.Commands.SHUFFLE:
-            mode = params.get("shuffle")
-            if mode is None:
-                res = ucapi.StatusCodes.BAD_REQUEST
-            else:
-                res = await device.set_shuffle(mode == "true")
+            mode = _get_cmd_param("shuffle", params)
+            res = await device.set_shuffle(mode is True) if mode else ucapi.StatusCodes.BAD_REQUEST
         case media_player.Commands.CONTEXT_MENU:
             res = await device.context_menu()
         case media_player.Commands.SETTINGS:
@@ -259,6 +253,12 @@ async def media_player_cmd_handler(
             res = await device.screensaver()
 
     return res
+
+
+def _get_cmd_param(name: str, params: dict[str, Any] | None) -> str | None:
+    if params is None:
+        return None
+    return params.get(name)
 
 
 async def on_atv_connected(identifier: str) -> None:
