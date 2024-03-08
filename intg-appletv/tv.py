@@ -584,12 +584,14 @@ class AppleTv:
     @async_handle_atvlib_errors
     async def next(self) -> ucapi.StatusCodes:
         """Press key next."""
-        await self._atv.remote_control.next()
+        if self._is_feature_available(FeatureName.Next):  # to prevent timeout errors
+            await self._atv.remote_control.next()
 
     @async_handle_atvlib_errors
     async def previous(self) -> ucapi.StatusCodes:
         """Press key previous."""
-        await self._atv.remote_control.previous()
+        if self._is_feature_available(FeatureName.Previous):
+            await self._atv.remote_control.previous()
 
     @async_handle_atvlib_errors
     async def skip_forward(self) -> ucapi.StatusCodes:
@@ -597,7 +599,8 @@ class AppleTv:
 
         Skip interval is typically 15-30s, but is decided by the app.
         """
-        await self._atv.remote_control.skip_forward()
+        if self._is_feature_available(FeatureName.SkipForward):
+            await self._atv.remote_control.skip_forward()
 
     @async_handle_atvlib_errors
     async def skip_backward(self) -> ucapi.StatusCodes:
@@ -605,7 +608,8 @@ class AppleTv:
 
         Skip interval is typically 15-30s, but is decided by the app.
         """
-        await self._atv.remote_control.skip_backward()
+        if self._is_feature_available(FeatureName.SkipBackward):
+            await self._atv.remote_control.skip_backward()
 
     @async_handle_atvlib_errors
     async def set_repeat(self, mode: str) -> ucapi.StatusCodes:
@@ -619,12 +623,14 @@ class AppleTv:
                 repeat = RepeatState.Track
             case _:
                 return ucapi.StatusCodes.BAD_REQUEST
-        await self._atv.remote_control.set_repeat(repeat)
+        if self._is_feature_available(FeatureName.Repeat):
+            await self._atv.remote_control.set_repeat(repeat)
 
     @async_handle_atvlib_errors
     async def set_shuffle(self, mode: bool) -> ucapi.StatusCodes:
         """Change shuffle mode to on or off."""
-        await self._atv.remote_control.set_shuffle(ShuffleState.Albums if mode else ShuffleState.Off)
+        if self._is_feature_available(FeatureName.Shuffle):
+            await self._atv.remote_control.set_shuffle(ShuffleState.Albums if mode else ShuffleState.Off)
 
     @async_handle_atvlib_errors
     async def volume_up(self) -> ucapi.StatusCodes:
@@ -689,18 +695,21 @@ class AppleTv:
     @async_handle_atvlib_errors
     async def channel_up(self) -> ucapi.StatusCodes:
         """Select next channel."""
-        await self._atv.remote_control.channel_up()
+        if self._is_feature_available(FeatureName.ChannelUp):
+            await self._atv.remote_control.channel_up()
 
     @async_handle_atvlib_errors
     async def channel_down(self) -> ucapi.StatusCodes:
         """Select previous channel."""
-        await self._atv.remote_control.channel_down()
+        if self._is_feature_available(FeatureName.ChannelDown):
+            await self._atv.remote_control.channel_down()
 
     @async_handle_atvlib_errors
     async def screensaver(self) -> ucapi.StatusCodes:
         """Start screensaver."""
         try:
-            await self._atv.remote_control.screensaver()
+            if self._is_feature_available(FeatureName.Screensaver):
+                await self._atv.remote_control.screensaver()
         except pyatv.exceptions.ProtocolError:
             # workaround: command succeeds and screensaver is started, but always returns
             # ProtocolError: Command _hidC failed
