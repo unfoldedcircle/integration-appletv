@@ -1,8 +1,8 @@
 {
-	"driver_id": "uc_appletv_driver2",
-	"version": "0.13.3",
+	"driver_id": "uc_appletv_driver",
+	"version": "0.13.4",
 	"min_core_api": "0.7.0",
-	"name": { "en": "Apple TV2" },
+	"name": { "en": "Apple TV" },
 	"icon": "uc:integration",
 	"description": {
 		"en": "Control your Apple TV with Remote Two.",

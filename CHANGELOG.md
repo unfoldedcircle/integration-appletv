@@ -11,6 +11,11 @@ _Changes in the next release_
 
 ---
 
+## v0.13.4 - 2024-03-09
+### Fixed
+- Invalid driver metadata file for the Remote Two ([feature-and-bug-tracker#340](https://github.com/unfoldedcircle/feature-and-bug-tracker/issues/340)).
+- Temporary workaround for standby check ([#15](https://github.com/unfoldedcircle/integration-appletv/issues/15)).
+
 ## v0.13.3 - 2024-03-08
 ### Fixed
 - Shuffle command parameter handling
