@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Changes in the next release_
 
+### Fixed
+- Invalid driver metadata file for the Remote Two.
+
 ---
 
 ## v0.13.3 - 2024-03-08
