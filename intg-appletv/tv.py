@@ -559,39 +559,67 @@ class AppleTv:
     @async_handle_atvlib_errors
     async def turn_on(self) -> ucapi.StatusCodes:
         """Turn device on."""
-        await self._atv.power.turn_on()
+        try:
+            await self._atv.power.turn_on()
+            return ucapi.StatusCodes.OK
+        except Exception:
+            return ucapi.StatusCodes.SERVER_ERROR
 
     @async_handle_atvlib_errors
     async def turn_off(self) -> ucapi.StatusCodes:
         """Turn device off."""
-        await self._atv.power.turn_off()
+        try:
+            await self._atv.power.turn_off()
+            return ucapi.StatusCodes.OK
+        except Exception:
+            return ucapi.StatusCodes.SERVER_ERROR
 
     @async_handle_atvlib_errors
     async def play_pause(self) -> ucapi.StatusCodes:
         """Toggle between play and pause."""
-        await self._atv.remote_control.play_pause()
+        try:
+            await self._atv.remote_control.play_pause()
+            return ucapi.StatusCodes.OK
+        except Exception:
+            return ucapi.StatusCodes.SERVER_ERROR
 
     @async_handle_atvlib_errors
     async def fast_forward(self) -> ucapi.StatusCodes:
         """Long press key right for fast-forward."""
-        await self._atv.remote_control.right(InputAction.Hold)
+        try:
+            await self._atv.remote_control.right(InputAction.Hold)
+            return ucapi.StatusCodes.OK
+        except Exception:
+            return ucapi.StatusCodes.SERVER_ERROR
 
     @async_handle_atvlib_errors
     async def rewind(self) -> ucapi.StatusCodes:
         """Long press key left for rewind."""
-        await self._atv.remote_control.left(InputAction.Hold)
+        try:
+            await self._atv.remote_control.left(InputAction.Hold)
+            return ucapi.StatusCodes.OK
+        except Exception:
+            return ucapi.StatusCodes.SERVER_ERROR
 
     @async_handle_atvlib_errors
     async def next(self) -> ucapi.StatusCodes:
         """Press key next."""
-        if self._is_feature_available(FeatureName.Next):  # to prevent timeout errors
-            await self._atv.remote_control.next()
+        try:
+            if self._is_feature_available(FeatureName.Next):  # to prevent timeout errors
+                await self._atv.remote_control.next()
+            return ucapi.StatusCodes.OK
+        except Exception:
+            return ucapi.StatusCodes.SERVER_ERROR
 
     @async_handle_atvlib_errors
     async def previous(self) -> ucapi.StatusCodes:
         """Press key previous."""
-        if self._is_feature_available(FeatureName.Previous):
-            await self._atv.remote_control.previous()
+        try:
+            if self._is_feature_available(FeatureName.Previous):
+                await self._atv.remote_control.previous()
+            return ucapi.StatusCodes.OK
+        except Exception:
+            return ucapi.StatusCodes.SERVER_ERROR
 
     @async_handle_atvlib_errors
     async def skip_forward(self) -> ucapi.StatusCodes:
@@ -599,8 +627,12 @@ class AppleTv:
 
         Skip interval is typically 15-30s, but is decided by the app.
         """
-        if self._is_feature_available(FeatureName.SkipForward):
-            await self._atv.remote_control.skip_forward()
+        try:
+            if self._is_feature_available(FeatureName.SkipForward):
+                await self._atv.remote_control.skip_forward()
+            return ucapi.StatusCodes.OK
+        except Exception:
+            return ucapi.StatusCodes.SERVER_ERROR
 
     @async_handle_atvlib_errors
     async def skip_backward(self) -> ucapi.StatusCodes:
@@ -608,8 +640,12 @@ class AppleTv:
 
         Skip interval is typically 15-30s, but is decided by the app.
         """
-        if self._is_feature_available(FeatureName.SkipBackward):
-            await self._atv.remote_control.skip_backward()
+        try:
+            if self._is_feature_available(FeatureName.SkipBackward):
+                await self._atv.remote_control.skip_backward()
+            return ucapi.StatusCodes.OK
+        except Exception:
+            return ucapi.StatusCodes.SERVER_ERROR
 
     @async_handle_atvlib_errors
     async def set_repeat(self, mode: str) -> ucapi.StatusCodes:
@@ -623,86 +659,150 @@ class AppleTv:
                 repeat = RepeatState.Track
             case _:
                 return ucapi.StatusCodes.BAD_REQUEST
-        if self._is_feature_available(FeatureName.Repeat):
-            await self._atv.remote_control.set_repeat(repeat)
+        try:
+            if self._is_feature_available(FeatureName.Repeat):
+                await self._atv.remote_control.set_repeat(repeat)
+            return ucapi.StatusCodes.OK
+        except Exception:
+            return ucapi.StatusCodes.SERVER_ERROR
 
     @async_handle_atvlib_errors
     async def set_shuffle(self, mode: bool) -> ucapi.StatusCodes:
         """Change shuffle mode to on or off."""
-        if self._is_feature_available(FeatureName.Shuffle):
-            await self._atv.remote_control.set_shuffle(ShuffleState.Albums if mode else ShuffleState.Off)
+        try:
+            if self._is_feature_available(FeatureName.Shuffle):
+                await self._atv.remote_control.set_shuffle(ShuffleState.Albums if mode else ShuffleState.Off)
+            return ucapi.StatusCodes.OK
+        except Exception:
+            return ucapi.StatusCodes.SERVER_ERROR
 
     @async_handle_atvlib_errors
     async def volume_up(self) -> ucapi.StatusCodes:
         """Press key volume up."""
-        await self._atv.audio.volume_up()
+        try:
+            await self._atv.audio.volume_up()
+            return ucapi.StatusCodes.OK
+        except Exception:
+            return ucapi.StatusCodes.SERVER_ERROR
 
     @async_handle_atvlib_errors
     async def volume_down(self) -> ucapi.StatusCodes:
         """Press key volume down."""
-        await self._atv.audio.volume_down()
+        try:
+            await self._atv.audio.volume_down()
+            return ucapi.StatusCodes.OK
+        except Exception:
+            return ucapi.StatusCodes.SERVER_ERROR
 
     @async_handle_atvlib_errors
     async def cursor_up(self) -> ucapi.StatusCodes:
         """Press key up."""
-        await self._atv.remote_control.up()
+        try:
+            await self._atv.remote_control.up()
+            return ucapi.StatusCodes.OK
+        except Exception:
+            return ucapi.StatusCodes.SERVER_ERROR
 
     @async_handle_atvlib_errors
     async def cursor_down(self) -> ucapi.StatusCodes:
         """Press key down."""
-        await self._atv.remote_control.down()
+        try:
+            await self._atv.remote_control.down()
+            return ucapi.StatusCodes.OK
+        except Exception:
+            return ucapi.StatusCodes.SERVER_ERROR
 
     @async_handle_atvlib_errors
     async def cursor_left(self) -> ucapi.StatusCodes:
         """Press key left."""
-        await self._atv.remote_control.left()
+        try:
+            await self._atv.remote_control.left()
+            return ucapi.StatusCodes.OK
+        except Exception:
+            return ucapi.StatusCodes.SERVER_ERROR
 
     @async_handle_atvlib_errors
     async def cursor_right(self) -> ucapi.StatusCodes:
         """Press key right."""
-        await self._atv.remote_control.right()
+        try:
+            await self._atv.remote_control.right()
+            return ucapi.StatusCodes.OK
+        except Exception:
+            return ucapi.StatusCodes.SERVER_ERROR
 
     @async_handle_atvlib_errors
     async def cursor_select(self) -> ucapi.StatusCodes:
         """Press key select."""
-        await self._atv.remote_control.select()
+        try:
+            await self._atv.remote_control.select()
+            return ucapi.StatusCodes.OK
+        except Exception:
+            return ucapi.StatusCodes.SERVER_ERROR
 
     @async_handle_atvlib_errors
     async def context_menu(self) -> ucapi.StatusCodes:
         """Press and hold select key for one second to bring up context menu in most apps."""
-        await self._atv.remote_control.select(InputAction.Hold)
+        try:
+            await self._atv.remote_control.select(InputAction.Hold)
+            return ucapi.StatusCodes.OK
+        except Exception:
+            return ucapi.StatusCodes.SERVER_ERROR
 
     @async_handle_atvlib_errors
     async def home(self) -> ucapi.StatusCodes:
         """Press key home."""
-        await self._atv.remote_control.home()
+        try:
+            await self._atv.remote_control.home()
+            return ucapi.StatusCodes.OK
+        except Exception:
+            return ucapi.StatusCodes.SERVER_ERROR
 
     @async_handle_atvlib_errors
     async def control_center(self) -> ucapi.StatusCodes:
         """Show control center: press and hold home key for one second."""
-        await self._atv.remote_control.home(InputAction.Hold)
+        try:
+            await self._atv.remote_control.home(InputAction.Hold)
+            return ucapi.StatusCodes.OK
+        except Exception:
+            return ucapi.StatusCodes.SERVER_ERROR
 
     @async_handle_atvlib_errors
     async def menu(self) -> ucapi.StatusCodes:
         """Press key menu."""
-        await self._atv.remote_control.menu()
+        try:
+            await self._atv.remote_control.menu()
+            return ucapi.StatusCodes.OK
+        except Exception:
+            return ucapi.StatusCodes.SERVER_ERROR
 
     @async_handle_atvlib_errors
     async def top_menu(self) -> ucapi.StatusCodes:
         """Go to top menu: press and hold menu key for one second."""
-        await self._atv.remote_control.menu(InputAction.Hold)
+        try:
+            await self._atv.remote_control.menu(InputAction.Hold)
+            return ucapi.StatusCodes.OK
+        except Exception:
+            return ucapi.StatusCodes.SERVER_ERROR
 
     @async_handle_atvlib_errors
     async def channel_up(self) -> ucapi.StatusCodes:
         """Select next channel."""
-        if self._is_feature_available(FeatureName.ChannelUp):
-            await self._atv.remote_control.channel_up()
+        try:
+            if self._is_feature_available(FeatureName.ChannelUp):
+                await self._atv.remote_control.channel_up()
+            return ucapi.StatusCodes.OK
+        except Exception:
+            return ucapi.StatusCodes.SERVER_ERROR
 
     @async_handle_atvlib_errors
     async def channel_down(self) -> ucapi.StatusCodes:
         """Select previous channel."""
-        if self._is_feature_available(FeatureName.ChannelDown):
-            await self._atv.remote_control.channel_down()
+        try:
+            if self._is_feature_available(FeatureName.ChannelDown):
+                await self._atv.remote_control.channel_down()
+            return ucapi.StatusCodes.OK
+        except Exception:
+            return ucapi.StatusCodes.SERVER_ERROR
 
     @async_handle_atvlib_errors
     async def screensaver(self) -> ucapi.StatusCodes:
@@ -714,13 +814,22 @@ class AppleTv:
             # workaround: command succeeds and screensaver is started, but always returns
             # ProtocolError: Command _hidC failed
             pass
+        return ucapi.StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def launch_app(self, app_name: str) -> ucapi.StatusCodes:
         """Launch an app based on bundle ID or URL."""
-        await self._atv.apps.launch_app(self._app_list[app_name])
+        try:
+            await self._atv.apps.launch_app(self._app_list[app_name])
+            return ucapi.StatusCodes.OK
+        except Exception:
+            return ucapi.StatusCodes.SERVER_ERROR
 
     @async_handle_atvlib_errors
     async def app_switcher(self) -> ucapi.StatusCodes:
         """Press the TV/Control Center button two times to open the App Switcher."""
-        await self._atv.remote_control.home(InputAction.DoubleTap)
+        try:
+            await self._atv.remote_control.home(InputAction.DoubleTap)
+            return ucapi.StatusCodes.OK
+        except Exception:
+            return ucapi.StatusCodes.SERVER_ERROR

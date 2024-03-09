@@ -157,7 +157,11 @@ async def media_player_cmd_handler(
     # If the entity is OFF (device is in standby), we turn it on regardless of the actual command
     if configured_entity.attributes[media_player.Attributes.STATE] == media_player.States.OFF:
         _LOG.debug("Device is off, sending turn on command")
-        return await device.turn_on()
+        res = await device.turn_on()
+        # Returns error code if turn_on fails
+        if res != ucapi.StatusCodes.OK:
+            return res
+
 
     # Only proceed if device connection is established
     if device.is_on is False:
