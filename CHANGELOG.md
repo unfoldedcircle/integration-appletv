@@ -10,7 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 _Changes in the next release_
 
 ### Fixed
-- Invalid driver metadata file for the Remote Two.
+- Invalid driver metadata file for the Remote Two ([feature-and-bug-tracker#340](https://github.com/unfoldedcircle/feature-and-bug-tracker/issues/340)).
+- Temporary workaround for standby check ([#15](https://github.com/unfoldedcircle/integration-appletv/issues/15)).
 
 ---
 
