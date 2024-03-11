@@ -221,7 +221,7 @@ async def media_player_cmd_handler(
             res = await device.set_shuffle(mode) if isinstance(mode, bool) else ucapi.StatusCodes.BAD_REQUEST
         case media_player.Commands.CONTEXT_MENU:
             res = await device.context_menu()
-        case media_player.Commands.SETTINGS:
+        case media_player.Commands.MENU:
             res = await device.control_center()
 
         case media_player.Commands.HOME:
@@ -260,7 +260,7 @@ async def media_player_cmd_handler(
     return res
 
 
-def _get_cmd_param(name: str, params: dict[str, Any] | None) -> str | None:
+def _get_cmd_param(name: str, params: dict[str, Any] | None) -> str | bool | None:
     if params is None:
         return None
     return params.get(name)
@@ -473,7 +473,6 @@ def _register_available_entities(identifier: str, name: str) -> bool:
         media_player.Features.DPAD,
         media_player.Features.SELECT_SOURCE,
         media_player.Features.CONTEXT_MENU,
-        media_player.Features.SETTINGS,
         media_player.Features.MENU,
         media_player.Features.REWIND,
         media_player.Features.FAST_FORWARD,
