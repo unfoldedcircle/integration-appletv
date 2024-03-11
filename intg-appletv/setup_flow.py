@@ -61,9 +61,18 @@ _user_input_discovery = RequestUserInput(
             "field": {
                 "label": {
                     "value": {
-                        "en": "Leave blank to use auto-discovery and click _Next_.",
-                        "de": "Leer lassen, um automatische Erkennung zu verwenden und auf _Weiter_ klicken.",
-                        "fr": "Laissez le champ vide pour utiliser la découverte automatique et cliquez sur _Suivant_.",  # noqa: E501
+                        "en": (
+                            "Leave blank to use auto-discovery and click _Next_."
+                            "The device must be on the same network as the remote."
+                        ),
+                        "de": (
+                            "Leer lassen, um automatische Erkennung zu verwenden und auf _Weiter_ klicken."
+                            "Das Gerät muss sich im gleichen Netzwerk wie die Fernbedienung befinden."
+                        ),
+                        "fr": (
+                            "Laissez le champ vide pour utiliser la découverte automatique et cliquez sur _Suivant_."
+                            "L'appareil doit être sur le même réseau que la télécommande"
+                        ),
                     }
                 }
             },
@@ -71,7 +80,11 @@ _user_input_discovery = RequestUserInput(
         {
             "field": {"text": {"value": ""}},
             "id": "address",
-            "label": {"en": "IP address", "de": "IP-Adresse", "fr": "Adresse IP"},
+            "label": {
+                "en": "IP address (same network only)",
+                "de": "IP-Adresse (nur im gleichen Netzwerk)",
+                "fr": "Adresse IP (seulement dans le même réseau)",
+            },
         },
     ],
 )
