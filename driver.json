@@ -32,9 +32,9 @@
 				"field": {
 					"label": {
 						"value": {
-							"en": "The integration will discover your Apple TV on your network. Apple TV 4 and newer are supported. During the process, you need to enter multiple PINs that are shown on your Apple TV. Please make sure to set AirPlay access to `Anyone on the Same Network` in Apple TV settings.",
-							"de": "Die Integration wird dein Apple TV in deinem Netzwerk erkennen. Apple TV 4 und neuer werden unterstützt. Während des Prozesses must du mehrere PINs eingeben, die auf deinem Apple TV angezeigt werden. Bitte stelle sicher, dass der AirPlay-Zugriff in den Apple TV-Einstellungen auf `Für jeden im selben Netzwerk` eingestellt ist.",
-							"fr": "L'intégration découvrira votre Apple TV sur votre réseau. Apple TV 4 et plus récentes sont prises en charge. Au cours du processus, vous devez saisir plusieurs codes PIN qui s'affichent sur votre Apple TV. Veillez à ce que l'accès AirPlay soit réglé sur `Toute personne sur le même réseau` dans les réglages de l'Apple TV."
+							"en": "The integration will discover your Apple TV on your network. Apple TV 4 and newer are supported and the device must be on the same network as the remote. During the process, you need to enter multiple PINs that are shown on your Apple TV. Please make sure to set AirPlay access to _Anyone on the Same Network_ in Apple TV settings.",
+							"de": "Die Integration wird dein Apple TV in deinem Netzwerk erkennen. Apple TV 4 und neuer werden unterstützt und das Gerät muss sich im gleichen Netzwerk wie die Fernbedienung befinden. Während des Prozesses must du mehrere PINs eingeben, die auf deinem Apple TV angezeigt werden. Bitte stelle sicher, dass der AirPlay-Zugriff in den Apple TV-Einstellungen auf _Für jeden im selben Netzwerk_ eingestellt ist.",
+							"fr": "L'intégration découvrira votre Apple TV sur votre réseau. Apple TV 4 et plus récentes sont prises en charge et l'appareil doit être sur le même réseau que la télécommande. Au cours du processus, vous devez saisir plusieurs codes PIN qui s'affichent sur votre Apple TV. Veillez à ce que l'accès AirPlay soit réglé sur _Toute personne sur le même réseau_ dans les réglages de l'Apple TV."
 						}
 					}
 				}
