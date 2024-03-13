@@ -11,6 +11,11 @@ _Changes in the next release_
 
 ---
 
+## v0.13.5 - 2024-03-13
+### Changed
+- Use menu feature instead of settings for control-center ([feature-and-bug-tracker#56](https://github.com/unfoldedcircle/feature-and-bug-tracker/issues/56)).
+- Enhance setup instructions that the device must be in the same network.
+
 ## v0.13.4 - 2024-03-09
 ### Fixed
 - Invalid driver metadata file for the Remote Two ([feature-and-bug-tracker#340](https://github.com/unfoldedcircle/feature-and-bug-tracker/issues/340)).
