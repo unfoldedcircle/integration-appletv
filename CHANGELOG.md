@@ -11,6 +11,10 @@ _Changes in the next release_
 
 ---
 
+## v0.13.6 - 2024-03-13
+### Changed
+- Update ucapi library: filter out base64 image data in message logs.
+
 ## v0.13.5 - 2024-03-13
 ### Changed
 - Use menu feature instead of settings for control-center ([feature-and-bug-tracker#56](https://github.com/unfoldedcircle/feature-and-bug-tracker/issues/56)).
