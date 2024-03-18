@@ -11,6 +11,10 @@ _Changes in the next release_
 
 ---
 
+## v0.13.7 - 2024-03-18
+### Fixed
+- Prevent device power-on in standby with power-off command ([feature-and-bug-tracker#349](https://github.com/unfoldedcircle/feature-and-bug-tracker/issues/349)).
+
 ## v0.13.6 - 2024-03-13
 ### Changed
 - Update ucapi library: filter out base64 image data in message logs.
