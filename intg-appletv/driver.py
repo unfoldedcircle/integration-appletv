@@ -157,7 +157,10 @@ async def media_player_cmd_handler(
     # If the entity is OFF (device is in standby), we turn it on regardless of the actual command
     # TODO #15 implement proper fix for correct entity OFF state (it may not remain in OFF state if connection is
     #  established) + online check if we think it is in standby mode.
-    if configured_entity.attributes[media_player.Attributes.STATE] == media_player.States.OFF:
+    if (
+        configured_entity.attributes[media_player.Attributes.STATE] == media_player.States.OFF
+        and cmd_id != media_player.Commands.OFF
+    ):
         _LOG.debug("Device is off, sending turn on command")
         # quick & dirty workaround for #15: the entity state is not always correct!
         res = await device.turn_on()
