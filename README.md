@@ -56,7 +56,7 @@ For running a separate integration driver on your network for Remote Two, the co
 ### Run
 
 ```shell
-python3 intg-appletv/driver.py
+UC_CONFIG_HOME=./ python3 intg-appletv/driver.py
 ```
 
 See available [environment variables](https://github.com/unfoldedcircle/integration-python-library#environment-variables)
@@ -64,6 +64,8 @@ in the Python integration library to control certain runtime features like liste
 
 The configuration file is loaded & saved from the path specified in the environment variable `UC_CONFIG_HOME`.
 Otherwise, the `HOME` path is used or the working directory as fallback.
+
+The client name prefix used for pairing can be set in ENV variable `UC_CLIENT_NAME`. The hostname is used by default.
 
 ## Build self-contained binary
 

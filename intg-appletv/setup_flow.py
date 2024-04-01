@@ -7,6 +7,8 @@ Setup flow for Apple TV Remote integration.
 
 import asyncio
 import logging
+import os
+import socket
 from enum import IntEnum
 
 import config
@@ -384,7 +386,8 @@ async def _handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Set
     _LOG.debug("Pairing process begin")
     # Hook up to signals
     # TODO error conditions in start_pairing?
-    res = await _pairing_apple_tv.start_pairing(pyatv.const.Protocol.AirPlay, "Remote Two Airplay")
+    name = os.getenv("UC_CLIENT_NAME", socket.gethostname().split(".", 1)[0])
+    res = await _pairing_apple_tv.start_pairing(pyatv.const.Protocol.AirPlay, f"{name} Airplay")
     if res is None:
         return SetupError()
 
@@ -439,7 +442,8 @@ async def _handle_user_data_airplay_pin(msg: UserDataResponse) -> RequestUserInp
     _pairing_apple_tv.add_credentials(c)
 
     # Start new pairing process
-    res = await _pairing_apple_tv.start_pairing(pyatv.const.Protocol.Companion, "Remote Two Companion")
+    name = os.getenv("UC_CLIENT_NAME", socket.gethostname().split(".", 1)[0])
+    res = await _pairing_apple_tv.start_pairing(pyatv.const.Protocol.Companion, f"{name} Companion")
     if res is None:
         return SetupError()
 
