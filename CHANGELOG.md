@@ -9,10 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Changes in the next release_
 
+---
+
+## v0.13.8 - 2024-04-01
 ### Changed
 - Use unique device name prefix for pairing to easily identify paired devices on Apple TV ([feature-and-bug-tracker#362](https://github.com/unfoldedcircle/feature-and-bug-tracker/issues/362)).
-
----
 
 ## v0.13.7 - 2024-03-18
 ### Fixed
