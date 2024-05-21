@@ -15,7 +15,7 @@ import random
 from asyncio import AbstractEventLoop
 from enum import IntEnum
 from functools import wraps
-from typing import Any, Awaitable, Callable, Concatenate, Coroutine, ParamSpec, TypeVar
+from typing import Any, Awaitable, Callable, Concatenate, Coroutine, ParamSpec, TypeVar, cast
 
 import pyatv
 import pyatv.const
@@ -31,7 +31,7 @@ from pyatv.const import (
     RepeatState,
     ShuffleState,
 )
-from pyatv.protocols.companion import CompanionAPI, SystemStatus
+from pyatv.protocols.companion import CompanionAPI, SystemStatus, CompanionRemoteControl, MediaControlCommand
 from pyee import AsyncIOEventEmitter
 
 _LOG = logging.getLogger(__name__)

@@ -42,6 +42,10 @@ class SimpleCommands(str, Enum):
     """Show running applications."""
     SCREENSAVER = "SCREENSAVER"
     """Run screensaver."""
+    SKIP_FORWARD = "SKIP_FORWARD"
+    """Skip forward a time interval."""
+    SKIP_BACKWARD = "SKIP_BACKWARD"
+    """Skip forward a time interval."""
 
 
 @api.listens_to(ucapi.Events.CONNECT)
@@ -259,6 +263,10 @@ async def media_player_cmd_handler(
             res = await device.app_switcher()
         case SimpleCommands.SCREENSAVER:
             res = await device.screensaver()
+        case SimpleCommands.SKIP_FORWARD:
+            res = await device.skip_forward()
+        case SimpleCommands.SKIP_BACKWARD:
+            res = await device.skip_backward()
 
     return res
 
@@ -506,6 +514,7 @@ def _register_available_entities(identifier: str, name: str) -> bool:
                 SimpleCommands.TOP_MENU.value,
                 SimpleCommands.APP_SWITCHER.value,
                 SimpleCommands.SCREENSAVER.value,
+
             ]
         },
         cmd_handler=media_player_cmd_handler,
