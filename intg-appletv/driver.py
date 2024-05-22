@@ -46,6 +46,10 @@ class SimpleCommands(str, Enum):
     """Skip forward a time interval."""
     SKIP_BACKWARD = "SKIP_BACKWARD"
     """Skip forward a time interval."""
+    FAST_FORWARD_BEGIN = "FAST_FORWARD_BEGIN"
+    """Fast forward using Companion protocol."""
+    REWIND_BEGIN = "REWIND_BEGIN"
+    """Rewind using Companion protocol."""
 
 
 @api.listens_to(ucapi.Events.CONNECT)
@@ -267,6 +271,10 @@ async def media_player_cmd_handler(
             res = await device.skip_forward()
         case SimpleCommands.SKIP_BACKWARD:
             res = await device.skip_backward()
+        case SimpleCommands.FAST_FORWARD_BEGIN:
+            res = await device.fast_forward_companion()
+        case SimpleCommands.REWIND_BEGIN:
+            res = await device.rewind_companion()
 
     return res
 
@@ -514,7 +522,10 @@ def _register_available_entities(identifier: str, name: str) -> bool:
                 SimpleCommands.TOP_MENU.value,
                 SimpleCommands.APP_SWITCHER.value,
                 SimpleCommands.SCREENSAVER.value,
-
+                SimpleCommands.SKIP_FORWARD.value,
+                SimpleCommands.SKIP_BACKWARD.value,
+                SimpleCommands.FAST_FORWARD_BEGIN.value,
+                SimpleCommands.REWIND_BEGIN.value
             ]
         },
         cmd_handler=media_player_cmd_handler,
