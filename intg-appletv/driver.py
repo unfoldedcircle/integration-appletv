@@ -525,7 +525,7 @@ def _register_available_entities(identifier: str, name: str) -> bool:
                 SimpleCommands.SKIP_FORWARD.value,
                 SimpleCommands.SKIP_BACKWARD.value,
                 SimpleCommands.FAST_FORWARD_BEGIN.value,
-                SimpleCommands.REWIND_BEGIN.value
+                SimpleCommands.REWIND_BEGIN.value,
             ]
         },
         cmd_handler=media_player_cmd_handler,
