@@ -15,7 +15,16 @@ import random
 from asyncio import AbstractEventLoop
 from enum import IntEnum
 from functools import wraps
-from typing import Any, Awaitable, Callable, Concatenate, Coroutine, ParamSpec, TypeVar
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    Concatenate,
+    Coroutine,
+    ParamSpec,
+    TypeVar,
+    cast,
+)
 
 import pyatv
 import pyatv.const
@@ -31,7 +40,8 @@ from pyatv.const import (
     RepeatState,
     ShuffleState,
 )
-from pyatv.protocols.companion import CompanionAPI, SystemStatus
+from pyatv.core.facade import FacadeRemoteControl
+from pyatv.protocols.companion import CompanionAPI, MediaControlCommand, SystemStatus
 from pyee import AsyncIOEventEmitter
 
 _LOG = logging.getLogger(__name__)
@@ -580,6 +590,24 @@ class AppleTv:
     async def rewind(self) -> ucapi.StatusCodes:
         """Long press key left for rewind."""
         await self._atv.remote_control.left(InputAction.Hold)
+
+    @async_handle_atvlib_errors
+    async def fast_forward_companion(self) -> ucapi.StatusCodes:
+        """Fast-forward using companion protocol."""
+        companion = cast(FacadeRemoteControl, self._atv.remote_control).get(Protocol.Companion)
+        if companion:
+            await companion.api.mediacontrol_command(command=MediaControlCommand.FastForwardBegin)
+        else:
+            await self._atv.remote_control.right(InputAction.Hold)
+
+    @async_handle_atvlib_errors
+    async def rewind_companion(self) -> ucapi.StatusCodes:
+        """Rewind using companion protocol."""
+        companion = cast(FacadeRemoteControl, self._atv.remote_control).get(Protocol.Companion)
+        if companion:
+            await companion.api.mediacontrol_command(command=MediaControlCommand.RewindBegin)
+        else:
+            await self._atv.remote_control.left(InputAction.Hold)
 
     @async_handle_atvlib_errors
     async def next(self) -> ucapi.StatusCodes:
