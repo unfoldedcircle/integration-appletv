@@ -41,11 +41,7 @@ from pyatv.const import (
     ShuffleState,
 )
 from pyatv.core.facade import FacadeRemoteControl
-from pyatv.protocols.companion import (
-    CompanionAPI,
-    MediaControlCommand,
-    SystemStatus,
-)
+from pyatv.protocols.companion import CompanionAPI, MediaControlCommand, SystemStatus
 from pyee import AsyncIOEventEmitter
 
 _LOG = logging.getLogger(__name__)
