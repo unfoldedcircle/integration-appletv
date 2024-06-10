@@ -43,7 +43,6 @@ from pyatv.const import (
 from pyatv.core.facade import FacadeRemoteControl
 from pyatv.protocols.companion import (
     CompanionAPI,
-    CompanionRemoteControl,
     MediaControlCommand,
     SystemStatus,
 )
