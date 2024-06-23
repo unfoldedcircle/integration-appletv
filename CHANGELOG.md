@@ -11,6 +11,10 @@ _Changes in the next release_
 
 ---
 
+## v0.13.9 - 2024-06-14
+### Added
+- Simple commands for skip forward and backward, alternative FF/RW commands with companion protocol. Contributed by @albaintor, thanks! ([#19](https://github.com/unfoldedcircle/integration-appletv/pull/19))
+
 ## v0.13.8 - 2024-04-01
 ### Changed
 - Use unique device name prefix for pairing to easily identify paired devices on Apple TV ([feature-and-bug-tracker#362](https://github.com/unfoldedcircle/feature-and-bug-tracker/issues/362)).
