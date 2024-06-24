@@ -61,6 +61,7 @@ class EVENTS(IntEnum):
     PAIRED = 3
     ERROR = 4
     UPDATE = 5
+    OUTPUT_DEVICES_UPDATE = 6
 
 
 _AppleTvT = TypeVar("_AppleTvT", bound="AppleTv")
@@ -159,6 +160,7 @@ class AppleTv:
         self._poll_interval: int = 10
         self._state: DeviceState | None = None
         self._app_list: dict[str, str] = {}
+        self._available_output_devices: dict[str, str] = {}
 
     @property
     def identifier(self) -> str:
@@ -355,6 +357,8 @@ class AppleTv:
         if self._atv.features.in_state(FeatureState.Available, FeatureName.AppList):
             self._loop.create_task(self._update_app_list())
 
+        self._loop.create_task(self._update_output_devices())
+
         self.events.emit(EVENTS.CONNECTED, self._device.identifier)
         _LOG.debug("[%s] Connected", self.log_id)
 
@@ -513,6 +517,23 @@ class AppleTv:
             _LOG.warning("[%s] App list: protocol error", self.log_id)
 
         self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
+
+    async def _update_output_devices(self) -> None:
+        _LOG.debug("[%s] Updating available output devices list", self.log_id)
+        self._available_output_devices = {}
+        try:
+
+            atvs = await pyatv.scan(self._loop)
+            for atv in atvs:
+                if atv.device_info.output_device_id == self._atv.device_info.output_device_id:
+                    continue
+                self._available_output_devices[atv.device_info.output_device_id] = atv.name
+        except pyatv.exceptions.NotSupportedError:
+            _LOG.warning("[%s] Output devices listing is not supported", self.log_id)
+        except pyatv.exceptions.ProtocolError:
+            _LOG.warning("[%s] Output devices: protocol error", self.log_id)
+
+        self.events.emit(EVENTS.OUTPUT_DEVICES_UPDATE, self._device.identifier, self._available_output_devices)
 
     async def _poll_worker(self) -> None:
         await asyncio.sleep(2)

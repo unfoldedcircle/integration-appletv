@@ -375,7 +375,7 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
         and target_entity.attributes.get(media_player.Attributes.MEDIA_DURATION, 0) != update["total_time"]
     ):
         attributes[media_player.Attributes.MEDIA_DURATION] = update["total_time"]
-    if "source" in update and target_entity.attributes.get(media_player.Attributes.SOURCE, "") != update["source"]:
+    if "source" in update and targe - t_entity.attributes.get(media_player.Attributes.SOURCE, "") != update["source"]:
         attributes[media_player.Attributes.SOURCE] = update["source"]
     # end poller update handling
 
