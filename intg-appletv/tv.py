@@ -13,6 +13,7 @@ import base64
 import logging
 import random
 from asyncio import AbstractEventLoop
+from collections import OrderedDict
 from enum import IntEnum
 from functools import wraps
 from typing import (
@@ -30,6 +31,7 @@ import pyatv
 import pyatv.const
 import ucapi
 from config import AtvDevice, AtvProtocol
+import itertools
 from pyatv.const import (
     DeviceState,
     FeatureName,
@@ -61,8 +63,6 @@ class EVENTS(IntEnum):
     PAIRED = 3
     ERROR = 4
     UPDATE = 5
-    OUTPUT_DEVICES_UPDATE = 6
-
 
 _AppleTvT = TypeVar("_AppleTvT", bound="AppleTv")
 _P = ParamSpec("_P")
@@ -161,6 +161,7 @@ class AppleTv:
         self._state: DeviceState | None = None
         self._app_list: dict[str, str] = {}
         self._available_output_devices: dict[str, str] = {}
+        self._output_devices: OrderedDict[str, [str]] = OrderedDict() #dict[str, [str]] = {}
 
     @property
     def identifier(self) -> str:
@@ -195,6 +196,10 @@ class AppleTv:
     def state(self) -> DeviceState | None:
         """Return the device state."""
         return self._state
+
+    @property
+    def output_devices(self) -> [str]:
+        return list(self._output_devices.keys())
 
     def _backoff(self) -> float:
         if self._connection_attempts * BACKOFF_SEC >= BACKOFF_MAX:
@@ -520,20 +525,44 @@ class AppleTv:
 
     async def _update_output_devices(self) -> None:
         _LOG.debug("[%s] Updating available output devices list", self.log_id)
+        current_output_devices = self._available_output_devices
         self._available_output_devices = {}
+        device_ids = []
         try:
-
             atvs = await pyatv.scan(self._loop)
             for atv in atvs:
                 if atv.device_info.output_device_id == self._atv.device_info.output_device_id:
                     continue
+                device_ids.append(atv.device_info.output_device_id)
                 self._available_output_devices[atv.device_info.output_device_id] = atv.name
         except pyatv.exceptions.NotSupportedError:
             _LOG.warning("[%s] Output devices listing is not supported", self.log_id)
+            return
         except pyatv.exceptions.ProtocolError:
             _LOG.warning("[%s] Output devices: protocol error", self.log_id)
+            return
+        if (set(current_output_devices.keys()) != set(self._available_output_devices.keys())
+                and len(device_ids) > 0):
+            # Build combinations of output devices. First device is current device that will
+            # let disable all external output devices
+            self._output_devices = OrderedDict()
+            self._output_devices[self._device.name] = []
 
-        self.events.emit(EVENTS.OUTPUT_DEVICES_UPDATE, self._device.identifier, self._available_output_devices)
+            # Don't go beyond combinations of 5 devices
+            max_len = min(len(device_ids), 5)
+            for i in range(0, max_len):
+                combinations = itertools.combinations(device_ids, i + 1)
+                for combination in combinations:
+                    device_names: [str] = []
+                    for device_id in combination:
+                        for atv in atvs:
+                            if atv.device_info.output_device_id == device_id:
+                                device_names.append(atv.name)
+                                break
+                    entry_name: str = ','.join(sorted(device_names, key=str.casefold))
+                    self._output_devices[entry_name] = combination
+
+            self.events.emit(EVENTS.UPDATE, self._device.identifier, list(self._output_devices.keys()))
 
     async def _poll_worker(self) -> None:
         await asyncio.sleep(2)
@@ -773,3 +802,11 @@ class AppleTv:
     async def app_switcher(self) -> ucapi.StatusCodes:
         """Press the TV/Control Center button two times to open the App Switcher."""
         await self._atv.remote_control.home(InputAction.DoubleTap)
+
+    @async_handle_atvlib_errors
+    async def set_output_device(self, device_name: str) -> ucapi.StatusCodes:
+        device_entry = self._output_devices[device_name]
+        if device_name is None:
+            return ucapi.StatusCodes.BAD_REQUEST
+        await self._atv.audio.set_output_devices(device_entry)
+        

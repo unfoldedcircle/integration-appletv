@@ -223,7 +223,6 @@ async def media_player_cmd_handler(
             res = await device.rewind()
         case media_player.Commands.FAST_FORWARD:
             res = await device.fast_forward()
-
         case media_player.Commands.REPEAT:
             mode = _get_cmd_param("repeat", params)
             res = await device.set_repeat(mode) if mode else ucapi.StatusCodes.BAD_REQUEST
@@ -234,9 +233,12 @@ async def media_player_cmd_handler(
             res = await device.context_menu()
         case media_player.Commands.MENU:
             res = await device.control_center()
-
         case media_player.Commands.HOME:
             res = await device.home()
+        case media_player.Commands.SELECT_SOUND_MODE:
+            mode = _get_cmd_param("sound_mode", params)
+            res = await device.set_output_device(mode)
+
 
             # we wait a bit to get a push update, because music can play in the background
             await asyncio.sleep(1)
@@ -495,6 +497,7 @@ def _register_available_entities(identifier: str, name: str) -> bool:
         media_player.Features.MENU,
         media_player.Features.REWIND,
         media_player.Features.FAST_FORWARD,
+        media_player.Features.SELECT_SOUND_MODE
     ]
     if ENABLE_REPEAT_FEAT:
         features.append(media_player.Features.REPEAT)
