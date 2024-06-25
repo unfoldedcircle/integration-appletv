@@ -17,6 +17,7 @@ Supported attributes:
 - Artwork
 - Media duration
 - Media position
+- Sound mode (list of output device(s) streamed to)
 
 Supported commands:
 - Turn on & off (device will be put into standby)
@@ -31,6 +32,7 @@ Supported commands:
 - Launch application
 - App switcher
 - Start screensaver
+- Stream audio to one or multiple output devices
 
 Please note that certain commands like channel up & down are app dependant and don't work with every app!
 

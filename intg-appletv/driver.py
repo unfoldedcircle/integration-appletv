@@ -223,7 +223,6 @@ async def media_player_cmd_handler(
             res = await device.rewind()
         case media_player.Commands.FAST_FORWARD:
             res = await device.fast_forward()
-
         case media_player.Commands.REPEAT:
             mode = _get_cmd_param("repeat", params)
             res = await device.set_repeat(mode) if mode else ucapi.StatusCodes.BAD_REQUEST
@@ -234,7 +233,6 @@ async def media_player_cmd_handler(
             res = await device.context_menu()
         case media_player.Commands.MENU:
             res = await device.control_center()
-
         case media_player.Commands.HOME:
             res = await device.home()
 
@@ -275,6 +273,9 @@ async def media_player_cmd_handler(
             res = await device.fast_forward_companion()
         case SimpleCommands.REWIND_BEGIN:
             res = await device.rewind_companion()
+        case media_player.Commands.SELECT_SOUND_MODE:
+            mode = _get_cmd_param("mode", params)
+            res = await device.set_output_device(mode)
 
     return res
 
@@ -393,6 +394,17 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
                 attributes[media_player.Attributes.SOURCE_LIST] = update["sourceList"]
         else:
             attributes[media_player.Attributes.SOURCE_LIST] = update["sourceList"]
+    if (
+        "sound_mode" in update
+        and target_entity.attributes.get(media_player.Attributes.SOUND_MODE, "") != update["sound_mode"]
+    ):
+        attributes[media_player.Attributes.SOUND_MODE] = update["sound_mode"]
+    if "sound_mode_list" in update:
+        if media_player.Attributes.SOUND_MODE_LIST in target_entity.attributes:
+            if len(target_entity.attributes[media_player.Attributes.SOUND_MODE_LIST]) != len(update["sound_mode_list"]):
+                attributes[media_player.Attributes.SOUND_MODE_LIST] = update["sound_mode_list"]
+        else:
+            attributes[media_player.Attributes.SOUND_MODE_LIST] = update["sound_mode_list"]
     if "media_type" in update:
         if update["media_type"] == pyatv.const.MediaType.Music:
             media_type = media_player.MediaType.MUSIC
@@ -495,6 +507,7 @@ def _register_available_entities(identifier: str, name: str) -> bool:
         media_player.Features.MENU,
         media_player.Features.REWIND,
         media_player.Features.FAST_FORWARD,
+        media_player.Features.SELECT_SOUND_MODE,
     ]
     if ENABLE_REPEAT_FEAT:
         features.append(media_player.Features.REPEAT)
