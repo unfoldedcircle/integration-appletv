@@ -31,7 +31,7 @@ from typing import (
 import pyatv
 import ucapi
 from config import AtvDevice, AtvProtocol
-from pyatv.interface import OutputDevice
+from pyatv.interface import OutputDevice, BaseConfig
 from pyatv.const import (
     DeviceState,
     FeatureName,
@@ -560,20 +560,7 @@ class AppleTv:
             # let disable all external output devices
             self._output_devices = OrderedDict()
             self._output_devices[self._device.name] = []
-
-            # Don't go beyond combinations of 5 devices
-            max_len = min(len(device_ids), 4)
-            for i in range(0, max_len):
-                combinations = itertools.combinations(device_ids, i + 1)
-                for combination in combinations:
-                    device_names: [str] = []
-                    for device_id in combination:
-                        for atv in atvs:
-                            if atv.device_info.output_device_id == device_id:
-                                device_names.append(atv.name)
-                                break
-                    entry_name: str = ",".join(sorted(device_names, key=str.casefold))
-                    self._output_devices[entry_name] = combination
+            self._build_output_devices_list(atvs, device_ids)
             update["sound_mode_list"] = list(self._output_devices.keys())
 
         if current_output_device != self.output_device:
@@ -583,6 +570,22 @@ class AppleTv:
 
         if update:
             self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
+
+    def _build_output_devices_list(self, atvs: list[BaseConfig], device_ids: [str]):
+        """Build possible combinations of output devices"""
+        # Don't go beyond combinations of 5 devices
+        max_len = min(len(device_ids), 4)
+        for i in range(0, max_len):
+            combinations = itertools.combinations(device_ids, i + 1)
+            for combination in combinations:
+                device_names: [str] = []
+                for device_id in combination:
+                    for atv in atvs:
+                        if atv.device_info.output_device_id == device_id:
+                            device_names.append(atv.name)
+                            break
+                entry_name: str = ",".join(sorted(device_names, key=str.casefold))
+                self._output_devices[entry_name] = combination
 
     async def _poll_worker(self) -> None:
         await asyncio.sleep(2)
