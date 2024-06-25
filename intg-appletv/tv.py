@@ -837,7 +837,9 @@ class AppleTv:
         device_ids = []
         for device in output_devices:
             device_ids.append(device.identifier)
-        await self._atv.audio.remove_output_devices(device_ids)
+        _LOG.debug("Removing output devices %s", device_ids)
+        await self._atv.audio.remove_output_devices(*device_ids)
         if len(device_entry) == 0:
             return ucapi.StatusCodes.OK
-        await self._atv.audio.set_output_devices(device_entry)
+        _LOG.debug("Setting output devices %s", device_entry)
+        await self._atv.audio.set_output_devices(*device_entry)

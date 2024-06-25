@@ -235,9 +235,6 @@ async def media_player_cmd_handler(
             res = await device.control_center()
         case media_player.Commands.HOME:
             res = await device.home()
-        case media_player.Commands.SELECT_SOUND_MODE:
-            mode = _get_cmd_param("sound_mode", params)
-            res = await device.set_output_device(mode)
 
             # we wait a bit to get a push update, because music can play in the background
             await asyncio.sleep(1)
@@ -276,6 +273,9 @@ async def media_player_cmd_handler(
             res = await device.fast_forward_companion()
         case SimpleCommands.REWIND_BEGIN:
             res = await device.rewind_companion()
+        case media_player.Commands.SELECT_SOUND_MODE:
+            mode = _get_cmd_param("mode", params)
+            res = await device.set_output_device(mode)
 
     return res
 
