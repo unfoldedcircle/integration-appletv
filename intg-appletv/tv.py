@@ -31,7 +31,6 @@ from typing import (
 import pyatv
 import ucapi
 from config import AtvDevice, AtvProtocol
-from pyatv.interface import OutputDevice, BaseConfig
 from pyatv.const import (
     DeviceState,
     FeatureName,
@@ -43,6 +42,7 @@ from pyatv.const import (
     ShuffleState,
 )
 from pyatv.core.facade import FacadeRemoteControl
+from pyatv.interface import BaseConfig, OutputDevice
 from pyatv.protocols.companion import CompanionAPI, MediaControlCommand, SystemStatus
 from pyee import AsyncIOEventEmitter
 
