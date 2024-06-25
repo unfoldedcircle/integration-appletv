@@ -10,6 +10,7 @@ Uses the [pyatv](https://github.com/postlund/pyatv) library with concepts borrow
 
 import asyncio
 import base64
+import itertools
 import logging
 import random
 from asyncio import AbstractEventLoop
@@ -28,12 +29,9 @@ from typing import (
 )
 
 import pyatv
-import pyatv.const
 import ucapi
-from pyatv.interface import OutputDevice
-
 from config import AtvDevice, AtvProtocol
-import itertools
+from pyatv.interface import OutputDevice
 from pyatv.const import (
     DeviceState,
     FeatureName,
@@ -203,10 +201,12 @@ class AppleTv:
 
     @property
     def output_devices(self) -> [str]:
+        """Return the list of possible selection (combinations) of output devices"""
         return list(self._output_devices.keys())
 
     @property
     def output_device(self) -> str:
+        """Return the current selection of output devices"""
         device_names = []
         for device in self._output_device:
             device_names.append(device.name)
@@ -825,6 +825,7 @@ class AppleTv:
 
     @async_handle_atvlib_errors
     async def set_output_device(self, device_name: str) -> ucapi.StatusCodes:
+        """Set output device selection"""
         if device_name is None:
             return ucapi.StatusCodes.BAD_REQUEST
         device_entry = self._output_devices.get(device_name, [])
