@@ -201,12 +201,12 @@ class AppleTv:
 
     @property
     def output_devices(self) -> [str]:
-        """Return the list of possible selection (combinations) of output devices"""
+        """Return the list of possible selection (combinations) of output devices."""
         return list(self._output_devices.keys())
 
     @property
     def output_device(self) -> str:
-        """Return the current selection of output devices"""
+        """Return the current selection of output devices."""
         device_names = []
         for device in self._output_device:
             device_names.append(device.name)
@@ -572,7 +572,7 @@ class AppleTv:
             self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
     def _build_output_devices_list(self, atvs: list[BaseConfig], device_ids: [str]):
-        """Build possible combinations of output devices"""
+        """Build possible combinations of output devices."""
         # Don't go beyond combinations of 5 devices
         max_len = min(len(device_ids), 4)
         for i in range(0, max_len):
@@ -828,7 +828,7 @@ class AppleTv:
 
     @async_handle_atvlib_errors
     async def set_output_device(self, device_name: str) -> ucapi.StatusCodes:
-        """Set output device selection"""
+        """Set output device selection."""
         if device_name is None:
             return ucapi.StatusCodes.BAD_REQUEST
         device_entry = self._output_devices.get(device_name, [])
