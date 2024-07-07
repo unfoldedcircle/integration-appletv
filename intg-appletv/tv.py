@@ -15,7 +15,7 @@ import logging
 import random
 from asyncio import AbstractEventLoop
 from collections import OrderedDict
-from enum import IntEnum
+from enum import IntEnum, Enum
 from functools import wraps
 from typing import (
     Any,
@@ -67,6 +67,12 @@ class EVENTS(IntEnum):
 
 _AppleTvT = TypeVar("_AppleTvT", bound="AppleTv")
 _P = ParamSpec("_P")
+
+
+class PlaybackState(Enum):
+    Normal = (0,)
+    FastForward = (1,)
+    Rewind = 2
 
 
 # Adapted from Home Assistant `asyncLOG_errors` in
@@ -164,6 +170,7 @@ class AppleTv:
         self._available_output_devices: dict[str, str] = {}
         self._output_devices: OrderedDict[str, [str]] = OrderedDict()
         self._output_device: list[OutputDevice] = []
+        self._playback_state = PlaybackState.Normal
 
     @property
     def identifier(self) -> str:
@@ -652,6 +659,7 @@ class AppleTv:
     @async_handle_atvlib_errors
     async def play_pause(self) -> ucapi.StatusCodes:
         """Toggle between play and pause."""
+        await self.stop_fast_forward_rewind()
         await self._atv.remote_control.play_pause()
 
     @async_handle_atvlib_errors
@@ -669,7 +677,9 @@ class AppleTv:
         """Fast-forward using companion protocol."""
         companion = cast(FacadeRemoteControl, self._atv.remote_control).get(Protocol.Companion)
         if companion:
+            await self.stop_fast_forward_rewind()
             await companion.api.mediacontrol_command(command=MediaControlCommand.FastForwardBegin)
+            self._playback_state = PlaybackState.FastForward
         else:
             await self._atv.remote_control.right(InputAction.Hold)
 
@@ -678,19 +688,43 @@ class AppleTv:
         """Rewind using companion protocol."""
         companion = cast(FacadeRemoteControl, self._atv.remote_control).get(Protocol.Companion)
         if companion:
+            await self.stop_fast_forward_rewind()
             await companion.api.mediacontrol_command(command=MediaControlCommand.RewindBegin)
+            self._playback_state = PlaybackState.Rewind
         else:
             await self._atv.remote_control.left(InputAction.Hold)
+
+    async def fast_forward_companion_end(self):
+        """Fast-forward using companion protocol."""
+        companion = cast(FacadeRemoteControl, self._atv.remote_control).get(Protocol.Companion)
+        if companion:
+            await companion.api.mediacontrol_command(command=MediaControlCommand.FastForwardEnd)
+            self._playback_state = PlaybackState.Normal
+
+    async def rewind_companion_end(self):
+        """Rewind using companion protocol."""
+        companion = cast(FacadeRemoteControl, self._atv.remote_control).get(Protocol.Companion)
+        if companion:
+            await companion.api.mediacontrol_command(command=MediaControlCommand.RewindEnd)
+            self._playback_state = PlaybackState.Normal
+
+    async def stop_fast_forward_rewind(self):
+        if self._playback_state == PlaybackState.FastForward:
+            await self.fast_forward_companion_end()
+        elif self._playback_state == PlaybackState.Rewind:
+            await self.rewind_companion_end()
 
     @async_handle_atvlib_errors
     async def next(self) -> ucapi.StatusCodes:
         """Press key next."""
+        await self.stop_fast_forward_rewind()
         if self._is_feature_available(FeatureName.Next):  # to prevent timeout errors
             await self._atv.remote_control.next()
 
     @async_handle_atvlib_errors
     async def previous(self) -> ucapi.StatusCodes:
         """Press key previous."""
+        await self.stop_fast_forward_rewind()
         if self._is_feature_available(FeatureName.Previous):
             await self._atv.remote_control.previous()
 
@@ -700,6 +734,7 @@ class AppleTv:
 
         Skip interval is typically 15-30s, but is decided by the app.
         """
+        await self.stop_fast_forward_rewind()
         if self._is_feature_available(FeatureName.SkipForward):
             await self._atv.remote_control.skip_forward()
 
@@ -709,6 +744,7 @@ class AppleTv:
 
         Skip interval is typically 15-30s, but is decided by the app.
         """
+        await self.stop_fast_forward_rewind()
         if self._is_feature_available(FeatureName.SkipBackward):
             await self._atv.remote_control.skip_backward()
 
