@@ -70,9 +70,11 @@ _P = ParamSpec("_P")
 
 
 class PlaybackState(Enum):
-    Normal = (0,)
-    FastForward = (1,)
-    Rewind = 2
+    """Playback state for companion protocol."""
+
+    NORMAL = 0
+    FAST_FORWARD = 1
+    REWIND = 2
 
 
 # Adapted from Home Assistant `asyncLOG_errors` in
@@ -170,7 +172,7 @@ class AppleTv:
         self._available_output_devices: dict[str, str] = {}
         self._output_devices: OrderedDict[str, [str]] = OrderedDict()
         self._output_device: list[OutputDevice] = []
-        self._playback_state = PlaybackState.Normal
+        self._playback_state = PlaybackState.NORMAL
 
     @property
     def identifier(self) -> str:
@@ -677,9 +679,10 @@ class AppleTv:
         """Fast-forward using companion protocol."""
         companion = cast(FacadeRemoteControl, self._atv.remote_control).get(Protocol.Companion)
         if companion:
-            await self.stop_fast_forward_rewind()
+            if await self.stop_fast_forward_rewind():
+                return ucapi.StatusCodes.OK
             await companion.api.mediacontrol_command(command=MediaControlCommand.FastForwardBegin)
-            self._playback_state = PlaybackState.FastForward
+            self._playback_state = PlaybackState.FAST_FORWARD
         else:
             await self._atv.remote_control.right(InputAction.Hold)
 
@@ -688,9 +691,10 @@ class AppleTv:
         """Rewind using companion protocol."""
         companion = cast(FacadeRemoteControl, self._atv.remote_control).get(Protocol.Companion)
         if companion:
-            await self.stop_fast_forward_rewind()
+            if await self.stop_fast_forward_rewind():
+                return ucapi.StatusCodes.OK
             await companion.api.mediacontrol_command(command=MediaControlCommand.RewindBegin)
-            self._playback_state = PlaybackState.Rewind
+            self._playback_state = PlaybackState.REWIND
         else:
             await self._atv.remote_control.left(InputAction.Hold)
 
@@ -699,20 +703,24 @@ class AppleTv:
         companion = cast(FacadeRemoteControl, self._atv.remote_control).get(Protocol.Companion)
         if companion:
             await companion.api.mediacontrol_command(command=MediaControlCommand.FastForwardEnd)
-            self._playback_state = PlaybackState.Normal
+            self._playback_state = PlaybackState.NORMAL
 
     async def rewind_companion_end(self):
         """Rewind using companion protocol."""
         companion = cast(FacadeRemoteControl, self._atv.remote_control).get(Protocol.Companion)
         if companion:
             await companion.api.mediacontrol_command(command=MediaControlCommand.RewindEnd)
-            self._playback_state = PlaybackState.Normal
+            self._playback_state = PlaybackState.NORMAL
 
-    async def stop_fast_forward_rewind(self):
-        if self._playback_state == PlaybackState.FastForward:
+    async def stop_fast_forward_rewind(self) -> bool:
+        """Stop fast forward or rewind if running."""
+        if self._playback_state == PlaybackState.NORMAL:
+            return False
+        if self._playback_state == PlaybackState.FAST_FORWARD:
             await self.fast_forward_companion_end()
-        elif self._playback_state == PlaybackState.Rewind:
+        else:
             await self.rewind_companion_end()
+        return True
 
     @async_handle_atvlib_errors
     async def next(self) -> ucapi.StatusCodes:
