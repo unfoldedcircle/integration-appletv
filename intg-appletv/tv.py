@@ -535,6 +535,8 @@ class AppleTv:
 
     async def _update_output_devices(self) -> None:
         _LOG.debug("[%s] Updating available output devices list", self.log_id)
+        if self._atv is None:
+            return
         current_output_devices = self._available_output_devices
         current_output_device = self.output_device
         self._available_output_devices = {}
