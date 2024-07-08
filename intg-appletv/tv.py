@@ -163,7 +163,6 @@ class AppleTv:
         self._app_list: dict[str, str] = {}
         self._available_output_devices: dict[str, str] = {}
         self._output_devices: OrderedDict[str, [str]] = OrderedDict()
-        self._output_device: list[OutputDevice] = []
 
     @property
     def identifier(self) -> str:
@@ -208,9 +207,9 @@ class AppleTv:
     def output_device(self) -> str:
         """Return the current selection of output devices."""
         device_names = []
-        for device in self._output_device:
+        for device in self._atv.audio.output_devices:
             device_names.append(device.name)
-        return ",".join(sorted(device_names, key=str.casefold))
+        return ", ".join(sorted(device_names, key=str.casefold))
 
     def _backoff(self) -> float:
         if self._connection_attempts * BACKOFF_SEC >= BACKOFF_MAX:
@@ -545,9 +544,9 @@ class AppleTv:
             for atv in atvs:
                 if atv.device_info.output_device_id == self._atv.device_info.output_device_id:
                     continue
-                device_ids.append(atv.device_info.output_device_id)
-                self._available_output_devices[atv.device_info.output_device_id] = atv.name
-            self._output_device = self._atv.audio.output_devices
+                if atv.device_info.output_device_id not in device_ids:
+                    device_ids.append(atv.device_info.output_device_id)
+                    self._available_output_devices[atv.device_info.output_device_id] = atv.name
         except pyatv.exceptions.NotSupportedError:
             _LOG.warning("[%s] Output devices listing is not supported", self.log_id)
             return
@@ -556,8 +555,8 @@ class AppleTv:
             return
         update = {}
         if set(current_output_devices.keys()) != set(self._available_output_devices.keys()) and len(device_ids) > 0:
-            # Build combinations of output devices. First device is current device that will
-            # let disable all external output devices
+            # Build combinations of output devices. First device in the list is the current Apple TV
+            # When selecting this entry, it will disable all output devices
             self._output_devices = OrderedDict()
             self._output_devices[self._device.name] = []
             self._build_output_devices_list(atvs, device_ids)
@@ -584,7 +583,7 @@ class AppleTv:
                         if atv.device_info.output_device_id == device_id:
                             device_names.append(atv.name)
                             break
-                entry_name: str = ",".join(sorted(device_names, key=str.casefold))
+                entry_name: str = ", ".join(sorted(device_names, key=str.casefold))
                 self._output_devices[entry_name] = combination
 
     async def _poll_worker(self) -> None:
