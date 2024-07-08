@@ -15,7 +15,7 @@ import logging
 import random
 from asyncio import AbstractEventLoop
 from collections import OrderedDict
-from enum import IntEnum, Enum
+from enum import Enum, IntEnum
 from functools import wraps
 from typing import (
     Any,
