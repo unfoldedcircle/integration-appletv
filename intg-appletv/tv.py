@@ -23,10 +23,10 @@ from typing import (
     Callable,
     Concatenate,
     Coroutine,
+    List,
     ParamSpec,
     TypeVar,
     cast,
-    List,
 )
 
 import pyatv
