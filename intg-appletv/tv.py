@@ -31,9 +31,8 @@ from typing import (
 
 import pyatv
 import ucapi
-from pyatv import interface
-
 from config import AtvDevice, AtvProtocol
+from pyatv import interface
 from pyatv.const import (
     DeviceState,
     FeatureName,
