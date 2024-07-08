@@ -26,10 +26,13 @@ from typing import (
     ParamSpec,
     TypeVar,
     cast,
+    List,
 )
 
 import pyatv
 import ucapi
+from pyatv import interface
+
 from config import AtvDevice, AtvProtocol
 from pyatv.const import (
     DeviceState,
@@ -42,7 +45,7 @@ from pyatv.const import (
     ShuffleState,
 )
 from pyatv.core.facade import FacadeRemoteControl
-from pyatv.interface import BaseConfig
+from pyatv.interface import BaseConfig, OutputDevice
 from pyatv.protocols.companion import CompanionAPI, MediaControlCommand, SystemStatus
 from pyee import AsyncIOEventEmitter
 
@@ -136,7 +139,7 @@ def async_handle_atvlib_errors(
     return wrapper
 
 
-class AppleTv:
+class AppleTv(interface.AudioListener):
     """Representing an Apple TV Device."""
 
     def __init__(
@@ -199,12 +202,12 @@ class AppleTv:
         return self._state
 
     @property
-    def output_devices(self) -> [str]:
+    def output_devices_combinations(self) -> [str]:
         """Return the list of possible selection (combinations) of output devices."""
         return list(self._output_devices.keys())
 
     @property
-    def output_device(self) -> str:
+    def output_devices(self) -> str:
         """Return the current selection of output devices."""
         device_names = []
         for device in self._atv.audio.output_devices:
@@ -261,10 +264,10 @@ class AppleTv:
         update = {"volume": new_level}
         self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
-    def outputdevices_update(self, old_devices, new_devices) -> None:
+    def outputdevices_update(self, old_devices: List[OutputDevice], new_devices: List[OutputDevice]) -> None:
         """Output device change callback handler, for example airplay speaker."""
-        # print('Output devices changed from {0:s} to {1:s}'.format(old_devices, new_devices))
-        # TODO check if this could be used to better handle volume control (if it's available or not)
+        _LOG.debug("[%s] Changed output devices to %s", self.log_id, self.output_devices)
+        self.events.emit(EVENTS.UPDATE, self._device.identifier, {"sound_mode": self.output_devices})
 
     async def _find_atv(self) -> pyatv.interface.BaseConfig | None:
         """Find a specific Apple TV on the network by identifier."""
@@ -535,14 +538,14 @@ class AppleTv:
 
     async def _update_output_devices(self) -> None:
         _LOG.debug("[%s] Updating available output devices list", self.log_id)
-        if self._atv is None:
-            return
-        current_output_devices = self._available_output_devices
-        current_output_device = self.output_device
-        self._available_output_devices = {}
-        device_ids = []
         try:
             atvs = await pyatv.scan(self._loop)
+            if self._atv is None:
+                return
+            current_output_devices = self._available_output_devices
+            current_output_device = self.output_devices
+            device_ids = []
+            self._available_output_devices = {}
             for atv in atvs:
                 if atv.device_info.output_device_id == self._atv.device_info.output_device_id:
                     continue
@@ -564,8 +567,8 @@ class AppleTv:
             self._build_output_devices_list(atvs, device_ids)
             update["sound_mode_list"] = list(self._output_devices.keys())
 
-        if current_output_device != self.output_device:
-            update["sound_mode"] = self.output_device
+        if current_output_device != self.output_devices:
+            update["sound_mode"] = self.output_devices
 
         _LOG.debug("Updated sound mode list : %s", update)
 
@@ -834,7 +837,9 @@ class AppleTv:
             return ucapi.StatusCodes.BAD_REQUEST
         device_entry = self._output_devices.get(device_name, [])
         if device_entry is None:
-            _LOG.warning("Output device not found in the list %s (list : %s)", device_name, self.output_devices)
+            _LOG.warning(
+                "Output device not found in the list %s (list : %s)", device_name, self.output_devices_combinations
+            )
             return ucapi.StatusCodes.BAD_REQUEST
         output_devices = self._atv.audio.output_devices
         if len(device_entry) == 0 and len(output_devices) == 0:
