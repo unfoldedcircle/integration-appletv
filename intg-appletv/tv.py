@@ -32,8 +32,6 @@ from typing import (
 import pyatv
 import pyatv.const
 import ucapi
-from pyatv.protocols.mrp import PlaybackState
-
 from config import AtvDevice, AtvProtocol
 from pyatv import interface
 from pyatv.const import (
