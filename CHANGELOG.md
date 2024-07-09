@@ -11,6 +11,13 @@ _Changes in the next release_
 
 ---
 
+## v0.14.0 - 2024-07-09
+### Added
+- Stream to output devices through sound mode selection. Contributed by @albaintor, thanks! ([#20](https://github.com/unfoldedcircle/integration-appletv/pull/20))
+
+### Fixed
+- Simple commands FAST_FORWARD_BEGIN and REWIND_BEGIN remained stuck in some apps. Fixed by @albaintor, thanks! ([#22](https://github.com/unfoldedcircle/integration-appletv/pull/22))
+
 ## v0.13.9 - 2024-06-14
 ### Added
 - Simple commands for skip forward and backward, alternative FF/RW commands with companion protocol. Contributed by @albaintor, thanks! ([#19](https://github.com/unfoldedcircle/integration-appletv/pull/19))
