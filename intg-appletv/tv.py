@@ -15,7 +15,7 @@ import logging
 import random
 from asyncio import AbstractEventLoop
 from collections import OrderedDict
-from enum import IntEnum
+from enum import Enum, IntEnum
 from functools import wraps
 from typing import (
     Any,
@@ -30,6 +30,7 @@ from typing import (
 )
 
 import pyatv
+import pyatv.const
 import ucapi
 from config import AtvDevice, AtvProtocol
 from pyatv import interface
@@ -69,6 +70,14 @@ class EVENTS(IntEnum):
 
 _AppleTvT = TypeVar("_AppleTvT", bound="AppleTv")
 _P = ParamSpec("_P")
+
+
+class PlaybackState(Enum):
+    """Playback state for companion protocol."""
+
+    NORMAL = 0
+    FAST_FORWARD = 1
+    REWIND = 2
 
 
 # Adapted from Home Assistant `asyncLOG_errors` in
@@ -165,6 +174,7 @@ class AppleTv(interface.AudioListener):
         self._app_list: dict[str, str] = {}
         self._available_output_devices: dict[str, str] = {}
         self._output_devices: OrderedDict[str, [str]] = OrderedDict()
+        self._playback_state = PlaybackState.NORMAL
 
     @property
     def identifier(self) -> str:
@@ -655,16 +665,19 @@ class AppleTv(interface.AudioListener):
     @async_handle_atvlib_errors
     async def play_pause(self) -> ucapi.StatusCodes:
         """Toggle between play and pause."""
+        await self.stop_fast_forward_rewind()
         await self._atv.remote_control.play_pause()
 
     @async_handle_atvlib_errors
     async def fast_forward(self) -> ucapi.StatusCodes:
         """Long press key right for fast-forward."""
+        await self.stop_fast_forward_rewind()
         await self._atv.remote_control.right(InputAction.Hold)
 
     @async_handle_atvlib_errors
     async def rewind(self) -> ucapi.StatusCodes:
         """Long press key left for rewind."""
+        await self.stop_fast_forward_rewind()
         await self._atv.remote_control.left(InputAction.Hold)
 
     @async_handle_atvlib_errors
@@ -672,7 +685,10 @@ class AppleTv(interface.AudioListener):
         """Fast-forward using companion protocol."""
         companion = cast(FacadeRemoteControl, self._atv.remote_control).get(Protocol.Companion)
         if companion:
+            if self._playback_state == PlaybackState.REWIND:
+                await self.stop_fast_forward_rewind()
             await companion.api.mediacontrol_command(command=MediaControlCommand.FastForwardBegin)
+            self._playback_state = PlaybackState.FAST_FORWARD
         else:
             await self._atv.remote_control.right(InputAction.Hold)
 
@@ -681,19 +697,48 @@ class AppleTv(interface.AudioListener):
         """Rewind using companion protocol."""
         companion = cast(FacadeRemoteControl, self._atv.remote_control).get(Protocol.Companion)
         if companion:
+            if self._playback_state == PlaybackState.FAST_FORWARD:
+                await self.stop_fast_forward_rewind()
             await companion.api.mediacontrol_command(command=MediaControlCommand.RewindBegin)
+            self._playback_state = PlaybackState.REWIND
         else:
             await self._atv.remote_control.left(InputAction.Hold)
+
+    async def fast_forward_companion_end(self):
+        """Fast-forward using companion protocol."""
+        companion = cast(FacadeRemoteControl, self._atv.remote_control).get(Protocol.Companion)
+        if companion:
+            await companion.api.mediacontrol_command(command=MediaControlCommand.FastForwardEnd)
+            self._playback_state = PlaybackState.NORMAL
+
+    async def rewind_companion_end(self):
+        """Rewind using companion protocol."""
+        companion = cast(FacadeRemoteControl, self._atv.remote_control).get(Protocol.Companion)
+        if companion:
+            await companion.api.mediacontrol_command(command=MediaControlCommand.RewindEnd)
+            self._playback_state = PlaybackState.NORMAL
+
+    async def stop_fast_forward_rewind(self) -> bool:
+        """Stop fast forward or rewind if running."""
+        if self._playback_state == PlaybackState.NORMAL:
+            return False
+        if self._playback_state == PlaybackState.FAST_FORWARD:
+            await self.fast_forward_companion_end()
+        else:
+            await self.rewind_companion_end()
+        return True
 
     @async_handle_atvlib_errors
     async def next(self) -> ucapi.StatusCodes:
         """Press key next."""
+        await self.stop_fast_forward_rewind()
         if self._is_feature_available(FeatureName.Next):  # to prevent timeout errors
             await self._atv.remote_control.next()
 
     @async_handle_atvlib_errors
     async def previous(self) -> ucapi.StatusCodes:
         """Press key previous."""
+        await self.stop_fast_forward_rewind()
         if self._is_feature_available(FeatureName.Previous):
             await self._atv.remote_control.previous()
 
@@ -703,6 +748,7 @@ class AppleTv(interface.AudioListener):
 
         Skip interval is typically 15-30s, but is decided by the app.
         """
+        await self.stop_fast_forward_rewind()
         if self._is_feature_available(FeatureName.SkipForward):
             await self._atv.remote_control.skip_forward()
 
@@ -712,6 +758,7 @@ class AppleTv(interface.AudioListener):
 
         Skip interval is typically 15-30s, but is decided by the app.
         """
+        await self.stop_fast_forward_rewind()
         if self._is_feature_available(FeatureName.SkipBackward):
             await self._atv.remote_control.skip_backward()
 
