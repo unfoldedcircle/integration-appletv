@@ -32,6 +32,8 @@ from typing import (
 import pyatv
 import pyatv.const
 import ucapi
+from pyatv.protocols.mrp import PlaybackState
+
 from config import AtvDevice, AtvProtocol
 from pyatv import interface
 from pyatv.const import (
@@ -683,8 +685,8 @@ class AppleTv(interface.AudioListener):
         """Fast-forward using companion protocol."""
         companion = cast(FacadeRemoteControl, self._atv.remote_control).get(Protocol.Companion)
         if companion:
-            if await self.stop_fast_forward_rewind():
-                return ucapi.StatusCodes.OK
+            if self._playback_state == PlaybackState.REWIND:
+                await self.stop_fast_forward_rewind()
             await companion.api.mediacontrol_command(command=MediaControlCommand.FastForwardBegin)
             self._playback_state = PlaybackState.FAST_FORWARD
         else:
@@ -695,8 +697,8 @@ class AppleTv(interface.AudioListener):
         """Rewind using companion protocol."""
         companion = cast(FacadeRemoteControl, self._atv.remote_control).get(Protocol.Companion)
         if companion:
-            if await self.stop_fast_forward_rewind():
-                return ucapi.StatusCodes.OK
+            if self._playback_state == PlaybackState.FAST_FORWARD:
+                await self.stop_fast_forward_rewind()
             await companion.api.mediacontrol_command(command=MediaControlCommand.RewindBegin)
             self._playback_state = PlaybackState.REWIND
         else:
