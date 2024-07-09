@@ -671,11 +671,13 @@ class AppleTv(interface.AudioListener):
     @async_handle_atvlib_errors
     async def fast_forward(self) -> ucapi.StatusCodes:
         """Long press key right for fast-forward."""
+        await self.stop_fast_forward_rewind()
         await self._atv.remote_control.right(InputAction.Hold)
 
     @async_handle_atvlib_errors
     async def rewind(self) -> ucapi.StatusCodes:
         """Long press key left for rewind."""
+        await self.stop_fast_forward_rewind()
         await self._atv.remote_control.left(InputAction.Hold)
 
     @async_handle_atvlib_errors
