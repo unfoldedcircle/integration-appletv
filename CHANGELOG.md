@@ -9,12 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Changes in the next release_
 
+---
+
+## v0.14.1 - 2024-07-23
 ### Changed
 - Create a one-folder bundle with PyInstaller instead a one-file bundle to save resources.
 - Change archive format to the custom integration installation archive.
 - Change default `driver_id` value in `driver.json` to create a compatible custom installation archive.
-
----
 
 ## v0.14.0 - 2024-07-09
 ### Added

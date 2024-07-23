@@ -1,6 +1,6 @@
 {
 	"driver_id": "appletv",
-	"version": "0.14.0",
+	"version": "0.14.1",
 	"min_core_api": "0.7.0",
 	"name": { "en": "Apple TV" },
 	"icon": "uc:integration",
@@ -41,5 +41,5 @@
 			}
 		]
 	},
-	"release_date": "2024-07-09"
+	"release_date": "2024-07-23"
 }
