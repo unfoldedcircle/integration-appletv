@@ -90,7 +90,7 @@ sudo apt install qemu binfmt-support qemu-user-static
 docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 ```
 
-Run pyinstaller:
+Run PyInstaller:
 ```shell
 docker run --rm --name builder \
     --platform=aarch64 \
@@ -99,7 +99,7 @@ docker run --rm --name builder \
     docker.io/unfoldedcircle/r2-pyinstaller:3.11.6  \
     bash -c \
       "python -m pip install -r requirements.txt && \
-      pyinstaller --clean --onedir --name intg-appletv intg-appletv/driver.py"
+      pyinstaller --clean --onedir --name intg-appletv --collect-all zeroconf intg-appletv/driver.py"
 ```
 
 ### aarch64 Linux / Mac
@@ -112,7 +112,7 @@ docker run --rm --name builder \
     docker.io/unfoldedcircle/r2-pyinstaller:3.11.6  \
     bash -c \
       "python -m pip install -r requirements.txt && \
-      pyinstaller --clean --onedir --name intg-appletv intg-appletv/driver.py"
+      pyinstaller --clean --onedir --name intg-appletv --collect-all zeroconf intg-appletv/driver.py"
 ```
 
 ## Versioning
