@@ -912,4 +912,4 @@ class AppleTv(interface.AudioListener):
         if touch_facade.get(Protocol.Companion):
             await cast(FacadeTouchGestures, self._atv.touch).swipe(start_x, start_y, end_x, end_y, duration_ms)
         else:
-            raise ucapi.StatusCodes.NOT_IMPLEMENTED
+            raise pyatv.exceptions.CommandError("Touch gestures not supported")
