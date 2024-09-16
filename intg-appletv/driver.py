@@ -50,6 +50,14 @@ class SimpleCommands(str, Enum):
     """Fast forward using Companion protocol."""
     REWIND_BEGIN = "REWIND_BEGIN"
     """Rewind using Companion protocol."""
+    SWIPE_LEFT = "SWIPE_LEFT"
+    """Swipe left using Companion protocol."""
+    SWIPE_RIGHT = "SWIPE_RIGHT"
+    """Swipe right using Companion protocol."""
+    SWIPE_UP = "SWIPE_UP"
+    """Swipe up using Companion protocol."""
+    SWIPE_DOWN = "SWIPE_DOWN"
+    """Swipe down using Companion protocol."""
 
 
 @api.listens_to(ucapi.Events.CONNECT)
@@ -276,6 +284,16 @@ async def media_player_cmd_handler(
         case media_player.Commands.SELECT_SOUND_MODE:
             mode = _get_cmd_param("mode", params)
             res = await device.set_output_device(mode)
+        case media_player.Commands.SEEK:
+            res = await device.set_media_position(params.get("media_position", 0))
+        case SimpleCommands.SWIPE_LEFT:
+            res = await device.swipe(1000, 500, 50, 500, 200)
+        case SimpleCommands.SWIPE_RIGHT:
+            res = await device.swipe(50, 500, 1000, 500, 200)
+        case SimpleCommands.SWIPE_UP:
+            res = await device.swipe(500, 1000, 500, 50, 200)
+        case SimpleCommands.SWIPE_DOWN:
+            res = await device.swipe(500, 50, 500, 1000, 200)
 
     return res
 
@@ -508,6 +526,7 @@ def _register_available_entities(identifier: str, name: str) -> bool:
         media_player.Features.REWIND,
         media_player.Features.FAST_FORWARD,
         media_player.Features.SELECT_SOUND_MODE,
+        media_player.Features.SEEK,
     ]
     if ENABLE_REPEAT_FEAT:
         features.append(media_player.Features.REPEAT)
@@ -539,6 +558,10 @@ def _register_available_entities(identifier: str, name: str) -> bool:
                 SimpleCommands.SKIP_BACKWARD.value,
                 SimpleCommands.FAST_FORWARD_BEGIN.value,
                 SimpleCommands.REWIND_BEGIN.value,
+                SimpleCommands.SWIPE_LEFT.value,
+                SimpleCommands.SWIPE_RIGHT.value,
+                SimpleCommands.SWIPE_UP.value,
+                SimpleCommands.SWIPE_DOWN.value,
             ]
         },
         cmd_handler=media_player_cmd_handler,

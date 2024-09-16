@@ -44,10 +44,10 @@ from pyatv.const import (
     RepeatState,
     ShuffleState,
 )
-from pyatv.core.facade import FacadeRemoteControl
+from pyatv.core.facade import FacadeRemoteControl, FacadeTouchGestures
 from pyatv.interface import BaseConfig, OutputDevice
 from pyatv.protocols.companion import CompanionAPI, MediaControlCommand, SystemStatus
-from pyee import AsyncIOEventEmitter
+from pyee.asyncio import AsyncIOEventEmitter
 
 _LOG = logging.getLogger(__name__)
 
@@ -899,3 +899,17 @@ class AppleTv(interface.AudioListener):
             return ucapi.StatusCodes.OK
         _LOG.debug("Setting output devices %s", device_entry)
         await self._atv.audio.set_output_devices(*device_entry)
+
+    @async_handle_atvlib_errors
+    async def set_media_position(self, media_position: int) -> ucapi.StatusCodes:
+        """Set media position."""
+        await self._atv.remote_control.set_position(media_position)
+
+    @async_handle_atvlib_errors
+    async def swipe(self, start_x: int, start_y: int, end_x: int, end_y: int, duration_ms: int) -> ucapi.StatusCodes:
+        """Generate a swipe gesture."""
+        touch_facade: FacadeTouchGestures = cast(FacadeTouchGestures, self._atv.touch)
+        if touch_facade.get(Protocol.Companion):
+            await cast(FacadeTouchGestures, self._atv.touch).swipe(start_x, start_y, end_x, end_y, duration_ms)
+        else:
+            raise pyatv.exceptions.CommandError("Touch gestures not supported")
