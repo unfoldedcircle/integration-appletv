@@ -11,6 +11,10 @@ _Changes in the next release_
 
 ---
 
+## v0.15.0 - 2024-09-27
+### Added
+- Add touch gestures as simple commands, support for seeking. Contributed by @albaintor, thanks! ([#24](https://github.com/unfoldedcircle/integration-appletv/pull/24))
+
 ## v0.14.1 - 2024-07-23
 ### Changed
 - Create a one-folder bundle with PyInstaller instead a one-file bundle to save resources.
