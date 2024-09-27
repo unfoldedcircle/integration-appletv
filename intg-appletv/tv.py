@@ -906,6 +906,7 @@ class AppleTv(interface.AudioListener):
         await self._atv.remote_control.set_position(media_position)
 
     @async_handle_atvlib_errors
+    # pylint: disable=too-many-positional-arguments
     async def swipe(self, start_x: int, start_y: int, end_x: int, end_y: int, duration_ms: int) -> ucapi.StatusCodes:
         """Generate a swipe gesture."""
         touch_facade: FacadeTouchGestures = cast(FacadeTouchGestures, self._atv.touch)
