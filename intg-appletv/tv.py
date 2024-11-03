@@ -173,7 +173,7 @@ class AppleTv(interface.AudioListener):
         self._state: DeviceState | None = None
         self._app_list: dict[str, str] = {}
         self._available_output_devices: dict[str, str] = {}
-        self._output_devices: OrderedDict[str, [str]] = OrderedDict()
+        self._output_devices: OrderedDict[str, [str]] = OrderedDict[str, [str]]()
         self._playback_state = PlaybackState.NORMAL
 
     @property
@@ -598,7 +598,7 @@ class AppleTv(interface.AudioListener):
                             device_names.append(atv.name)
                             break
                 entry_name: str = ", ".join(sorted(device_names, key=str.casefold))
-                self._output_devices[entry_name] = combination
+                self._output_devices[entry_name] = list[str](combination)
 
     async def _poll_worker(self) -> None:
         await asyncio.sleep(2)
@@ -893,12 +893,22 @@ class AppleTv(interface.AudioListener):
         device_ids = []
         for device in output_devices:
             device_ids.append(device.identifier)
+
         _LOG.debug("Removing output devices %s", device_ids)
         await self._atv.audio.remove_output_devices(*device_ids)
         if len(device_entry) == 0:
             return ucapi.StatusCodes.OK
-        _LOG.debug("Setting output devices %s", device_entry)
-        await self._atv.audio.set_output_devices(*device_entry)
+
+        # Add current AppleTV device to the list unless it is already there
+        new_output_devices = device_entry
+        found_current_device = [
+            device_id for device_id in new_output_devices if device_id == self._atv.device_info.output_device_id
+        ]
+        if len(found_current_device) == 0:
+            new_output_devices.append(self._atv.device_info.output_device_id)
+
+        _LOG.debug("Setting output devices %s", new_output_devices)
+        await self._atv.audio.set_output_devices(*new_output_devices)
 
     @async_handle_atvlib_errors
     async def set_media_position(self, media_position: int) -> ucapi.StatusCodes:
