@@ -11,6 +11,10 @@ _Changes in the next release_
 
 ---
 
+## v0.15.1 - 2024-12-06
+### Fixed
+- Multiple sound output : the current AppleTV device was disable when enabling other airplay devices ([#25](https://github.com/unfoldedcircle/integration-appletv/pull/25)).
+
 ## v0.15.0 - 2024-09-27
 ### Added
 - Add touch gestures as simple commands, support for seeking. Contributed by @albaintor, thanks! ([#24](https://github.com/unfoldedcircle/integration-appletv/pull/24))
