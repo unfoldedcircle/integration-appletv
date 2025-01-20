@@ -1,10 +1,10 @@
-# Apple TV integration for Remote Two
+# Apple TV integration for Remote Two/3
 
 Using [pyatv](https://github.com/postlund/pyatv) and [uc-integration-api](https://github.com/aitatoi/integration-python-library)
 
 The driver discovers Apple TV devices on the network and pairs them using AirPlay and companion protocols.
 A [media player entity](https://github.com/unfoldedcircle/core-api/blob/main/doc/entities/entity_media_player.md)
-is exposed to the Remote Two.
+is exposed to the Remote Two/3.
 
 Supported versions:
 - Apple TV 4 and newer models with TvOS 16+
@@ -46,11 +46,11 @@ Please note that certain commands like channel up & down are app dependant and d
 pip3 install -r requirements.txt
 ```
 
-For running a separate integration driver on your network for Remote Two, the configuration in file
+For running a separate integration driver on your network for Remote Two/3, the configuration in file
 [driver.json](driver.json) needs to be changed:
 
 - Set `driver_id` to a unique value, `uc_appletv_driver` is already used for the embedded driver in the firmware.
-- Change `name` to easily identify the driver for discovery & setup  with Remote Two or the web-configurator.
+- Change `name` to easily identify the driver for discovery & setup  with Remote Two/3 or the web-configurator.
 - Optionally add a `"port": 8090` field for the WebSocket server listening port.
     - Default port: `9090`
     - This is also overrideable with environment variable `UC_INTEGRATION_HTTP_PORT`

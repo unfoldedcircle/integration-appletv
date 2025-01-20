@@ -5,9 +5,9 @@
 	"name": { "en": "Apple TV" },
 	"icon": "uc:integration",
 	"description": {
-		"en": "Control your Apple TV with Remote Two.",
-		"de": "Steuere Apple TV mit Remote Two.",
-		"fr": "Contrôler votre Apple TV avec Remote Two."
+		"en": "Control your Apple TV with Remote Two/3.",
+		"de": "Steuere Apple TV mit Remote Two/3.",
+		"fr": "Contrôler votre Apple TV avec Remote Two/3."
 	},
 	"developer": {
 		"name": "Unfolded Circle ApS",
