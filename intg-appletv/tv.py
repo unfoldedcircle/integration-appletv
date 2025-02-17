@@ -869,7 +869,17 @@ class AppleTv(interface.AudioListener):
     @async_handle_atvlib_errors
     async def launch_app(self, app_name: str) -> ucapi.StatusCodes:
         """Launch an app based on bundle ID or URL."""
-        await self._atv.apps.launch_app(self._app_list[app_name])
+        try:
+            # Launch app by name
+            await self._atv.apps.launch_app(self._app_list[app_name])
+        except KeyError:
+            # If app_name is not an app name handle it as app deep link url
+            try:
+                await self._atv.apps.launch_app(app_name)
+            except pyatv.exceptions.NotSupportedError:
+                _LOG.warning("[%s] Launch app is not supported", self.log_id)
+            except pyatv.exceptions.ProtocolError:
+                _LOG.warning("[%s] Launch app: protocol error", self.log_id)
 
     @async_handle_atvlib_errors
     async def app_switcher(self) -> ucapi.StatusCodes:
