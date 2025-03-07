@@ -11,6 +11,10 @@ _Changes in the next release_
 
 ---
 
+## v0.15.2 - 2025-03-07
+### Added
+- Add handling of app deep links. Contributed by @kennymc-c, thanks! ([#27](https://github.com/unfoldedcircle/integration-appletv/pull/27)).
+
 ## v0.15.1 - 2024-12-06
 ### Fixed
 - Multiple sound output : the current AppleTV device was disable when enabling other airplay devices ([#25](https://github.com/unfoldedcircle/integration-appletv/pull/25)).
