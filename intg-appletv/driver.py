@@ -207,6 +207,7 @@ async def media_player_cmd_handler(
             # tvOS 18.4 will raise an exception https://github.com/postlund/pyatv/issues/2648
             # Screensaver state is no longer accessible
             state = configured_entity.attributes[media_player.Attributes.STATE]
+
             # pylint: disable=W0718
             try:
                 if state != media_player.States.PLAYING and await device.screensaver_active():
@@ -221,11 +222,12 @@ async def media_player_cmd_handler(
                     return ucapi.StatusCodes.OK
             except Exception:
                 pass
-                # Sometimes play/pause toggle doesn't work, and we have the state already anyway (https://github.com/unfoldedcircle/feature-and-bug-tracker/issues/159)
+            # Sometimes play/pause toggle doesn't work, and we have the state already anyway (https://github.com/unfoldedcircle/feature-and-bug-tracker/issues/159)
             if state == media_player.States.PLAYING:
                 res = await device.pause()
             elif state != media_player.States.PLAYING:
                 res = await device.play()
+                
         case media_player.Commands.NEXT:
             res = await device.next()
         case media_player.Commands.PREVIOUS:
