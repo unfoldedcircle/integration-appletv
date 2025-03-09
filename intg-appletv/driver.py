@@ -205,10 +205,10 @@ async def media_player_cmd_handler(
                 # Nothing was playing, only the screensaver was active
                 return ucapi.StatusCodes.OK
             # Sometimes play/pause toggle doesn't work, and we have the state already anyway (https://github.com/unfoldedcircle/feature-and-bug-tracker/issues/159)
-            elif state == media_player.States.PLAYING:
-                res = await device.pause()
-            elif state != media_player.States.PLAYING:
+            if state == media_player.States.PAUSED:
                 res = await device.play()
+            elif state != media_player.States.PAUSED:
+                res = await device.pause()
         case media_player.Commands.NEXT:
             res = await device.next()
         case media_player.Commands.PREVIOUS:
