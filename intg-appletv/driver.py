@@ -221,7 +221,11 @@ async def media_player_cmd_handler(
                     return ucapi.StatusCodes.OK
             except Exception:
                 pass
-            res = await device.play_pause()
+                # Sometimes play/pause toggle doesn't work, and we have the state already anyway (https://github.com/unfoldedcircle/feature-and-bug-tracker/issues/159)
+            if state == media_player.States.PLAYING:
+                res = await device.pause()
+            elif state == media_player.States.PAUSED:
+                res = await device.play()
         case media_player.Commands.NEXT:
             res = await device.next()
         case media_player.Commands.PREVIOUS:
