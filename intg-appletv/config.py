@@ -40,6 +40,8 @@ class AtvDevice:
     """Credentials for different protocols."""
     address: str | None = None
     """Optional IP address of device. Disables IP discovery by identifier."""
+    mac_address: str | None = None
+    """Actual identifier of the device, which can change over time."""
 
 
 class _EnhancedJSONEncoder(json.JSONEncoder):
@@ -165,7 +167,8 @@ class Devices:
             for item in data:
                 # not using AtvDevice(**item) to be able to migrate old configuration files with missing attributes
                 atv = AtvDevice(
-                    item.get("identifier"), item.get("name", ""), item.get("credentials"), item.get("address")
+                    item.get("identifier"), item.get("name", ""), item.get("credentials"), item.get("address"),
+                    item.get("mac_address")
                 )
                 self._config.append(atv)
             return True

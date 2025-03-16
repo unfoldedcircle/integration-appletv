@@ -41,6 +41,7 @@ class SetupSteps(IntEnum):
     DEVICE_CHOICE = 3
     PAIRING_AIRPLAY = 4
     PAIRING_COMPANION = 5
+    RECONFIGURE = 6
 
 
 _setup_step = SetupSteps.INIT
@@ -48,6 +49,7 @@ _cfg_add_device: bool = False
 _manual_address: bool = False
 _discovered_atvs: list[pyatv.interface.BaseConfig] = None
 _pairing_apple_tv: tv.AppleTv | None = None
+_reconfigured_device: AtvDevice | None = None
 # TODO #12 externalize language texts
 # pylint: disable=line-too-long
 _user_input_discovery = RequestUserInput(
@@ -122,6 +124,8 @@ async def driver_setup_handler(msg: SetupDriver) -> SetupAction:  # pylint: disa
             return await _handle_user_data_airplay_pin(msg)
         if _setup_step == SetupSteps.PAIRING_COMPANION and "pin_companion" in msg.input_values:
             return await _handle_user_data_companion_pin(msg)
+        if _setup_step == SetupSteps.RECONFIGURE:
+            return await _handle_device_reconfigure(msg)
         _LOG.error("No or invalid user response was received: %s", msg)
     elif isinstance(msg, AbortDriverSetup):
         _LOG.info("Setup was aborted with code: %s", msg.error)
@@ -180,7 +184,7 @@ async def _handle_driver_setup(msg: DriverSetupRequest) -> RequestUserInput | Se
             },
         ]
 
-        # add remove & reset actions if there's at least one configured device
+        # add remove, reconfigure & reset actions if there's at least one configured device
         if dropdown_devices:
             dropdown_actions.append(
                 {
@@ -189,6 +193,15 @@ async def _handle_driver_setup(msg: DriverSetupRequest) -> RequestUserInput | Se
                         "en": "Delete selected device",
                         "de": "Selektiertes Gerät löschen",
                         "fr": "Supprimer l'appareil sélectionné",
+                    },
+                },
+            )
+            dropdown_actions.append(
+                {
+                    "id": "configure",
+                    "label": {
+                        "en": "Configure selected device",
+                        "fr": "Configurer l'appareil sélectionné",
                     },
                 },
             )
@@ -250,6 +263,7 @@ async def _handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput 
     """
     global _setup_step
     global _cfg_add_device
+    global _reconfigured_device
 
     action = msg.input_values["action"]
 
@@ -266,6 +280,67 @@ async def _handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput 
                 return SetupError(error_type=IntegrationSetupError.OTHER)
             config.devices.store()
             return SetupComplete()
+        case "configure":
+            # Reconfigure device if the identifier has changed
+            choice = msg.input_values["choice"]
+            selected_device = config.devices.get(choice)
+            if not selected_device:
+                _LOG.warning("Can not configure device from configuration: %s", choice)
+                return SetupError(error_type=IntegrationSetupError.OTHER)
+
+            discovered_atvs = await discover.apple_tvs(asyncio.get_event_loop())
+            dropdown_items = []
+            found = False
+            for device in discovered_atvs:
+                # if we are adding a new device: make sure it's not already configured
+                if (selected_device.identifier != device.identifier
+                        and selected_device.mac_address != device.identifier
+                        and config.devices.contains(device.identifier)):
+                    _LOG.info("Skipping device %s: already configured", device.identifier)
+                    continue
+                if (selected_device.identifier == device.identifier
+                        or selected_device.mac_address == device.identifier):
+                    found = True
+                label = f"{device.name} ({device.address})"
+                dropdown_items.append({"id": device.identifier, "label": {"en": label + " ("+device.identifier+")"}})
+
+            _setup_step = SetupSteps.RECONFIGURE
+            _reconfigured_device = selected_device
+            mac_address = selected_device.identifier if selected_device.mac_address is None \
+                else selected_device.mac_address
+            if found or len(dropdown_items) == 0:
+                return RequestUserInput(
+                    {"en": "Configuration of your Apple TV",
+                     "fr": "Configurez votre Apple TV"},
+                    [
+                        {
+                            "field": {"text": {"value": mac_address}},
+                            "id": "mac_address",
+                            "label": {
+                                "en": "Mac address",
+                                "de": "Mac-Adresse",
+                                "fr": "Adresse Mac",
+                            }
+                        }
+                    ]
+                )
+
+            return RequestUserInput(
+                {"en": "Configure your Apple TV (configured mac address "+mac_address+")",
+                 "fr": "Configurez votre Apple TV (addresse mac configurée "+mac_address+")"},
+                [
+                    {
+                        "field": {"dropdown": {"value": dropdown_items[0]["id"], "items": dropdown_items}},
+                        "id": "mac_address",
+                        "label": {
+                            "en": "Mac address",
+                            "de": "Mac-Adresse",
+                            "fr": "Adresse Mac",
+                        }
+                    }
+                ]
+            )
+
         case "reset":
             config.devices.clear()  # triggers device instance removal
         case _:
@@ -378,7 +453,8 @@ async def _handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Set
 
     atv = atvs[0]
     _pairing_apple_tv = tv.AppleTv(
-        AtvDevice(choice, atv.name, [], str(atv.address) if _manual_address else None),
+        AtvDevice(identifier=choice, name=atv.name, credentials=[],
+                  address=atv.address if _manual_address else None, mac_address=None),
         loop=asyncio.get_event_loop(),
         pairing_atv=atv,
     )
@@ -500,10 +576,11 @@ async def _handle_user_data_companion_pin(msg: UserDataResponse) -> SetupComplet
     _pairing_apple_tv.add_credentials(c)
 
     device = AtvDevice(
-        _pairing_apple_tv.identifier,
-        _pairing_apple_tv.name,
-        _pairing_apple_tv.get_credentials(),
-        _pairing_apple_tv.address,
+        identifier=_pairing_apple_tv.identifier,
+        name=_pairing_apple_tv.name,
+        credentials=_pairing_apple_tv.get_credentials(),
+        address=_pairing_apple_tv.address,
+        mac_address=None
     )
     config.devices.add_or_update(device)  # triggers ATV instance creation
 
@@ -513,6 +590,33 @@ async def _handle_user_data_companion_pin(msg: UserDataResponse) -> SetupComplet
     await asyncio.sleep(1)
 
     _LOG.info("Setup successfully completed for %s", device.name)
+
+    return SetupComplete()
+
+
+async def _handle_device_reconfigure(msg: UserDataResponse) -> SetupComplete | SetupError:
+    """
+    Process reconfiguration of Apple TV device
+
+    :param msg: response data from the requested user data
+    :return: the setup action on how to continue: SetupComplete if a device has been chosen (list) or a mac address
+    """
+    global _reconfigured_device
+
+    _LOG.debug("User has changed configuration")
+    mac_address = msg.input_values["mac_address"]
+    if mac_address == "":
+        mac_address = None
+
+    _reconfigured_device.mac_address = mac_address
+
+    config.devices.add_or_update(_reconfigured_device)  # triggers ATV instance update
+
+    await asyncio.sleep(1)
+    new_identifier = _reconfigured_device.identifier if _reconfigured_device.mac_address is None \
+        else _reconfigured_device.mac_address
+    _LOG.info("Setup successfully completed for %s with new identifier : %s",
+              _reconfigured_device.name, new_identifier)
 
     return SetupComplete()
 

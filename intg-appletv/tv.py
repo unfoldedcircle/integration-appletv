@@ -281,8 +281,9 @@ class AppleTv(interface.AudioListener):
     async def _find_atv(self) -> pyatv.interface.BaseConfig | None:
         """Find a specific Apple TV on the network by identifier."""
         hosts = [self._device.address] if self._device.address else None
-        atvs = await pyatv.scan(self._loop, identifier=self._device.identifier, hosts=hosts)
-        if not atvs:
+        identifier = self._device.identifier if self._device.mac_address is None else self._device.mac_address
+        atvs = await pyatv.scan(self._loop, identifier=identifier, hosts=hosts)
+        if not atvs or len(atvs) == 0:
             return None
 
         return atvs[0]
