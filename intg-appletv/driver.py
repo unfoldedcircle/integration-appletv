@@ -197,6 +197,7 @@ async def media_player_cmd_handler(
             # tvOS 18.4 will raise an exception https://github.com/postlund/pyatv/issues/2648
             # Screensaver state is no longer accessible
             state = configured_entity.attributes[media_player.Attributes.STATE]
+            # pylint: disable=W0718
             try:
                 if state != media_player.States.PLAYING and await device.screensaver_active():
                     _LOG.debug("Screensaver is running, sending menu command for play_pause to exit")
