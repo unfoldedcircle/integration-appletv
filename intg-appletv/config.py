@@ -182,7 +182,7 @@ class Devices:
     def migration_required(self) -> bool:
         """Check if configuration migration is required."""
         for item in self._config:
-            if not item.name:
+            if not item.name or not item.mac_address:
                 return True
         return False
 
@@ -190,6 +190,11 @@ class Devices:
         """Migrate configuration if required."""
         result = True
         for item in self._config:
+            if not item.mac_address:
+                _LOG.info("Migrating configuration: storing device identifier %s as mac address in order to update it later", item.identifier)
+                item.mac_address = item.identifier
+                if not self.store():
+                    result = False
             if not item.name:
                 _LOG.info("Migrating configuration: scanning for device %s to update device name", item.identifier)
                 search_hosts = [item.address] if item.address else None

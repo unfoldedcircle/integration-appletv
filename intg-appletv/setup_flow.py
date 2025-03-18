@@ -291,18 +291,18 @@ async def _handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput 
             discovered_atvs = await discover.apple_tvs(asyncio.get_event_loop())
             dropdown_items = []
             found = False
-            for device in discovered_atvs:
+            for discovered_atv in discovered_atvs:
                 # if we are adding a new device: make sure it's not already configured
-                if (selected_device.identifier != device.identifier
-                        and selected_device.mac_address != device.identifier
-                        and config.devices.contains(device.identifier)):
-                    _LOG.info("Skipping device %s: already configured", device.identifier)
+                if (selected_device.identifier != discovered_atv.identifier
+                        and selected_device.mac_address != discovered_atv.identifier
+                        and config.devices.contains(discovered_atv.identifier)):
+                    _LOG.info("Skipping device %s: already configured", discovered_atv.identifier)
                     continue
-                if (selected_device.identifier == device.identifier
-                        or selected_device.mac_address == device.identifier):
+                if (selected_device.identifier == discovered_atv.identifier
+                        or selected_device.mac_address == discovered_atv.identifier):
                     found = True
-                label = f"{device.name} ({device.address})"
-                dropdown_items.append({"id": device.identifier, "label": {"en": label + " ("+device.identifier+")"}})
+                label = f"{discovered_atv.name} ({discovered_atv.address})"
+                dropdown_items.append({"id": discovered_atv.identifier, "label": {"en": label + " ("+discovered_atv.identifier+")"}})
 
             _setup_step = SetupSteps.RECONFIGURE
             _reconfigured_device = selected_device
