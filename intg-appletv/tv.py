@@ -641,6 +641,8 @@ class AppleTv(interface.AudioListener):
         try:
             # TODO check if there's a nicer way to get to the CompanionAPI
             # Screensaver state is only accessible in SystemStatus
+            # This call will raise an exception for tvOS >= 18.4 until it is resolved (or feature removed)
+            # See https://github.com/postlund/pyatv/issues/2648
             if self._atv and isinstance(self._atv.apps.main_instance.api, CompanionAPI):
                 system_status = await self._atv.apps.main_instance.api.fetch_attention_state()
                 return system_status

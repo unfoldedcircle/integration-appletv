@@ -36,7 +36,7 @@ class AtvDevice:
     """Unique identifier of the device."""
     name: str
     """Friendly name of the device."""
-    credentials: list[dict[AtvProtocol, str]]
+    credentials: list[dict[str, str]]
     """Credentials for different protocols."""
     address: str | None = None
     """Optional IP address of device. Disables IP discovery by identifier."""
