@@ -626,6 +626,11 @@ async def main():
     config.devices = config.Devices(api.config_dir_path, on_device_added, on_device_removed)
     # best effort migration (if required): network might not be available during startup
     await config.devices.migrate()
+
+    # TODO : check with Markus. This check can take (too much) time if the user expects the remote
+    # to be quickly active. I chose to launch it in background. Good or wrong idea ?
+    # Check for devices changes
+    await asyncio.create_task(config.devices.handle_devices_change())
     # and register them as available devices.
     # Note: device will be moved to configured devices with the subscribe_events request!
     # This will also start the device connection.

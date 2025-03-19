@@ -219,5 +219,38 @@ class Devices:
                     )
         return result
 
+    async def handle_devices_change(self) -> bool:
+        """Check after changed devices (mac and ip address)."""
+        identifiers = set(map(lambda item: item.mac_address, self._config))
+        discovered_atvs = await discover.apple_tvs(asyncio.get_event_loop(), identifier=identifiers)
+        result = False
+        for item in self._config:
+            found_atv = next(atv for atv in discovered_atvs if atv.identifier == item.mac_address)
+            # Fallback to device name if not found
+            if found_atv is None:
+                found_atv = next(atv for atv in discovered_atvs if atv.name == item.name)
+
+            if found_atv is None:
+                _LOG.warning("Device %s (%s) could not be found on network", item.name, item.mac_address)
+                continue
+            elif (
+                found_atv.identifier == item.mac_address
+                and found_atv.name == item.name
+                and (item.address is None or item.address == found_atv.address)
+            ):
+                continue
+
+            # Name, or mac address or IP address (only for manual configuration) changed
+            item.name = found_atv.name
+            item.mac_address = found_atv.identifier
+            if item.address and item.address != found_atv.address:
+                item.address = found_atv.address
+
+            result = True
+
+        if result:
+            self.store()
+        return result
+
 
 devices: Devices | None = None
