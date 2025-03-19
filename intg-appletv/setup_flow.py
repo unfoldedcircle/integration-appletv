@@ -602,7 +602,7 @@ async def _handle_user_data_companion_pin(msg: UserDataResponse) -> SetupComplet
 
 async def _handle_device_reconfigure(msg: UserDataResponse) -> SetupComplete | SetupError:
     """
-    Process reconfiguration of a registered Apple TV device
+    Process reconfiguration of a registered Apple TV device.
 
     :param msg: response data from the requested user data
     :return: the setup action on how to continue: SetupComplete after updating configuration
