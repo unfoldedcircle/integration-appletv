@@ -14,10 +14,12 @@ from typing import Any
 
 import config
 import pyatv
-import pyatv.const
+
 # TODO begin To be removed when https://github.com/postlund/pyatv/issues/2656 is resolved
 import pyatv.auth.hap_pairing
+import pyatv.const
 import pyatv.protocols.companion.api
+
 # TODO end
 import setup_flow
 import tv
