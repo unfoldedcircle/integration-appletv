@@ -614,7 +614,6 @@ def on_device_removed(device: config.AtvDevice | None) -> None:
 # TODO be removed when https://github.com/postlund/pyatv/issues/2656 is resolved
 async def pyatv_patched_system_info(self):
     """Send system information to device."""
-
     creds = pyatv.auth.hap_pairing.parse_credentials(self.core.service.credentials)
     info = self.core.settings.info
 
