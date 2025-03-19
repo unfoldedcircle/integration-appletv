@@ -202,30 +202,20 @@ class Devices:
                 if not self.store():
                     result = False
             if not item.name:
-                _LOG.info(
-                    "Migrating configuration: scanning for device %s to update device name",
-                    item.identifier,
-                )
+                _LOG.info("Migrating configuration: scanning for device %s to update device name", item.identifier)
                 search_hosts = [item.address] if item.address else None
                 discovered_atvs = await discover.apple_tvs(
-                    asyncio.get_event_loop(),
-                    identifier=item.identifier,
-                    hosts=search_hosts,
+                    asyncio.get_event_loop(), identifier=item.identifier, hosts=search_hosts
                 )
                 if discovered_atvs:
                     item.name = discovered_atvs[0].name
-                    _LOG.info(
-                        "Updating device configuration %s with name: %s",
-                        item.identifier,
-                        item.name,
-                    )
+                    _LOG.info("Updating device configuration %s with name: %s", item.identifier, item.name)
                     if not self.store():
                         result = False
                 else:
                     result = False
                     _LOG.warning(
-                        "Could not migrate device configuration %s: device not found on network",
-                        item.identifier,
+                        "Could not migrate device configuration %s: device not found on network", item.identifier
                     )
         return result
 
