@@ -610,6 +610,7 @@ def on_device_removed(device: config.AtvDevice | None) -> None:
             api.configured_entities.remove(entity_id)
             api.available_entities.remove(entity_id)
 
+
 # TODO be removed when https://github.com/postlund/pyatv/issues/2656 is resolved
 async def pyatv_patched_system_info(self):
     """Send system information to device."""
@@ -625,7 +626,7 @@ async def pyatv_patched_system_info(self):
             "_bf": 0,
             "_cf": 512,
             "_clFl": 128,
-            "_i": os.urandom(6).hex(), # TODO: Figure out what to put here => "cafecafecafe" don't work anymore
+            "_i": os.urandom(6).hex(),  # TODO: Figure out what to put here => "cafecafecafe" don't work anymore
             "_idsID": creds.client_id,
             # Not really device id here, but better then anything...
             "_pubID": info.device_id,
@@ -635,6 +636,7 @@ async def pyatv_patched_system_info(self):
             "name": info.name,
         },
     )
+
 
 async def main():
     """Start the Remote Two integration driver."""
