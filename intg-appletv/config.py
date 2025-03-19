@@ -167,8 +167,11 @@ class Devices:
             for item in data:
                 # not using AtvDevice(**item) to be able to migrate old configuration files with missing attributes
                 atv = AtvDevice(
-                    item.get("identifier"), item.get("name", ""), item.get("credentials"), item.get("address"),
-                    item.get("mac_address")
+                    item.get("identifier"),
+                    item.get("name", ""),
+                    item.get("credentials"),
+                    item.get("address"),
+                    item.get("mac_address"),
                 )
                 self._config.append(atv)
             return True
@@ -193,26 +196,36 @@ class Devices:
             if not item.mac_address:
                 _LOG.info(
                     "Migrating configuration: storing device identifier %s as mac address in order to update it later",
-                    item.identifier
+                    item.identifier,
                 )
                 item.mac_address = item.identifier
                 if not self.store():
                     result = False
             if not item.name:
-                _LOG.info("Migrating configuration: scanning for device %s to update device name", item.identifier)
+                _LOG.info(
+                    "Migrating configuration: scanning for device %s to update device name",
+                    item.identifier,
+                )
                 search_hosts = [item.address] if item.address else None
                 discovered_atvs = await discover.apple_tvs(
-                    asyncio.get_event_loop(), identifier=item.identifier, hosts=search_hosts
+                    asyncio.get_event_loop(),
+                    identifier=item.identifier,
+                    hosts=search_hosts,
                 )
                 if discovered_atvs:
                     item.name = discovered_atvs[0].name
-                    _LOG.info("Updating device configuration %s with name: %s", item.identifier, item.name)
+                    _LOG.info(
+                        "Updating device configuration %s with name: %s",
+                        item.identifier,
+                        item.name,
+                    )
                     if not self.store():
                         result = False
                 else:
                     result = False
                     _LOG.warning(
-                        "Could not migrate device configuration %s: device not found on network", item.identifier
+                        "Could not migrate device configuration %s: device not found on network",
+                        item.identifier,
                     )
         return result
 
