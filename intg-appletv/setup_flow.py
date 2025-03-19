@@ -92,7 +92,9 @@ _user_input_discovery = RequestUserInput(
 )
 
 
-async def driver_setup_handler(msg: SetupDriver) -> SetupAction:  # pylint: disable=too-many-return-statements
+async def driver_setup_handler(
+    msg: SetupDriver,
+) -> SetupAction:  # pylint: disable=too-many-return-statements
     """
     Dispatch driver setup requests to corresponding handlers.
 
@@ -112,15 +114,24 @@ async def driver_setup_handler(msg: SetupDriver) -> SetupAction:  # pylint: disa
 
     if isinstance(msg, UserDataResponse):
         _LOG.debug("%s", msg)
-        if _setup_step == SetupSteps.CONFIGURATION_MODE and "action" in msg.input_values:
+        if (
+            _setup_step == SetupSteps.CONFIGURATION_MODE
+            and "action" in msg.input_values
+        ):
             return await _handle_configuration_mode(msg)
         if _setup_step == SetupSteps.DISCOVER and "address" in msg.input_values:
             return await _handle_discovery(msg)
         if _setup_step == SetupSteps.DEVICE_CHOICE and "choice" in msg.input_values:
             return await _handle_device_choice(msg)
-        if _setup_step == SetupSteps.PAIRING_AIRPLAY and "pin_airplay" in msg.input_values:
+        if (
+            _setup_step == SetupSteps.PAIRING_AIRPLAY
+            and "pin_airplay" in msg.input_values
+        ):
             return await _handle_user_data_airplay_pin(msg)
-        if _setup_step == SetupSteps.PAIRING_COMPANION and "pin_companion" in msg.input_values:
+        if (
+            _setup_step == SetupSteps.PAIRING_COMPANION
+            and "pin_companion" in msg.input_values
+        ):
             return await _handle_user_data_companion_pin(msg)
         _LOG.error("No or invalid user response was received: %s", msg)
     elif isinstance(msg, AbortDriverSetup):
@@ -137,7 +148,9 @@ async def driver_setup_handler(msg: SetupDriver) -> SetupAction:  # pylint: disa
     return SetupError()
 
 
-async def _handle_driver_setup(msg: DriverSetupRequest) -> RequestUserInput | SetupError:
+async def _handle_driver_setup(
+    msg: DriverSetupRequest,
+) -> RequestUserInput | SetupError:
     """
     Start driver setup.
 
@@ -165,7 +178,12 @@ async def _handle_driver_setup(msg: DriverSetupRequest) -> RequestUserInput | Se
         # get all configured devices for the user to choose from
         dropdown_devices = []
         for device in config.devices.all():
-            dropdown_devices.append({"id": device.identifier, "label": {"en": f"{device.name} ({device.identifier})"}})
+            dropdown_devices.append(
+                {
+                    "id": device.identifier,
+                    "label": {"en": f"{device.name} ({device.identifier})"},
+                }
+            )
 
         # TODO #12 externalize language texts
         # build user actions, based on available devices
@@ -210,7 +228,12 @@ async def _handle_driver_setup(msg: DriverSetupRequest) -> RequestUserInput | Se
             {"en": "Configuration mode", "de": "Konfigurations-Modus"},
             [
                 {
-                    "field": {"dropdown": {"value": dropdown_devices[0]["id"], "items": dropdown_devices}},
+                    "field": {
+                        "dropdown": {
+                            "value": dropdown_devices[0]["id"],
+                            "items": dropdown_devices,
+                        }
+                    },
                     "id": "choice",
                     "label": {
                         "en": "Configured devices",
@@ -219,7 +242,12 @@ async def _handle_driver_setup(msg: DriverSetupRequest) -> RequestUserInput | Se
                     },
                 },
                 {
-                    "field": {"dropdown": {"value": dropdown_actions[0]["id"], "items": dropdown_actions}},
+                    "field": {
+                        "dropdown": {
+                            "value": dropdown_actions[0]["id"],
+                            "items": dropdown_actions,
+                        }
+                    },
                     "id": "action",
                     "label": {
                         "en": "Action",
@@ -236,7 +264,9 @@ async def _handle_driver_setup(msg: DriverSetupRequest) -> RequestUserInput | Se
     return _user_input_discovery
 
 
-async def _handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput | SetupComplete | SetupError:
+async def _handle_configuration_mode(
+    msg: UserDataResponse,
+) -> RequestUserInput | SetupComplete | SetupError:
     """
     Process user data response from the configuration mode screen.
 
@@ -309,7 +339,9 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
         _LOG.debug("Starting driver setup with Apple TV discovery")
         _manual_address = False
 
-    _discovered_atvs = await discover.apple_tvs(asyncio.get_event_loop(), hosts=search_hosts)
+    _discovered_atvs = await discover.apple_tvs(
+        asyncio.get_event_loop(), hosts=search_hosts
+    )
 
     for device in _discovered_atvs:
         _LOG.info(
@@ -333,10 +365,19 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
     _setup_step = SetupSteps.DEVICE_CHOICE
     # TODO #12 externalize language texts
     return RequestUserInput(
-        {"en": "Please choose your Apple TV", "de": "Bitte wähle deinen Apple TV", "fr": "Choisissez votre Apple TV"},
+        {
+            "en": "Please choose your Apple TV",
+            "de": "Bitte wähle deinen Apple TV",
+            "fr": "Choisissez votre Apple TV",
+        },
         [
             {
-                "field": {"dropdown": {"value": dropdown_items[0]["id"], "items": dropdown_items}},
+                "field": {
+                    "dropdown": {
+                        "value": dropdown_items[0]["id"],
+                        "items": dropdown_items,
+                    }
+                },
                 "id": "choice",
                 "label": {
                     "en": "Choose your Apple TV",
@@ -371,7 +412,9 @@ async def _handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Set
 
     # Create a new AppleTv object
     # TODO exception handling?
-    atvs = await pyatv.scan(asyncio.get_event_loop(), identifier=choice, hosts=[str(atv.address)])
+    atvs = await pyatv.scan(
+        asyncio.get_event_loop(), identifier=choice, hosts=[str(atv.address)]
+    )
     if not atvs:
         _LOG.error("Cannot connect the chosen Apple TV: %s", choice)
         return SetupError(error_type=IntegrationSetupError.NOT_FOUND)
@@ -387,7 +430,9 @@ async def _handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Set
     # Hook up to signals
     # TODO error conditions in start_pairing?
     name = os.getenv("UC_CLIENT_NAME", socket.gethostname().split(".", 1)[0])
-    res = await _pairing_apple_tv.start_pairing(pyatv.const.Protocol.AirPlay, f"{name} Airplay")
+    res = await _pairing_apple_tv.start_pairing(
+        pyatv.const.Protocol.AirPlay, f"{name} Airplay"
+    )
     if res is None:
         return SetupError()
 
@@ -411,10 +456,14 @@ async def _handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Set
         )
 
     _LOG.debug("We provide AirPlay-Code")
-    return RequestUserConfirmation("Please enter the following PIN on your Apple TV: " + res)
+    return RequestUserConfirmation(
+        "Please enter the following PIN on your Apple TV: " + res
+    )
 
 
-async def _handle_user_data_airplay_pin(msg: UserDataResponse) -> RequestUserInput | SetupError:
+async def _handle_user_data_airplay_pin(
+    msg: UserDataResponse,
+) -> RequestUserInput | SetupError:
     """
     Process user data airplay pairing pin response in a setup process.
 
@@ -428,7 +477,9 @@ async def _handle_user_data_airplay_pin(msg: UserDataResponse) -> RequestUserInp
     _LOG.debug("User has entered the AirPlay PIN")
 
     if _pairing_apple_tv is None:
-        _LOG.error("Pairing Apple TV device no longer available after entering AirPlay pin. Aborting setup")
+        _LOG.error(
+            "Pairing Apple TV device no longer available after entering AirPlay pin. Aborting setup"
+        )
         return SetupError()
 
     await _pairing_apple_tv.enter_pin(msg.input_values["pin_airplay"])
@@ -443,7 +494,9 @@ async def _handle_user_data_airplay_pin(msg: UserDataResponse) -> RequestUserInp
 
     # Start new pairing process
     name = os.getenv("UC_CLIENT_NAME", socket.gethostname().split(".", 1)[0])
-    res = await _pairing_apple_tv.start_pairing(pyatv.const.Protocol.Companion, f"{name} Companion")
+    res = await _pairing_apple_tv.start_pairing(
+        pyatv.const.Protocol.Companion, f"{name} Companion"
+    )
     if res is None:
         return SetupError()
 
@@ -467,10 +520,14 @@ async def _handle_user_data_airplay_pin(msg: UserDataResponse) -> RequestUserInp
         )
 
     _LOG.debug("We provide companion PIN")
-    return RequestUserConfirmation("Please enter the following PIN on your Apple TV: " + res)
+    return RequestUserConfirmation(
+        "Please enter the following PIN on your Apple TV: " + res
+    )
 
 
-async def _handle_user_data_companion_pin(msg: UserDataResponse) -> SetupComplete | SetupError:
+async def _handle_user_data_companion_pin(
+    msg: UserDataResponse,
+) -> SetupComplete | SetupError:
     """
     Process user data companion pairing pin response in a setup process.
 
@@ -484,7 +541,9 @@ async def _handle_user_data_companion_pin(msg: UserDataResponse) -> SetupComplet
     _LOG.debug("User has entered the Companion PIN")
 
     if _pairing_apple_tv is None:
-        _LOG.error("Pairing Apple TV device no longer available after entering companion pin. Aborting setup")
+        _LOG.error(
+            "Pairing Apple TV device no longer available after entering companion pin. Aborting setup"
+        )
         return SetupError()
 
     await _pairing_apple_tv.enter_pin(msg.input_values["pin_companion"])
@@ -517,7 +576,9 @@ async def _handle_user_data_companion_pin(msg: UserDataResponse) -> SetupComplet
     return SetupComplete()
 
 
-def _discovered_atv_from_identifier(identifier: str) -> pyatv.interface.BaseConfig | None:
+def _discovered_atv_from_identifier(
+    identifier: str,
+) -> pyatv.interface.BaseConfig | None:
     """
     Get discovery information from identifier.
 
