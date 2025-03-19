@@ -191,7 +191,10 @@ class Devices:
         result = True
         for item in self._config:
             if not item.mac_address:
-                _LOG.info("Migrating configuration: storing device identifier %s as mac address in order to update it later", item.identifier)
+                _LOG.info(
+                    "Migrating configuration: storing device identifier %s as mac address in order to update it later",
+                    item.identifier
+                )
                 item.mac_address = item.identifier
                 if not self.store():
                     result = False

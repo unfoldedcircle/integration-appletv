@@ -300,11 +300,12 @@ async def _handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput 
                         and config.devices.contains(discovered_atv.identifier)):
                     _LOG.info("Skipping device %s: already configured", discovered_atv.identifier)
                     continue
-                if (selected_device.identifier == discovered_atv.identifier
-                        or selected_device.mac_address == discovered_atv.identifier):
+                if discovered_atv.identifier in [selected_device.identifier, selected_device.mac_address]:
                     found_selected_device_id = discovered_atv.identifier
                 label = f"{discovered_atv.name} ({discovered_atv.address})"
-                dropdown_items.append({"id": discovered_atv.identifier, "label": {"en": label + " ("+discovered_atv.identifier+")"}})
+                dropdown_items.append(
+                    {"id": discovered_atv.identifier, "label": {"en": label + " ("+discovered_atv.identifier+")"}}
+                )
 
             dropdown_items.append(
                 {"id": "", "label": {"en": "Manual mac address (below)", "fr": "Adresse Mac manuelle (ci-dessous)"}})
@@ -459,7 +460,7 @@ async def _handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Set
     atv = atvs[0]
     _pairing_apple_tv = tv.AppleTv(
         AtvDevice(identifier=choice, name=atv.name, credentials=[],
-                  address=atv.address if _manual_address else None, mac_address=None),
+                  address=atv.address if _manual_address else None, mac_address=choice),
         loop=asyncio.get_event_loop(),
         pairing_atv=atv,
     )
@@ -585,7 +586,7 @@ async def _handle_user_data_companion_pin(msg: UserDataResponse) -> SetupComplet
         name=_pairing_apple_tv.name,
         credentials=_pairing_apple_tv.get_credentials(),
         address=_pairing_apple_tv.address,
-        mac_address=None
+        mac_address=_pairing_apple_tv.identifier
     )
     config.devices.add_or_update(device)  # triggers ATV instance creation
 
@@ -606,7 +607,11 @@ async def _handle_device_reconfigure(msg: UserDataResponse) -> SetupComplete | S
     :param msg: response data from the requested user data
     :return: the setup action on how to continue: SetupComplete after updating configuration
     """
+    # pylint: disable=W0602
     global _reconfigured_device
+
+    if _reconfigured_device is None:
+        return SetupError()
 
     mac_address = msg.input_values["mac_address"]
     manual_mac_address = msg.input_values["manual_mac_address"]

@@ -13,7 +13,6 @@ import base64
 import itertools
 import logging
 import random
-import traceback
 from asyncio import AbstractEventLoop
 from collections import OrderedDict
 from enum import Enum, IntEnum
@@ -257,7 +256,6 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         This is a callback function from pyatv.interface.DeviceListener.
         """
         _LOG.debug("[%s] Connection closed!", self.log_id)
-        _LOG.exception("KOKOKOKOKOKOKOKOKOKO %s", ''.join(traceback.format_stack()))
         self._handle_disconnect()
 
     def _handle_disconnect(self):
@@ -284,10 +282,11 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         """Find a specific Apple TV on the network by identifier."""
         hosts = [self._device.address] if self._device.address else None
         identifier = self._device.mac_address
+        _LOG.debug("Find AppleTV for identifier %s and hosts %s", identifier, hosts)
         atvs = await pyatv.scan(self._loop, identifier=identifier, hosts=hosts)
         if not atvs:
             return None
-
+        _LOG.debug(f"Found {len(atvs)} AppleTV for identifier {identifier} and hosts {hosts} : %s")
         return atvs[0]
 
     def add_credentials(self, credentials: dict[AtvProtocol, str]) -> None:
