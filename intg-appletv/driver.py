@@ -196,17 +196,23 @@ async def media_player_cmd_handler(
         case media_player.Commands.PLAY_PAUSE:
             # Mimic the original ATV remote behaviour (one can also call it a bunch of workarounds).
             # Screensaver active: play/pause button exits screensaver. If a playback was paused, resume it.
-            # state = configured_entity.attributes[media_player.Attributes.STATE]
-            # if state != media_player.States.PLAYING and await device.screensaver_active():
-            #     _LOG.debug("Screensaver is running, sending menu command for play_pause to exit")
-            #     await device.menu()
-            #     if state == media_player.States.PAUSED:
-            #         # another awkwardness: the play_pause button doesn't work anymore after exiting the screensaver.
-            #         # One has to send a dpad select first to start playback. Afterward, play_pause works again...
-            #         await asyncio.sleep(1)  # delay required, otherwise the second button press is ignored
-            #         return await device.cursor_select()
-            #     # Nothing was playing, only the screensaver was active
-            #     return ucapi.StatusCodes.OK
+            # tvOS 18.4 will raise an exception https://github.com/postlund/pyatv/issues/2648
+            # Screensaver state is no longer accessible
+            state = configured_entity.attributes[media_player.Attributes.STATE]
+            # pylint: disable=W0718
+            try:
+                if state != media_player.States.PLAYING and await device.screensaver_active():
+                    _LOG.debug("Screensaver is running, sending menu command for play_pause to exit")
+                    await device.menu()
+                    if state == media_player.States.PAUSED:
+                        # another awkwardness: the play_pause button doesn't work anymore after exiting the screensaver.
+                        # One has to send a dpad select first to start playback. Afterward, play_pause works again...
+                        await asyncio.sleep(1)  # delay required, otherwise the second button press is ignored
+                        return await device.cursor_select()
+                    # Nothing was playing, only the screensaver was active
+                    return ucapi.StatusCodes.OK
+            except Exception:
+                pass
             res = await device.play_pause()
         case media_player.Commands.NEXT:
             res = await device.next()
