@@ -618,6 +618,7 @@ async def pyatv_patched_system_info(self):
     info = self.core.settings.info
 
     # Bunch of semi-random values here...
+    # pylint: disable=W0212
     await self._send_command(
         "_systemInfo",
         {
