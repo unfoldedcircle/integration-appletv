@@ -233,7 +233,7 @@ class Devices:
             if found_atv is None:
                 _LOG.warning("Device %s (%s) could not be found on network", item.name, item.mac_address)
                 continue
-            elif (
+            if (
                 found_atv.identifier == item.mac_address
                 and found_atv.name == item.name
                 and (item.address is None or item.address == found_atv.address)
