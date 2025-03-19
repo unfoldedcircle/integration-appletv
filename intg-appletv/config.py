@@ -36,12 +36,10 @@ class AtvDevice:
     """Unique identifier of the device."""
     name: str
     """Friendly name of the device."""
-    credentials: list[dict[AtvProtocol, str]]
+    credentials: list[dict[str, str]]
     """Credentials for different protocols."""
     address: str | None = None
     """Optional IP address of device. Disables IP discovery by identifier."""
-    mac_address: str | None = None
-    """Actual identifier of the device, which can change over time."""
 
 
 class _EnhancedJSONEncoder(json.JSONEncoder):
@@ -167,8 +165,7 @@ class Devices:
             for item in data:
                 # not using AtvDevice(**item) to be able to migrate old configuration files with missing attributes
                 atv = AtvDevice(
-                    item.get("identifier"), item.get("name", ""), item.get("credentials"), item.get("address"),
-                    item.get("mac_address")
+                    item.get("identifier"), item.get("name", ""), item.get("credentials"), item.get("address")
                 )
                 self._config.append(atv)
             return True
@@ -182,7 +179,7 @@ class Devices:
     def migration_required(self) -> bool:
         """Check if configuration migration is required."""
         for item in self._config:
-            if not item.name or not item.mac_address:
+            if not item.name:
                 return True
         return False
 
@@ -190,11 +187,6 @@ class Devices:
         """Migrate configuration if required."""
         result = True
         for item in self._config:
-            if not item.mac_address:
-                _LOG.info("Migrating configuration: storing device identifier %s as mac address in order to update it later", item.identifier)
-                item.mac_address = item.identifier
-                if not self.store():
-                    result = False
             if not item.name:
                 _LOG.info("Migrating configuration: scanning for device %s to update device name", item.identifier)
                 search_hosts = [item.address] if item.address else None

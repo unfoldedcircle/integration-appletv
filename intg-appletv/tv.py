@@ -13,7 +13,6 @@ import base64
 import itertools
 import logging
 import random
-import traceback
 from asyncio import AbstractEventLoop
 from collections import OrderedDict
 from enum import Enum, IntEnum
@@ -148,7 +147,7 @@ def async_handle_atvlib_errors(
     return wrapper
 
 
-class AppleTv(interface.AudioListener, interface.DeviceListener):
+class AppleTv(interface.AudioListener):
     """Representing an Apple TV Device."""
 
     def __init__(
@@ -248,7 +247,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
         This is a callback function from pyatv.interface.DeviceListener.
         """
-        _LOG.exception("[%s] Lost connection %s", self.log_id, _exception)
+        _LOG.exception("[%s] Lost connection", self.log_id)
         self._handle_disconnect()
 
     def connection_closed(self) -> None:
@@ -257,7 +256,6 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         This is a callback function from pyatv.interface.DeviceListener.
         """
         _LOG.debug("[%s] Connection closed!", self.log_id)
-        _LOG.exception("KOKOKOKOKOKOKOKOKOKO %s", ''.join(traceback.format_stack()))
         self._handle_disconnect()
 
     def _handle_disconnect(self):
@@ -283,8 +281,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
     async def _find_atv(self) -> pyatv.interface.BaseConfig | None:
         """Find a specific Apple TV on the network by identifier."""
         hosts = [self._device.address] if self._device.address else None
-        identifier = self._device.mac_address
-        atvs = await pyatv.scan(self._loop, identifier=identifier, hosts=hosts)
+        atvs = await pyatv.scan(self._loop, identifier=self._device.identifier, hosts=hosts)
         if not atvs:
             return None
 
@@ -644,6 +641,8 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         try:
             # TODO check if there's a nicer way to get to the CompanionAPI
             # Screensaver state is only accessible in SystemStatus
+            # This call will raise an exception for tvOS >= 18.4 until it is resolved (or feature removed)
+            # See https://github.com/postlund/pyatv/issues/2648
             if self._atv and isinstance(self._atv.apps.main_instance.api, CompanionAPI):
                 system_status = await self._atv.apps.main_instance.api.fetch_attention_state()
                 return system_status

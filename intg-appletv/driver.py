@@ -9,13 +9,16 @@ This module implements a Remote Two integration driver for Apple TV devices.
 import asyncio
 import logging
 import os
-import sys
 from enum import Enum
 from typing import Any
 
 import config
 import pyatv
 import pyatv.const
+# TODO begin To be removed when https://github.com/postlund/pyatv/issues/2656 is resolved
+import pyatv.auth.hap_pairing
+import pyatv.protocols.companion.api
+# TODO end
 import setup_flow
 import tv
 import ucapi
@@ -23,8 +26,6 @@ import ucapi.api as uc
 from ucapi import MediaPlayer, media_player
 
 _LOG = logging.getLogger("driver")  # avoid having __main__ in log messages
-if sys.platform == 'win32':
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 _LOOP = asyncio.get_event_loop()
 
 # Global variables
@@ -196,17 +197,24 @@ async def media_player_cmd_handler(
         case media_player.Commands.PLAY_PAUSE:
             # Mimic the original ATV remote behaviour (one can also call it a bunch of workarounds).
             # Screensaver active: play/pause button exits screensaver. If a playback was paused, resume it.
-            # state = configured_entity.attributes[media_player.Attributes.STATE]
-            # if state != media_player.States.PLAYING and await device.screensaver_active():
-            #     _LOG.debug("Screensaver is running, sending menu command for play_pause to exit")
-            #     await device.menu()
-            #     if state == media_player.States.PAUSED:
-            #         # another awkwardness: the play_pause button doesn't work anymore after exiting the screensaver.
-            #         # One has to send a dpad select first to start playback. Afterward, play_pause works again...
-            #         await asyncio.sleep(1)  # delay required, otherwise the second button press is ignored
-            #         return await device.cursor_select()
-            #     # Nothing was playing, only the screensaver was active
-            #     return ucapi.StatusCodes.OK
+
+            # tvOS 18.4 will raise an exception https://github.com/postlund/pyatv/issues/2648
+            # Screensaver state is no longer accessible
+            state = configured_entity.attributes[media_player.Attributes.STATE]
+            # pylint: disable=W0718
+            try:
+                if state != media_player.States.PLAYING and await device.screensaver_active():
+                    _LOG.debug("Screensaver is running, sending menu command for play_pause to exit")
+                    await device.menu()
+                    if state == media_player.States.PAUSED:
+                        # another awkwardness: the play_pause button doesn't work anymore after exiting the screensaver.
+                        # One has to send a dpad select first to start playback. Afterward, play_pause works again...
+                        await asyncio.sleep(1)  # delay required, otherwise the second button press is ignored
+                        return await device.cursor_select()
+                    # Nothing was playing, only the screensaver was active
+                    return ucapi.StatusCodes.OK
+            except Exception:
+                pass
             res = await device.play_pause()
         case media_player.Commands.NEXT:
             res = await device.next()
@@ -602,6 +610,30 @@ def on_device_removed(device: config.AtvDevice | None) -> None:
             api.configured_entities.remove(entity_id)
             api.available_entities.remove(entity_id)
 
+# TODO be removed when https://github.com/postlund/pyatv/issues/2656 is resolved
+async def pyatv_patched_system_info(self):
+    """Send system information to device."""
+
+    creds = pyatv.auth.hap_pairing.parse_credentials(self.core.service.credentials)
+    info = self.core.settings.info
+
+    # Bunch of semi-random values here...
+    await self._send_command(
+        "_systemInfo",
+        {
+            "_bf": 0,
+            "_cf": 512,
+            "_clFl": 128,
+            "_i": os.urandom(6).hex(), # TODO: Figure out what to put here => "cafecafecafe" don't work anymore
+            "_idsID": creds.client_id,
+            # Not really device id here, but better then anything...
+            "_pubID": info.device_id,
+            "_sf": 256,  # Status flags?
+            "_sv": "170.18",  # Software Version (I guess?)
+            "model": info.model,
+            "name": info.name,
+        },
+    )
 
 async def main():
     """Start the Remote Two integration driver."""
@@ -613,6 +645,9 @@ async def main():
     logging.getLogger("config").setLevel(level)
     logging.getLogger("discover").setLevel(level)
     logging.getLogger("setup_flow").setLevel(level)
+
+    # TODO be removed when https://github.com/postlund/pyatv/issues/2656 is resolved
+    pyatv.protocols.companion.api.CompanionAPI.system_info = pyatv_patched_system_info
 
     # logging.getLogger("pyatv").setLevel(logging.DEBUG)
 
