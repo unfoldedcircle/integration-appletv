@@ -70,9 +70,7 @@ class SimpleCommands(str, Enum):
 async def on_r2_connect_cmd() -> None:
     """Connect all configured ATVs when the Remote Two sends the connect command."""
     _LOG.debug("Client connect command: connecting device(s)")
-    await api.set_device_state(
-        ucapi.DeviceStates.CONNECTED
-    )  # just to make sure the device state is set
+    await api.set_device_state(ucapi.DeviceStates.CONNECTED)  # just to make sure the device state is set
     for atv in _configured_atvs.values():
         # start background task
         await atv.connect()
@@ -128,9 +126,7 @@ async def on_subscribe_entities(entity_ids: list[str]) -> None:
                 state = media_player.States.UNAVAILABLE
             else:
                 state = media_player.States.ON if atv.is_on else media_player.States.OFF
-            api.configured_entities.update_attributes(
-                entity_id, {media_player.Attributes.STATE: state}
-            )
+            api.configured_entities.update_attributes(entity_id, {media_player.Attributes.STATE: state})
             await atv.connect()
             continue
 
@@ -138,9 +134,7 @@ async def on_subscribe_entities(entity_ids: list[str]) -> None:
         if device:
             _add_configured_atv(device)
         else:
-            _LOG.error(
-                "Failed to subscribe entity %s: no Apple TV instance found", entity_id
-            )
+            _LOG.error("Failed to subscribe entity %s: no Apple TV instance found", entity_id)
 
 
 @api.listens_to(ucapi.Events.UNSUBSCRIBE_ENTITIES)
@@ -151,9 +145,7 @@ async def on_unsubscribe_entities(entity_ids: list[str]) -> None:
     for entity_id in entity_ids:
         if entity_id in _configured_atvs:
             device = _configured_atvs.pop(entity_id)
-            _LOG.info(
-                "Removed '%s' from configured devices and disconnect", device.name
-            )
+            _LOG.info("Removed '%s' from configured devices and disconnect", device.name)
             await device.disconnect()
             device.events.remove_all_listeners()
 
@@ -172,9 +164,7 @@ async def media_player_cmd_handler(
     :param params: optional command parameters
     :return: status code of the command. StatusCodes.OK if the command succeeded.
     """
-    _LOG.info(
-        "Got %s command request: %s %s", entity.id, cmd_id, params if params else ""
-    )
+    _LOG.info("Got %s command request: %s %s", entity.id, cmd_id, params if params else "")
 
     # TODO #11 map from device id to entities (see Denon integration)
     atv_id = entity.id
@@ -190,8 +180,7 @@ async def media_player_cmd_handler(
     # TODO #15 implement proper fix for correct entity OFF state (it may not remain in OFF state if connection is
     #  established) + online check if we think it is in standby mode.
     if (
-        configured_entity.attributes[media_player.Attributes.STATE]
-        == media_player.States.OFF
+        configured_entity.attributes[media_player.Attributes.STATE] == media_player.States.OFF
         and cmd_id != media_player.Commands.OFF
     ):
         _LOG.debug("Device is off, sending turn on command")
@@ -216,20 +205,13 @@ async def media_player_cmd_handler(
             state = configured_entity.attributes[media_player.Attributes.STATE]
             # pylint: disable=W0718
             try:
-                if (
-                    state != media_player.States.PLAYING
-                    and await device.screensaver_active()
-                ):
-                    _LOG.debug(
-                        "Screensaver is running, sending menu command for play_pause to exit"
-                    )
+                if state != media_player.States.PLAYING and await device.screensaver_active():
+                    _LOG.debug("Screensaver is running, sending menu command for play_pause to exit")
                     await device.menu()
                     if state == media_player.States.PAUSED:
                         # another awkwardness: the play_pause button doesn't work anymore after exiting the screensaver.
                         # One has to send a dpad select first to start playback. Afterward, play_pause works again...
-                        await asyncio.sleep(
-                            1
-                        )  # delay required, otherwise the second button press is ignored
+                        await asyncio.sleep(1)  # delay required, otherwise the second button press is ignored
                         return await device.cursor_select()
                     # Nothing was playing, only the screensaver was active
                     return ucapi.StatusCodes.OK
@@ -264,16 +246,10 @@ async def media_player_cmd_handler(
             res = await device.fast_forward()
         case media_player.Commands.REPEAT:
             mode = _get_cmd_param("repeat", params)
-            res = (
-                await device.set_repeat(mode) if mode else ucapi.StatusCodes.BAD_REQUEST
-            )
+            res = await device.set_repeat(mode) if mode else ucapi.StatusCodes.BAD_REQUEST
         case media_player.Commands.SHUFFLE:
             mode = _get_cmd_param("shuffle", params)
-            res = (
-                await device.set_shuffle(mode)
-                if isinstance(mode, bool)
-                else ucapi.StatusCodes.BAD_REQUEST
-            )
+            res = await device.set_shuffle(mode) if isinstance(mode, bool) else ucapi.StatusCodes.BAD_REQUEST
         case media_player.Commands.CONTEXT_MENU:
             res = await device.context_menu()
         case media_player.Commands.MENU:
@@ -283,10 +259,7 @@ async def media_player_cmd_handler(
 
             # we wait a bit to get a push update, because music can play in the background
             await asyncio.sleep(1)
-            if (
-                configured_entity.attributes[media_player.Attributes.STATE]
-                != media_player.States.PLAYING
-            ):
+            if configured_entity.attributes[media_player.Attributes.STATE] != media_player.States.PLAYING:
                 # if nothing is playing: clear the playing information
                 attributes = {
                     media_player.Attributes.MEDIA_IMAGE_URL: "",
@@ -353,12 +326,8 @@ async def on_atv_connected(identifier: str) -> None:
         if atv_state := atv.state:
             state = _atv_state_to_media_player_state(atv_state)
 
-    api.configured_entities.update_attributes(
-        identifier, {media_player.Attributes.STATE: state}
-    )
-    await api.set_device_state(
-        ucapi.DeviceStates.CONNECTED
-    )  # just to make sure the device state is set
+    api.configured_entities.update_attributes(identifier, {media_player.Attributes.STATE: state})
+    await api.set_device_state(ucapi.DeviceStates.CONNECTED)  # just to make sure the device state is set
 
 
 async def on_atv_disconnected(identifier: str) -> None:
@@ -430,21 +399,15 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
     # updates initiated by the poller always include the data, even if it hasn't changed
     if (
         "position" in update
-        and target_entity.attributes.get(media_player.Attributes.MEDIA_POSITION, 0)
-        != update["position"]
+        and target_entity.attributes.get(media_player.Attributes.MEDIA_POSITION, 0) != update["position"]
     ):
         attributes[media_player.Attributes.MEDIA_POSITION] = update["position"]
     if (
         "total_time" in update
-        and target_entity.attributes.get(media_player.Attributes.MEDIA_DURATION, 0)
-        != update["total_time"]
+        and target_entity.attributes.get(media_player.Attributes.MEDIA_DURATION, 0) != update["total_time"]
     ):
         attributes[media_player.Attributes.MEDIA_DURATION] = update["total_time"]
-    if (
-        "source" in update
-        and target_entity.attributes.get(media_player.Attributes.SOURCE, "")
-        != update["source"]
-    ):
+    if "source" in update and target_entity.attributes.get(media_player.Attributes.SOURCE, "") != update["source"]:
         attributes[media_player.Attributes.SOURCE] = update["source"]
     # end poller update handling
 
@@ -458,30 +421,21 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
         attributes[media_player.Attributes.MEDIA_ALBUM] = update["album"]
     if "sourceList" in update:
         if media_player.Attributes.SOURCE_LIST in target_entity.attributes:
-            if len(
-                target_entity.attributes[media_player.Attributes.SOURCE_LIST]
-            ) != len(update["sourceList"]):
+            if len(target_entity.attributes[media_player.Attributes.SOURCE_LIST]) != len(update["sourceList"]):
                 attributes[media_player.Attributes.SOURCE_LIST] = update["sourceList"]
         else:
             attributes[media_player.Attributes.SOURCE_LIST] = update["sourceList"]
     if (
         "sound_mode" in update
-        and target_entity.attributes.get(media_player.Attributes.SOUND_MODE, "")
-        != update["sound_mode"]
+        and target_entity.attributes.get(media_player.Attributes.SOUND_MODE, "") != update["sound_mode"]
     ):
         attributes[media_player.Attributes.SOUND_MODE] = update["sound_mode"]
     if "sound_mode_list" in update:
         if media_player.Attributes.SOUND_MODE_LIST in target_entity.attributes:
-            if len(
-                target_entity.attributes[media_player.Attributes.SOUND_MODE_LIST]
-            ) != len(update["sound_mode_list"]):
-                attributes[media_player.Attributes.SOUND_MODE_LIST] = update[
-                    "sound_mode_list"
-                ]
+            if len(target_entity.attributes[media_player.Attributes.SOUND_MODE_LIST]) != len(update["sound_mode_list"]):
+                attributes[media_player.Attributes.SOUND_MODE_LIST] = update["sound_mode_list"]
         else:
-            attributes[media_player.Attributes.SOUND_MODE_LIST] = update[
-                "sound_mode_list"
-            ]
+            attributes[media_player.Attributes.SOUND_MODE_LIST] = update["sound_mode_list"]
     if "media_type" in update:
         if update["media_type"] == pyatv.const.MediaType.Music:
             media_type = media_player.MediaType.MUSIC
@@ -640,9 +594,7 @@ def on_device_added(device: config.AtvDevice) -> None:
 def on_device_removed(device: config.AtvDevice | None) -> None:
     """Handle a removed device in the configuration."""
     if device is None:
-        _LOG.debug(
-            "Configuration cleared, disconnecting & removing all configured ATV instances"
-        )
+        _LOG.debug("Configuration cleared, disconnecting & removing all configured ATV instances")
         for atv in _configured_atvs.values():
             _LOOP.create_task(atv.disconnect())
             atv.events.remove_all_listeners()
@@ -706,9 +658,7 @@ async def main():
     # logging.getLogger("pyatv").setLevel(logging.DEBUG)
 
     # load paired devices
-    config.devices = config.Devices(
-        api.config_dir_path, on_device_added, on_device_removed
-    )
+    config.devices = config.Devices(api.config_dir_path, on_device_added, on_device_removed)
     # best effort migration (if required): network might not be available during startup
     await config.devices.migrate()
     # and register them as available devices.
