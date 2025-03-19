@@ -290,9 +290,11 @@ async def _handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput 
 
             discovered_atvs = await discover.apple_tvs(asyncio.get_event_loop())
             dropdown_items = []
-            found = False
+
+            # Found mac address/idenfitier of selected AppleTV upon detection
+            found_selected_device_id = ""
             for discovered_atv in discovered_atvs:
-                # if we are adding a new device: make sure it's not already configured
+                # List of detected AppleTVs : exclude already configured ones except the one the user selected
                 if (selected_device.identifier != discovered_atv.identifier
                         and selected_device.mac_address != discovered_atv.identifier
                         and config.devices.contains(discovered_atv.identifier)):
@@ -300,42 +302,45 @@ async def _handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput 
                     continue
                 if (selected_device.identifier == discovered_atv.identifier
                         or selected_device.mac_address == discovered_atv.identifier):
-                    found = True
+                    found_selected_device_id = discovered_atv.identifier
                 label = f"{discovered_atv.name} ({discovered_atv.address})"
                 dropdown_items.append({"id": discovered_atv.identifier, "label": {"en": label + " ("+discovered_atv.identifier+")"}})
 
+            dropdown_items.append(
+                {"id": "", "label": {"en": "Manual mac address (below)", "fr": "Adresse Mac manuelle (ci-dessous)"}})
+
             _setup_step = SetupSteps.RECONFIGURE
             _reconfigured_device = selected_device
-            mac_address = selected_device.identifier if selected_device.mac_address is None \
-                else selected_device.mac_address
-            if found or len(dropdown_items) == 0:
-                return RequestUserInput(
-                    {"en": "Configuration of your Apple TV",
-                     "fr": "Configurez votre Apple TV"},
-                    [
-                        {
-                            "field": {"text": {"value": mac_address}},
-                            "id": "mac_address",
-                            "label": {
-                                "en": "Mac address",
-                                "de": "Mac-Adresse",
-                                "fr": "Adresse Mac",
-                            }
-                        }
-                    ]
-                )
+            mac_address = selected_device.mac_address if selected_device.mac_address else ""
+            address = selected_device.address if selected_device.address else ""
 
             return RequestUserInput(
                 {"en": "Configure your Apple TV (configured mac address "+mac_address+")",
                  "fr": "Configurez votre Apple TV (addresse mac configurée "+mac_address+")"},
                 [
                     {
-                        "field": {"dropdown": {"value": dropdown_items[0]["id"], "items": dropdown_items}},
+                        "field": {"dropdown": {"value": found_selected_device_id, "items": dropdown_items}},
                         "id": "mac_address",
                         "label": {
                             "en": "Mac address",
                             "de": "Mac-Adresse",
                             "fr": "Adresse Mac",
+                        }
+                    },
+                    {
+                        "field": {"text": {"value": mac_address}},
+                        "id": "manual_mac_address",
+                        "label": {
+                            "en": "Manual mac address",
+                            "fr": "Adresse Mac manuelle",
+                        }
+                    },
+                    {
+                        "field": {"text": {"value": address}},
+                        "id": "address",
+                        "label": {
+                            "en": "IP address (optional)",
+                            "fr": "Adresse IP (optionnelle)",
                         }
                     }
                 ]
@@ -596,19 +601,28 @@ async def _handle_user_data_companion_pin(msg: UserDataResponse) -> SetupComplet
 
 async def _handle_device_reconfigure(msg: UserDataResponse) -> SetupComplete | SetupError:
     """
-    Process reconfiguration of Apple TV device
+    Process reconfiguration of a registered Apple TV device
 
     :param msg: response data from the requested user data
-    :return: the setup action on how to continue: SetupComplete if a device has been chosen (list) or a mac address
+    :return: the setup action on how to continue: SetupComplete after updating configuration
     """
     global _reconfigured_device
 
-    _LOG.debug("User has changed configuration")
     mac_address = msg.input_values["mac_address"]
-    if mac_address == "":
-        mac_address = None
+    manual_mac_address = msg.input_values["manual_mac_address"]
 
+    if mac_address == "" and manual_mac_address == "":
+        _LOG.error("Mac address is mandatory, no changes applied")
+        return SetupError()
+    address = msg.input_values["address"]
+    if address == "":
+        address = None
+    if mac_address == "":
+        mac_address = manual_mac_address
+
+    _LOG.debug("User has changed configuration")
     _reconfigured_device.mac_address = mac_address
+    _reconfigured_device.address = address
 
     config.devices.add_or_update(_reconfigured_device)  # triggers ATV instance update
 

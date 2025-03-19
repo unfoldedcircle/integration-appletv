@@ -9,6 +9,7 @@ This module implements a Remote Two integration driver for Apple TV devices.
 import asyncio
 import logging
 import os
+import sys
 from enum import Enum
 from typing import Any
 
@@ -22,6 +23,8 @@ import ucapi.api as uc
 from ucapi import MediaPlayer, media_player
 
 _LOG = logging.getLogger("driver")  # avoid having __main__ in log messages
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 _LOOP = asyncio.get_event_loop()
 
 # Global variables

@@ -13,6 +13,7 @@ import base64
 import itertools
 import logging
 import random
+import traceback
 from asyncio import AbstractEventLoop
 from collections import OrderedDict
 from enum import Enum, IntEnum
@@ -147,7 +148,7 @@ def async_handle_atvlib_errors(
     return wrapper
 
 
-class AppleTv(interface.AudioListener):
+class AppleTv(interface.AudioListener, interface.DeviceListener):
     """Representing an Apple TV Device."""
 
     def __init__(
@@ -247,7 +248,7 @@ class AppleTv(interface.AudioListener):
 
         This is a callback function from pyatv.interface.DeviceListener.
         """
-        _LOG.exception("[%s] Lost connection", self.log_id)
+        _LOG.exception("[%s] Lost connection %s", self.log_id, _exception)
         self._handle_disconnect()
 
     def connection_closed(self) -> None:
@@ -256,6 +257,7 @@ class AppleTv(interface.AudioListener):
         This is a callback function from pyatv.interface.DeviceListener.
         """
         _LOG.debug("[%s] Connection closed!", self.log_id)
+        _LOG.exception("KOKOKOKOKOKOKOKOKOKO %s", ''.join(traceback.format_stack()))
         self._handle_disconnect()
 
     def _handle_disconnect(self):
@@ -281,9 +283,9 @@ class AppleTv(interface.AudioListener):
     async def _find_atv(self) -> pyatv.interface.BaseConfig | None:
         """Find a specific Apple TV on the network by identifier."""
         hosts = [self._device.address] if self._device.address else None
-        identifier = self._device.identifier if self._device.mac_address is None else self._device.mac_address
+        identifier = self._device.mac_address
         atvs = await pyatv.scan(self._loop, identifier=identifier, hosts=hosts)
-        if not atvs or len(atvs) == 0:
+        if not atvs:
             return None
 
         return atvs[0]
