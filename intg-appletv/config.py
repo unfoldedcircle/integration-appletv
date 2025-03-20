@@ -225,7 +225,7 @@ class Devices:
     def get_discovered_device(
         self, configured_device: AtvDevice, discovered_atvs: list[pyatv.interface.BaseConfig]
     ) -> pyatv.interface.BaseConfig | None:
-        """Returns the discovered AppleTV corresponding to the configured device."""
+        """Return the discovered AppleTV corresponding to the configured device."""
         found_atv: pyatv.interface.BaseConfig | None = None
         try:
             found_atv = next(atv for atv in discovered_atvs if atv.identifier == configured_device.mac_address)
