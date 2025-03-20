@@ -234,7 +234,12 @@ class Devices:
         # Fallback to device name if not found
         if found_atv is None:
             try:
-                found_atv = next(atv for atv in discovered_atvs if atv.name == configured_device.name)
+                # Second check : 2 devices shouldn't have the same name otherwise skip
+                found_atvs = [atv for atv in discovered_atvs if atv.name == configured_device.name]
+                if len(found_atvs) > 1:
+                    _LOG.debug("Multiple devices have the same name : %s", configured_device.name)
+                    return None
+                found_atv = found_atvs[0] if found_atvs else None
             except StopIteration:
                 pass
         return found_atv
