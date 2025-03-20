@@ -627,8 +627,8 @@ async def main():
     # best effort migration (if required): network might not be available during startup
     await config.devices.migrate()
 
-    # TODO : check with Markus. This check can take (too much) time if the user expects the remote
-    #to be quickly active. I have chosen to launch it in background. Good or bad idea (concurrent write to config file?)
+    # TODO REMOVE COMMENT : check with Markus. This check can take (too much) time if the user expects the remote
+    # to be quickly active. I have chosen to launch it in background. Good or bad idea (concurrent write ?)
     # Check for devices changes and update its mac address and ip address if necessary
     await asyncio.create_task(config.devices.handle_devices_change())
     # and register them as available devices.

@@ -15,9 +15,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Iterator
 
-import pyatv
-
 import discover
+import pyatv
 
 _LOG = logging.getLogger(__name__)
 
@@ -223,8 +222,9 @@ class Devices:
                     )
         return result
 
-
-    def get_discovered_device(self, configured_device: AtvDevice, discovered_atvs: list[pyatv.interface.BaseConfig]) -> pyatv.interface.BaseConfig | None:
+    def get_discovered_device(
+        self, configured_device: AtvDevice, discovered_atvs: list[pyatv.interface.BaseConfig]
+    ) -> pyatv.interface.BaseConfig | None:
         """Returns the discovered AppleTV corresponding to the configured device."""
         found_atv: pyatv.interface.BaseConfig | None = None
         try:
@@ -262,8 +262,12 @@ class Devices:
                 found_atv = self.get_discovered_device(item, discovered_atvs)
 
             if found_atv is None:
-                _LOG.debug("Check device change : %s (mac=%s, ip=%s) could not be found on network.",
-                           item.name, item.mac_address, item.address)
+                _LOG.debug(
+                    "Check device change : %s (mac=%s, ip=%s) could not be found on network.",
+                    item.name,
+                    item.mac_address,
+                    item.address,
+                )
                 continue
             if (
                 found_atv.identifier == item.mac_address
@@ -273,9 +277,15 @@ class Devices:
                 continue
 
             # Name, or mac address or IP address (only for manual configuration) changed
-            _LOG.debug("Check device change: %s (mac=%s, ip=%s) changed, now identified as %s (mac=%s, ip=%s)",
-                         item.name, item.mac_address, item.address,
-                         found_atv.name, found_atv.identifier, str(found_atv.address))
+            _LOG.debug(
+                "Check device change: %s (mac=%s, ip=%s) changed, now identified as %s (mac=%s, ip=%s)",
+                item.name,
+                item.mac_address,
+                item.address,
+                found_atv.name,
+                found_atv.identifier,
+                str(found_atv.address),
+            )
             item.name = found_atv.name
             item.mac_address = found_atv.identifier
             if item.address and item.address != found_atv.address:
