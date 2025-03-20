@@ -628,8 +628,8 @@ async def main():
     await config.devices.migrate()
 
     # TODO : check with Markus. This check can take (too much) time if the user expects the remote
-    # to be quickly active. I chose to launch it in background. Good or wrong idea ?
-    # Check for devices changes
+    #to be quickly active. I have chosen to launch it in background. Good or bad idea (concurrent write to config file?)
+    # Check for devices changes and update its mac address and ip address if necessary
     await asyncio.create_task(config.devices.handle_devices_change())
     # and register them as available devices.
     # Note: device will be moved to configured devices with the subscribe_events request!

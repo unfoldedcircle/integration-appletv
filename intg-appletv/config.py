@@ -10,9 +10,12 @@ import dataclasses
 import json
 import logging
 import os
+from asyncio import Lock
 from dataclasses import dataclass
 from enum import Enum
 from typing import Iterator
+
+import pyatv
 
 import discover
 
@@ -68,6 +71,7 @@ class Devices:
         self._add_handler = add_handler
         self._remove_handler = remove_handler
         self.load()
+        self._config_lock = Lock()
 
     @property
     def data_path(self) -> str:
@@ -219,19 +223,47 @@ class Devices:
                     )
         return result
 
+
+    def get_discovered_device(self, configured_device: AtvDevice, discovered_atvs: list[pyatv.interface.BaseConfig]) -> pyatv.interface.BaseConfig | None:
+        """Returns the discovered AppleTV corresponding to the configured device."""
+        found_atv: pyatv.interface.BaseConfig | None = None
+        try:
+            found_atv = next(atv for atv in discovered_atvs if atv.identifier == configured_device.mac_address)
+        except StopIteration:
+            pass
+        # Fallback to device name if not found
+        if found_atv is None:
+            try:
+                found_atv = next(atv for atv in discovered_atvs if atv.name == configured_device.name)
+            except StopIteration:
+                pass
+        return found_atv
+
     async def handle_devices_change(self) -> bool:
         """Check after changed devices (mac and ip address)."""
-        identifiers = set(map(lambda item: item.mac_address, self._config))
+        if self._config_lock.locked():
+            _LOG.debug("Check device change already in progress")
+            return False
+
+        # Only one instance of devices change
+        await self._config_lock.acquire()
+        identifiers = set(map(lambda device: device.mac_address, self._config))
+        # Scan should be quick if the devices are connected when submitting their identifiers
         discovered_atvs = await discover.apple_tvs(asyncio.get_event_loop(), identifier=identifiers)
         result = False
+        find_all = False
         for item in self._config:
-            found_atv = next(atv for atv in discovered_atvs if atv.identifier == item.mac_address)
-            # Fallback to device name if not found
-            if found_atv is None:
-                found_atv = next(atv for atv in discovered_atvs if atv.name == item.name)
+            found_atv = self.get_discovered_device(item, discovered_atvs)
+
+            # If the configured device has not been found, discover all devices (longer) and check after them
+            if found_atv is None and not find_all:
+                discovered_atvs = await discover.apple_tvs(asyncio.get_event_loop())
+                find_all = True
+                found_atv = self.get_discovered_device(item, discovered_atvs)
 
             if found_atv is None:
-                _LOG.warning("Device %s (%s) could not be found on network", item.name, item.mac_address)
+                _LOG.debug("Check device change : %s (mac=%s, ip=%s) could not be found on network.",
+                           item.name, item.mac_address, item.address)
                 continue
             if (
                 found_atv.identifier == item.mac_address
@@ -241,15 +273,19 @@ class Devices:
                 continue
 
             # Name, or mac address or IP address (only for manual configuration) changed
+            _LOG.debug("Check device change: %s (mac=%s, ip=%s) changed, now identified as %s (mac=%s, ip=%s)",
+                         item.name, item.mac_address, item.address,
+                         found_atv.name, found_atv.identifier, str(found_atv.address))
             item.name = found_atv.name
             item.mac_address = found_atv.identifier
             if item.address and item.address != found_atv.address:
-                item.address = found_atv.address
-
+                item.address = str(found_atv.address)
             result = True
 
         if result:
+            _LOG.debug("Configuration updated")
             self.store()
+        self._config_lock.release()
         return result
 
 
