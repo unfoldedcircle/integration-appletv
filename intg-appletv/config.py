@@ -10,11 +10,13 @@ import dataclasses
 import json
 import logging
 import os
+from asyncio import Lock
 from dataclasses import dataclass
 from enum import Enum
 from typing import Iterator
 
 import discover
+import pyatv
 
 _LOG = logging.getLogger(__name__)
 
@@ -40,6 +42,8 @@ class AtvDevice:
     """Credentials for different protocols."""
     address: str | None = None
     """Optional IP address of device. Disables IP discovery by identifier."""
+    mac_address: str | None = None
+    """Actual identifier of the device, which can change over time."""
 
 
 class _EnhancedJSONEncoder(json.JSONEncoder):
@@ -66,6 +70,7 @@ class Devices:
         self._add_handler = add_handler
         self._remove_handler = remove_handler
         self.load()
+        self._config_lock = Lock()
 
     @property
     def data_path(self) -> str:
@@ -165,7 +170,11 @@ class Devices:
             for item in data:
                 # not using AtvDevice(**item) to be able to migrate old configuration files with missing attributes
                 atv = AtvDevice(
-                    item.get("identifier"), item.get("name", ""), item.get("credentials"), item.get("address")
+                    item.get("identifier"),
+                    item.get("name", ""),
+                    item.get("credentials"),
+                    item.get("address"),
+                    item.get("mac_address"),
                 )
                 self._config.append(atv)
             return True
@@ -179,7 +188,7 @@ class Devices:
     def migration_required(self) -> bool:
         """Check if configuration migration is required."""
         for item in self._config:
-            if not item.name:
+            if not item.name or not item.mac_address:
                 return True
         return False
 
@@ -187,6 +196,14 @@ class Devices:
         """Migrate configuration if required."""
         result = True
         for item in self._config:
+            if not item.mac_address:
+                _LOG.info(
+                    "Migrating configuration: storing device identifier %s as mac address in order to update it later",
+                    item.identifier,
+                )
+                item.mac_address = item.identifier
+                if not self.store():
+                    result = False
             if not item.name:
                 _LOG.info("Migrating configuration: scanning for device %s to update device name", item.identifier)
                 search_hosts = [item.address] if item.address else None
@@ -203,6 +220,87 @@ class Devices:
                     _LOG.warning(
                         "Could not migrate device configuration %s: device not found on network", item.identifier
                     )
+        return result
+
+    def get_discovered_device(
+        self, configured_device: AtvDevice, discovered_atvs: list[pyatv.interface.BaseConfig]
+    ) -> pyatv.interface.BaseConfig | None:
+        """Return the discovered AppleTV corresponding to the configured device."""
+        found_atv: pyatv.interface.BaseConfig | None = None
+        try:
+            found_atv = next(atv for atv in discovered_atvs if atv.identifier == configured_device.mac_address)
+        except StopIteration:
+            pass
+        # Fallback to device name if not found
+        if found_atv is None:
+            try:
+                # Second check : 2 devices shouldn't have the same name otherwise skip
+                found_atvs = [atv for atv in discovered_atvs if atv.name == configured_device.name]
+                if len(found_atvs) > 1:
+                    _LOG.debug("Multiple devices have the same name : %s", configured_device.name)
+                    return None
+                found_atv = found_atvs[0] if found_atvs else None
+            except StopIteration:
+                pass
+        return found_atv
+
+    async def handle_devices_change(self) -> bool:
+        """Check after changed devices (mac and ip address)."""
+        if self._config_lock.locked():
+            _LOG.debug("Check device change already in progress")
+            return False
+
+        # Only one instance of devices change
+        await self._config_lock.acquire()
+        identifiers = set(map(lambda device: device.mac_address, self._config))
+        # Scan should be quick if the devices are connected when submitting their identifiers
+        discovered_atvs = await discover.apple_tvs(asyncio.get_event_loop(), identifier=identifiers)
+        result = False
+        find_all = False
+        for item in self._config:
+            found_atv = self.get_discovered_device(item, discovered_atvs)
+
+            # If the configured device has not been found, discover all devices (longer) and check after them
+            if found_atv is None and not find_all:
+                discovered_atvs = await discover.apple_tvs(asyncio.get_event_loop())
+                find_all = True
+                found_atv = self.get_discovered_device(item, discovered_atvs)
+
+            if found_atv is None:
+                _LOG.debug(
+                    "Check device change : %s (mac=%s, ip=%s) could not be found on network.",
+                    item.name,
+                    item.mac_address,
+                    item.address,
+                )
+                continue
+            if (
+                found_atv.identifier == item.mac_address
+                and found_atv.name == item.name
+                and (item.address is None or item.address == found_atv.address)
+            ):
+                continue
+
+            # Name, or mac address or IP address (only for manual configuration) changed
+            _LOG.debug(
+                "Check device change: %s (mac=%s, ip=%s) changed, now identified as %s (mac=%s, ip=%s)",
+                item.name,
+                item.mac_address,
+                item.address,
+                found_atv.name,
+                found_atv.identifier,
+                str(found_atv.address),
+            )
+            item.name = found_atv.name
+            item.mac_address = found_atv.identifier
+            if item.address and item.address != found_atv.address:
+                item.address = str(found_atv.address)
+            result = True
+
+        if result:
+            _LOG.debug("Configuration updated")
+            self.store()
+        self._config_lock.release()
         return result
 
 
