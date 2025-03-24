@@ -15,7 +15,13 @@ from typing import Any
 
 import config
 import pyatv
+
+# TODO begin To be removed when https://github.com/postlund/pyatv/issues/2656 is resolved
+import pyatv.auth.hap_pairing
 import pyatv.const
+import pyatv.protocols.companion.api
+
+# TODO end
 import setup_flow
 import tv
 import ucapi
@@ -25,7 +31,9 @@ from ucapi import MediaPlayer, media_player
 _LOG = logging.getLogger("driver")  # avoid having __main__ in log messages
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-_LOOP = asyncio.get_event_loop()
+
+_LOOP = asyncio.new_event_loop()
+asyncio.set_event_loop(_LOOP)
 
 # Global variables
 api = uc.IntegrationAPI(_LOOP)
@@ -609,6 +617,32 @@ def on_device_removed(device: config.AtvDevice | None) -> None:
             api.available_entities.remove(entity_id)
 
 
+# TODO be removed when https://github.com/postlund/pyatv/issues/2656 is resolved
+async def pyatv_patched_system_info(self):
+    """Send system information to device."""
+    creds = pyatv.auth.hap_pairing.parse_credentials(self.core.service.credentials)
+    info = self.core.settings.info
+
+    # Bunch of semi-random values here...
+    # pylint: disable=W0212
+    await self._send_command(
+        "_systemInfo",
+        {
+            "_bf": 0,
+            "_cf": 512,
+            "_clFl": 128,
+            "_i": os.urandom(6).hex(),  # TODO: Figure out what to put here => "cafecafecafe" don't work anymore
+            "_idsID": creds.client_id,
+            # Not really device id here, but better then anything...
+            "_pubID": info.device_id,
+            "_sf": 256,  # Status flags?
+            "_sv": "170.18",  # Software Version (I guess?)
+            "model": info.model,
+            "name": info.name,
+        },
+    )
+
+
 async def main():
     """Start the Remote Two integration driver."""
     logging.basicConfig()
@@ -619,6 +653,9 @@ async def main():
     logging.getLogger("config").setLevel(level)
     logging.getLogger("discover").setLevel(level)
     logging.getLogger("setup_flow").setLevel(level)
+
+    # TODO be removed when https://github.com/postlund/pyatv/issues/2656 is resolved
+    pyatv.protocols.companion.api.CompanionAPI.system_info = pyatv_patched_system_info
 
     # logging.getLogger("pyatv").setLevel(logging.DEBUG)
 
