@@ -11,6 +11,10 @@ _Changes in the next release_
 
 ---
 
+## v0.16.0 - 2025-03-24
+### Fixed
+- Fixes for tvOS 18.4. Contributed by @kennymc-c, thanks!  ([#29](https://github.com/unfoldedcircle/integration-appletv/pull/29), [#31](https://github.com/unfoldedcircle/integration-appletv/pull/31)).
+
 ## v0.15.2 - 2025-03-07
 ### Added
 - Add handling of app deep links. Contributed by @kennymc-c, thanks! ([#27](https://github.com/unfoldedcircle/integration-appletv/pull/27)).
