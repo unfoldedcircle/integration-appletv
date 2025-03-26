@@ -227,7 +227,7 @@ async def media_player_cmd_handler(
                 res = await device.pause()
             elif state != media_player.States.PLAYING:
                 res = await device.play()
-                
+         
         case media_player.Commands.NEXT:
             res = await device.next()
         case media_player.Commands.PREVIOUS:
