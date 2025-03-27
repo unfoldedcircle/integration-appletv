@@ -154,7 +154,7 @@ async def on_unsubscribe_entities(entity_ids: list[str]) -> None:
             device.events.remove_all_listeners()
 
 
-# pylint: disable=too-many-statements
+# pylint: disable=too-many-statements,too-many-return-statements
 async def media_player_cmd_handler(
     entity: MediaPlayer, cmd_id: str, params: dict[str, Any] | None
 ) -> ucapi.StatusCodes:
@@ -183,7 +183,6 @@ async def media_player_cmd_handler(
     # If the entity is OFF (device is in standby), we turn it on regardless of the actual command
     # TODO #15 implement proper fix for correct entity OFF state (it may not remain in OFF state if connection is
     #  established) + online check if we think it is in standby mode.
-    # pylint: disable=R0911
     if device.is_on is False and cmd_id != media_player.Commands.OFF:
         await device.connect()
         res = await device.turn_on()
