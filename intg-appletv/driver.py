@@ -181,14 +181,13 @@ async def media_player_cmd_handler(
         return ucapi.StatusCodes.SERVICE_UNAVAILABLE
 
     # If the entity is OFF (device is in standby), we turn it on regardless of the actual command
+    if device.is_on is None or device.is_on is False:
+        _LOG.debug("Device not connected, reconnect")
+        await device.connect()
+
     # TODO #15 implement proper fix for correct entity OFF state (it may not remain in OFF state if connection is
     #  established) + online check if we think it is in standby mode.
-    if device.is_on is False and cmd_id != media_player.Commands.OFF:
-        await device.connect()
-        res = await device.turn_on()
-        if res != ucapi.StatusCodes.OK:
-            return res
-    elif (
+    if (
         configured_entity.attributes[media_player.Attributes.STATE] == media_player.States.OFF
         and cmd_id != media_player.Commands.OFF
     ):
