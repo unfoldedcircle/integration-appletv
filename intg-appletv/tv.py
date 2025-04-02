@@ -100,7 +100,10 @@ def async_handle_atvlib_errors(
     async def wrapper(self: _AppleTvT, *args: _P.args, **kwargs: _P.kwargs) -> ucapi.StatusCodes:
         # pylint: disable=protected-access
         if self._atv is None:
-            return ucapi.StatusCodes.SERVICE_UNAVAILABLE
+            _LOG.debug("Command wrapper : not connected try reconnect")
+            await self.connect()
+            if self._atv is None:
+                return ucapi.StatusCodes.SERVICE_UNAVAILABLE
 
         result = ucapi.StatusCodes.SERVER_ERROR
         try:
