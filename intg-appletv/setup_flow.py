@@ -620,6 +620,7 @@ async def _handle_device_reconfigure(msg: UserDataResponse) -> SetupComplete | S
     :param msg: response data from the requested user data
     :return: the setup action on how to continue: SetupComplete after updating configuration
     """
+    # flake8: noqa:F824
     # pylint: disable=W0602
     global _reconfigured_device
 
