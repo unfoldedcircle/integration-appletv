@@ -31,6 +31,7 @@ from ucapi import MediaPlayer, media_player
 _LOG = logging.getLogger("driver")  # avoid having __main__ in log messages
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 _LOOP = asyncio.new_event_loop()
 asyncio.set_event_loop(_LOOP)
 
@@ -203,7 +204,6 @@ async def media_player_cmd_handler(
         case media_player.Commands.PLAY_PAUSE:
             # Mimic the original ATV remote behaviour (one can also call it a bunch of workarounds).
             # Screensaver active: play/pause button exits screensaver. If a playback was paused, resume it.
-
             # tvOS 18.4 will raise an exception https://github.com/postlund/pyatv/issues/2648
             # Screensaver state is no longer accessible
             state = configured_entity.attributes[media_player.Attributes.STATE]
@@ -663,6 +663,11 @@ async def main():
     config.devices = config.Devices(api.config_dir_path, on_device_added, on_device_removed)
     # best effort migration (if required): network might not be available during startup
     await config.devices.migrate()
+
+    # TODO REMOVE COMMENT : check with Markus. This check can take (too much) time if the user expects the remote
+    # to be quickly active. I have chosen to launch it in background. Good or bad idea (concurrent write ?)
+    # Check for devices changes and update its mac address and ip address if necessary
+    await asyncio.create_task(config.devices.handle_devices_change())
     # and register them as available devices.
     # Note: device will be moved to configured devices with the subscribe_events request!
     # This will also start the device connection.

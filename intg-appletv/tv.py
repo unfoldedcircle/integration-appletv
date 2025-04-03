@@ -147,7 +147,7 @@ def async_handle_atvlib_errors(
     return wrapper
 
 
-class AppleTv(interface.AudioListener):
+class AppleTv(interface.AudioListener, interface.DeviceListener):
     """Representing an Apple TV Device."""
 
     def __init__(
@@ -247,7 +247,7 @@ class AppleTv(interface.AudioListener):
 
         This is a callback function from pyatv.interface.DeviceListener.
         """
-        _LOG.exception("[%s] Lost connection", self.log_id)
+        _LOG.exception("[%s] Lost connection %s", self.log_id, _exception)
         self._handle_disconnect()
 
     def connection_closed(self) -> None:
@@ -281,10 +281,12 @@ class AppleTv(interface.AudioListener):
     async def _find_atv(self) -> pyatv.interface.BaseConfig | None:
         """Find a specific Apple TV on the network by identifier."""
         hosts = [self._device.address] if self._device.address else None
-        atvs = await pyatv.scan(self._loop, identifier=self._device.identifier, hosts=hosts)
+        identifier = self._device.mac_address
+        _LOG.debug("Find AppleTV for identifier %s and hosts %s", identifier, hosts)
+        atvs = await pyatv.scan(self._loop, identifier=identifier, hosts=hosts)
         if not atvs:
             return None
-
+        _LOG.debug(f"Found {len(atvs)} AppleTV for identifier {identifier} and hosts {hosts} : %s")
         return atvs[0]
 
     def add_credentials(self, credentials: dict[AtvProtocol, str]) -> None:
