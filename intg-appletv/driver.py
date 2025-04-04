@@ -341,7 +341,9 @@ async def on_atv_connected(identifier: str) -> None:
 async def on_atv_disconnected(identifier: str) -> None:
     """Handle ATV disconnection."""
     _LOG.debug("Apple TV disconnected: %s", identifier)
-    api.configured_entities.update_attributes(identifier, {media_player.Attributes.STATE: media_player.States.OFF})
+    api.configured_entities.update_attributes(
+        identifier, {media_player.Attributes.STATE: media_player.States.UNAVAILABLE}
+    )
 
 
 async def on_atv_connection_error(identifier: str, message) -> None:
