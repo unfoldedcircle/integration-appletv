@@ -100,7 +100,10 @@ def async_handle_atvlib_errors(
     async def wrapper(self: _AppleTvT, *args: _P.args, **kwargs: _P.kwargs) -> ucapi.StatusCodes:
         # pylint: disable=protected-access
         if self._atv is None:
-            return ucapi.StatusCodes.SERVICE_UNAVAILABLE
+            _LOG.debug("Command wrapper : not connected try reconnect")
+            await self.connect()
+            if self._atv is None:
+                return ucapi.StatusCodes.SERVICE_UNAVAILABLE
 
         result = ucapi.StatusCodes.SERVER_ERROR
         try:
@@ -264,7 +267,6 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         if self._atv:
             self._atv.close()
             self._atv = None
-        self.events.emit(EVENTS.DISCONNECTED, self._device.identifier)
         self._start_connect_loop()
 
     def volume_update(self, _old_level: float, new_level: float) -> None:
@@ -452,7 +454,6 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                 self._atv.close()
             if self._connect_task:
                 self._connect_task.cancel()
-            self.events.emit(EVENTS.DISCONNECTED, self._device.identifier)
         except Exception as err:  # pylint: disable=broad-exception-caught
             _LOG.exception("[%s] An error occurred while disconnecting: %s", self.log_id, err)
         finally:
