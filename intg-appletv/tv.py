@@ -47,6 +47,7 @@ from pyatv.const import (
 from pyatv.core.facade import FacadeRemoteControl, FacadeTouchGestures
 from pyatv.interface import BaseConfig, OutputDevice
 from pyatv.protocols.companion import CompanionAPI, MediaControlCommand, SystemStatus
+from pyatv.protocols.mrp import MrpRemoteControl, messages
 from pyee.asyncio import AsyncIOEventEmitter
 
 _LOG = logging.getLogger(__name__)
@@ -799,6 +800,11 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         await self._atv.audio.volume_down()
 
     @async_handle_atvlib_errors
+    async def mute_toggle(self) -> ucapi.StatusCodes:
+        """Press key mute toggle."""
+        await self._send_hid_key(12, 0xE2)
+
+    @async_handle_atvlib_errors
     async def cursor_up(self) -> ucapi.StatusCodes:
         """Press key up."""
         await self._atv.remote_control.up()
@@ -939,3 +945,15 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             await cast(FacadeTouchGestures, self._atv.touch).swipe(start_x, start_y, end_x, end_y, duration_ms)
         else:
             raise pyatv.exceptions.CommandError("Touch gestures not supported")
+
+    async def _send_hid_key(self, use_page: int, usage: int) -> None:
+        """Send a short HID key press.
+
+        :param use_page: HID usage page (1 Generic Desktop, 7 Keyboard, 12 Consumer)
+        :param usage: HID key usage
+        """
+        if self._atv and isinstance(self._atv.remote_control.main_instance, MrpRemoteControl):
+            await self._atv.remote_control.main_instance.protocol.send(messages.send_hid_event(use_page, usage, True))
+            await self._atv.remote_control.main_instance.protocol.send(messages.send_hid_event(use_page, usage, False))
+        else:
+            _LOG.warning("[%s] send HID key not supported (%d, %d)", self.log_id, use_page, usage)

@@ -234,6 +234,8 @@ async def media_player_cmd_handler(
             res = await device.volume_up()
         case media_player.Commands.VOLUME_DOWN:
             res = await device.volume_down()
+        case media_player.Commands.MUTE_TOGGLE:
+            res = await device.mute_toggle()
         case media_player.Commands.ON:
             res = await device.turn_on()
         case media_player.Commands.OFF:
@@ -527,7 +529,7 @@ def _register_available_entities(identifier: str, name: str) -> bool:
         media_player.Features.ON_OFF,
         media_player.Features.VOLUME,
         media_player.Features.VOLUME_UP_DOWN,
-        # media_player.Features.MUTE_TOGGLE,
+        media_player.Features.MUTE_TOGGLE,
         media_player.Features.PLAY_PAUSE,
         media_player.Features.NEXT,
         media_player.Features.PREVIOUS,
@@ -561,6 +563,7 @@ def _register_available_entities(identifier: str, name: str) -> bool:
         {
             media_player.Attributes.STATE: media_player.States.UNAVAILABLE,
             media_player.Attributes.VOLUME: 0,
+            # TODO(#34) is there a way to find out if the device is muted?
             # media_player.Attributes.MUTED: False,
             media_player.Attributes.MEDIA_DURATION: 0,
             media_player.Attributes.MEDIA_POSITION: 0,
