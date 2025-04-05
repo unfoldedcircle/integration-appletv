@@ -126,7 +126,6 @@ async def on_subscribe_entities(entity_ids: list[str]) -> None:
     """
     _LOG.debug("Subscribe entities event: %s", entity_ids)
     for entity_id in entity_ids:
-        # TODO #11 add atv_id -> list(entities_id) mapping. Right now the atv_id == entity_id!
         atv_id = entity_id
         if atv_id in _configured_atvs:
             atv = _configured_atvs[atv_id]
@@ -150,7 +149,6 @@ async def on_subscribe_entities(entity_ids: list[str]) -> None:
 async def on_unsubscribe_entities(entity_ids: list[str]) -> None:
     """On unsubscribe, we disconnect the objects and remove listeners for events."""
     _LOG.debug("Unsubscribe entities event: %s", entity_ids)
-    # TODO #11 add entity_id --> atv_id mapping. Right now the atv_id == entity_id!
     for entity_id in entity_ids:
         if entity_id in _configured_atvs:
             device = _configured_atvs.pop(entity_id)
@@ -175,7 +173,6 @@ async def media_player_cmd_handler(
     """
     _LOG.info("Got %s command request: %s %s", entity.id, cmd_id, params if params else "")
 
-    # TODO #11 map from device id to entities (see Denon integration)
     atv_id = entity.id
     device = _configured_atvs[atv_id]
 
@@ -532,7 +529,6 @@ def _register_available_entities(identifier: str, name: str) -> bool:
     :param name: Friendly name
     :return: True if added, False if the device was already in storage.
     """
-    # TODO #11 map entity IDs from device identifier
     entity_id = identifier
     # plain and simple for now: only one media_player per ATV device
     features = [
@@ -631,7 +627,6 @@ def on_device_removed(device: config.AtvDevice | None) -> None:
             atv = _configured_atvs.pop(device.identifier)
             _LOOP.create_task(atv.disconnect())
             atv.events.remove_all_listeners()
-            # TODO #11 map entity IDs from device identifier
             entity_id = atv.identifier
             api.configured_entities.remove(entity_id)
             api.available_entities.remove(entity_id)
@@ -684,8 +679,6 @@ async def main():
     # best effort migration (if required): network might not be available during startup
     await config.devices.migrate()
 
-    # TODO REMOVE COMMENT : check with Markus. This check can take (too much) time if the user expects the remote
-    # to be quickly active. I have chosen to launch it in background. Good or bad idea (concurrent write ?)
     # Check for devices changes and update its mac address and ip address if necessary
     await asyncio.create_task(config.devices.handle_devices_change())
     # and register them as available devices.
