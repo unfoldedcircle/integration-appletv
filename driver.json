@@ -2,14 +2,6 @@
 	"driver_id": "appletv",
 	"version": "0.16.0",
 	"min_core_api": "0.7.0",
-	"requirements": {
-		"min_core_api": "",
-		"max_core_api": "",
-		"min_integration_api": "",
-		"max_integration_api": "",
-		"min_firmware": "",
-		"max_firmware": ""
-	},
 	"name": { "en": "Apple TV" },
 	"icon": "uc:integration",
 	"description": {
