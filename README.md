@@ -27,6 +27,7 @@ Supported commands:
 - Volume up / down
 - Mute toggle
 - Play/pause
+- Stop, play, pause
 - Directional pad navigation and select
 - Context menu
 - Home screen
