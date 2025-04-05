@@ -69,6 +69,10 @@ class SimpleCommands(str, Enum):
     """Swipe up using Companion protocol."""
     SWIPE_DOWN = "SWIPE_DOWN"
     """Swipe down using Companion protocol."""
+    PLAY = "PLAY"
+    """Send play command. App specific! Some treat it as play_pause."""
+    PAUSE = "PAUSE"
+    """Send pause command. App specific! Some treat it as play_pause."""
 
 
 @api.listens_to(ucapi.Events.CONNECT)
@@ -226,6 +230,8 @@ async def media_player_cmd_handler(
             except Exception:
                 pass
             res = await device.play_pause()
+        case media_player.Commands.STOP:
+            res = await device.stop()
         case media_player.Commands.NEXT:
             res = await device.next()
         case media_player.Commands.PREVIOUS:
@@ -317,6 +323,10 @@ async def media_player_cmd_handler(
             res = await device.swipe(500, 1000, 500, 50, 200)
         case SimpleCommands.SWIPE_DOWN:
             res = await device.swipe(500, 50, 500, 1000, 200)
+        case SimpleCommands.PLAY:
+            res = await device.play()
+        case SimpleCommands.PAUSE:
+            res = await device.pause()
 
     return res
 
@@ -531,6 +541,7 @@ def _register_available_entities(identifier: str, name: str) -> bool:
         media_player.Features.VOLUME_UP_DOWN,
         media_player.Features.MUTE_TOGGLE,
         media_player.Features.PLAY_PAUSE,
+        media_player.Features.STOP,
         media_player.Features.NEXT,
         media_player.Features.PREVIOUS,
         media_player.Features.MEDIA_DURATION,
@@ -586,6 +597,8 @@ def _register_available_entities(identifier: str, name: str) -> bool:
                 SimpleCommands.SWIPE_RIGHT.value,
                 SimpleCommands.SWIPE_UP.value,
                 SimpleCommands.SWIPE_DOWN.value,
+                SimpleCommands.PLAY.value,
+                SimpleCommands.PAUSE.value,
             ]
         },
         cmd_handler=media_player_cmd_handler,

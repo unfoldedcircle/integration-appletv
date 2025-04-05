@@ -289,7 +289,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         atvs = await pyatv.scan(self._loop, identifier=identifier, hosts=hosts)
         if not atvs:
             return None
-        _LOG.debug(f"Found {len(atvs)} AppleTV for identifier {identifier} and hosts {hosts} : %s")
+        _LOG.debug(f"Found {len(atvs)} AppleTV for identifier {identifier} and hosts {hosts} : %s", atvs[0])
         return atvs[0]
 
     def add_credentials(self, credentials: dict[AtvProtocol, str]) -> None:
@@ -673,6 +673,24 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         """Toggle between play and pause."""
         await self.stop_fast_forward_rewind()
         await self._atv.remote_control.play_pause()
+
+    @async_handle_atvlib_errors
+    async def play(self) -> ucapi.StatusCodes:
+        """Start playback."""
+        await self.stop_fast_forward_rewind()
+        await self._atv.remote_control.play()
+
+    @async_handle_atvlib_errors
+    async def pause(self) -> ucapi.StatusCodes:
+        """Pause playback."""
+        await self.stop_fast_forward_rewind()
+        await self._atv.remote_control.pause()
+
+    @async_handle_atvlib_errors
+    async def stop(self) -> ucapi.StatusCodes:
+        """Stop playback."""
+        await self.stop_fast_forward_rewind()
+        await self._atv.remote_control.stop()
 
     @async_handle_atvlib_errors
     async def fast_forward(self) -> ucapi.StatusCodes:

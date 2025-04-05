@@ -1,13 +1,14 @@
 # Apple TV integration for Remote Two/3
 
-Using [pyatv](https://github.com/postlund/pyatv) and [uc-integration-api](https://github.com/aitatoi/integration-python-library)
+This integration is based on the great [pyatv](https://github.com/postlund/pyatv) library and uses our
+[uc-integration-api](https://github.com/aitatoi/integration-python-library) to communicate with the Remote Two/3.
 
 The driver discovers Apple TV devices on the network and pairs them using AirPlay and companion protocols.
 A [media player entity](https://github.com/unfoldedcircle/core-api/blob/main/doc/entities/entity_media_player.md)
 is exposed to the Remote Two/3.
 
 Supported versions:
-- Apple TV 4 and newer models with TvOS 16+
+- Apple TV 4 and newer models with tvOS 16+
 
 Supported attributes:
 - State (on, off, playing, paused, unknown)
@@ -24,6 +25,7 @@ Supported commands:
 - Next / Previous
 - Rewind / Fast-forward
 - Volume up / down
+- Mute toggle
 - Play/pause
 - Directional pad navigation and select
 - Context menu
@@ -34,9 +36,39 @@ Supported commands:
 - Start screensaver
 - Stream audio to one or multiple output devices
 
-Please note that certain commands like channel up & down are app dependant and don't work with every app!
+Please note:
+- Certain commands like channel up & down are app dependant and don't work with every app!
+- Media information and artwork are not provided by every app.
+
+## Requirements
+
+Please also check the [pyatv troubleshooting](https://pyatv.dev/support/troubleshooting/) section for more information.
+
+If you have trouble using this integration with your Apple TV, then please open an issue with us and not the 3rd party
+[pyatv](https://github.com/postlund/pyatv) library! Unless of course you are a developer and can track down a specific
+issue in the library with all the required information to reproduce it.
+
+### Network
+
+- The Apple TV device must be on the same network subnet as the Remote. Routed networks are not supported.
+- [Zeroconf](https://en.m.wikipedia.org/wiki/Zero-configuration_networking) (multicast DNS) must be a allowed.  
+  Check your WiFi access point and router that this traffic is not filtered out.
+- When using DHCP: a static IP address reservation for the Apple TV device(s) is recommended.  
+  This speeds up reconnection and helps to identify the device again if Apple changes the (not so) unique device identifiers. 
+
+### Apple TV device
+
+- Make sure you have  _"Allow Access"_ set to _"Anyone on the Same Network"_ for AirPlay on your Apple TV.
+- When using multiple Apple TVs, each device should have a unique name for easier identification.  
+  - The name can be set under Settings, General, About: Name  
+- The name should not be changed anymore once the Apple TV is connected with this integration.  
+  This helps to identify the device again if the device identifiers change after a tvOS update.
+- Disabling automatic software updates is recommended, especially if you rely on controlling an Apple TV with an Unfolded Circle Remote.
+  - tvOS updates might break certain functionality.
+  - It can take time to fix these issues and release a new integration version.
 
 ## Usage
+
 ### Setup
 
 - Requires Python 3.11
