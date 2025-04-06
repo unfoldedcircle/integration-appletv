@@ -9,15 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Changes in the next release_
 
-### Added
-- New commands: mute toggle, stop. New simple commands: PLAY, PAUSE ([#34](https://github.com/unfoldedcircle/integration-appletv/issues/34)).
-- PLAY_PAUSE_KEY test command for alternative play / pause handling by sending a HID key ([feature-and-bug-tracker#159](https://github.com/unfoldedcircle/feature-and-bug-tracker/issues/159)).
-
 ---
+
+## v0.17.0 - 2025-04-06
+### Added
+- Configuration workflow to update MAC address or IP address if device identifiers have changed. Contributed by @albaintor, thanks! ([#30](https://github.com/unfoldedcircle/integration-appletv/pull/30)).
+- New commands: mute toggle, stop. New simple commands: PLAY, PAUSE ([#35](https://github.com/unfoldedcircle/integration-appletv/pull/35)).
+- PLAY_PAUSE_KEY test command for alternative play / pause handling by sending a HID key ([#36](https://github.com/unfoldedcircle/integration-appletv/pull/36), [feature-and-bug-tracker#159](https://github.com/unfoldedcircle/feature-and-bug-tracker/issues/159)).
+
+### Fixed
+- Unavailable driver after AppleTV device disconnects. Contributed by @albaintor, thanks! ([#33](https://github.com/unfoldedcircle/integration-appletv/pull/33)).
 
 ## v0.16.0 - 2025-03-24
 ### Fixed
-- Fixes for tvOS 18.4. Contributed by @kennymc-c, thanks!  ([#29](https://github.com/unfoldedcircle/integration-appletv/pull/29), [#31](https://github.com/unfoldedcircle/integration-appletv/pull/31)).
+- Fixes for tvOS 18.4. Contributed by @albaintor, thanks!  ([#29](https://github.com/unfoldedcircle/integration-appletv/pull/29), [#31](https://github.com/unfoldedcircle/integration-appletv/pull/31)).
 
 ## v0.15.2 - 2025-03-07
 ### Added
