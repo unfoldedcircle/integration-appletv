@@ -10,7 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 _Changes in the next release_
 
 ### Added
-- New commands: mute toggle, play, pause, stop ([#34](https://github.com/unfoldedcircle/integration-appletv/issues/34)).
+- New commands: mute toggle, stop. New simple commands: PLAY, PAUSE ([#34](https://github.com/unfoldedcircle/integration-appletv/issues/34)).
+- PLAY_PAUSE_KEY test command for alternative play / pause handling by sending a HID key ([feature-and-bug-tracker#159](https://github.com/unfoldedcircle/feature-and-bug-tracker/issues/159)).
 
 ---
 
