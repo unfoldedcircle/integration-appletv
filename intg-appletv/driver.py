@@ -26,6 +26,8 @@ import setup_flow
 import tv
 import ucapi
 import ucapi.api as uc
+from hid import UsagePage
+from hid.consumer_control_code import ConsumerControlCode
 from ucapi import MediaPlayer, media_player
 
 _LOG = logging.getLogger("driver")  # avoid having __main__ in log messages
@@ -73,6 +75,8 @@ class SimpleCommands(str, Enum):
     """Send play command. App specific! Some treat it as play_pause."""
     PAUSE = "PAUSE"
     """Send pause command. App specific! Some treat it as play_pause."""
+    PLAY_PAUSE_KEY = "PLAY_PAUSE_KEY"
+    """Alternative play/pause command by sending a HID key press."""
 
 
 @api.listens_to(ucapi.Events.CONNECT)
@@ -157,7 +161,7 @@ async def on_unsubscribe_entities(entity_ids: list[str]) -> None:
             device.events.remove_all_listeners()
 
 
-# pylint: disable=too-many-statements,too-many-return-statements
+# pylint: disable=too-many-statements
 async def media_player_cmd_handler(
     entity: MediaPlayer, cmd_id: str, params: dict[str, Any] | None
 ) -> ucapi.StatusCodes:
@@ -187,12 +191,11 @@ async def media_player_cmd_handler(
         _LOG.debug("Device not connected, reconnect")
         await device.connect()
 
+    state = configured_entity.attributes[media_player.Attributes.STATE]
+
     # TODO #15 implement proper fix for correct entity OFF state (it may not remain in OFF state if connection is
     #  established) + online check if we think it is in standby mode.
-    if (
-        configured_entity.attributes[media_player.Attributes.STATE] == media_player.States.OFF
-        and cmd_id != media_player.Commands.OFF
-    ):
+    if state == media_player.States.OFF and cmd_id != media_player.Commands.OFF:
         _LOG.debug("Device is off, sending turn on command")
         # quick & dirty workaround for #15: the entity state is not always correct!
         res = await device.turn_on()
@@ -207,26 +210,13 @@ async def media_player_cmd_handler(
 
     match cmd_id:
         case media_player.Commands.PLAY_PAUSE:
-            # Mimic the original ATV remote behaviour (one can also call it a bunch of workarounds).
-            # Screensaver active: play/pause button exits screensaver. If a playback was paused, resume it.
-            # tvOS 18.4 will raise an exception https://github.com/postlund/pyatv/issues/2648
-            # Screensaver state is no longer accessible
-            state = configured_entity.attributes[media_player.Attributes.STATE]
-            # pylint: disable=W0718
-            try:
-                if state != media_player.States.PLAYING and await device.screensaver_active():
-                    _LOG.debug("Screensaver is running, sending menu command for play_pause to exit")
-                    await device.menu()
-                    if state == media_player.States.PAUSED:
-                        # another awkwardness: the play_pause button doesn't work anymore after exiting the screensaver.
-                        # One has to send a dpad select first to start playback. Afterward, play_pause works again...
-                        await asyncio.sleep(1)  # delay required, otherwise the second button press is ignored
-                        return await device.cursor_select()
-                    # Nothing was playing, only the screensaver was active
-                    return ucapi.StatusCodes.OK
-            except Exception:
-                pass
+            if res := await _playpause_in_screensaver(state, device):
+                return res
             res = await device.play_pause()
+        case SimpleCommands.PLAY_PAUSE_KEY:
+            if res := await _playpause_in_screensaver(state, device):
+                return res
+            res = await device.send_hid_key(UsagePage.CONSUMER, ConsumerControlCode.PLAY_PAUSE)
         case media_player.Commands.STOP:
             res = await device.stop()
         case media_player.Commands.NEXT:
@@ -238,7 +228,7 @@ async def media_player_cmd_handler(
         case media_player.Commands.VOLUME_DOWN:
             res = await device.volume_down()
         case media_player.Commands.MUTE_TOGGLE:
-            res = await device.mute_toggle()
+            res = await device.send_hid_key(UsagePage.CONSUMER, ConsumerControlCode.MUTE)
         case media_player.Commands.ON:
             res = await device.turn_on()
         case media_player.Commands.OFF:
@@ -326,6 +316,35 @@ async def media_player_cmd_handler(
             res = await device.pause()
 
     return res
+
+
+async def _playpause_in_screensaver(state: media_player.States, device: tv.AppleTv) -> ucapi.StatusCodes | None:
+    """
+    Mimic the original ATV remote behaviour (one can also call it a bunch of workarounds).
+
+    Screensaver active: play/pause button exits screensaver. If a playback was paused, resume it.
+
+    :param state: the media-player state
+    :param device: the device
+    :return: None if screensaver was not active, a StatusCode otherwise
+    """
+    # tvOS 18.4 will raise an exception https://github.com/postlund/pyatv/issues/2648
+    # Screensaver state is no longer accessible
+    # pylint: disable=W0718
+    try:
+        if state != media_player.States.PLAYING and await device.screensaver_active():
+            _LOG.debug("Screensaver is running, sending menu command for play_pause to exit")
+            await device.menu()
+            if state == media_player.States.PAUSED:
+                # another awkwardness: the play_pause button doesn't work anymore after exiting the screensaver.
+                # One has to send a dpad select first to start playback. Afterward, play_pause works again...
+                await asyncio.sleep(1)  # delay required, otherwise the second button press is ignored
+                return await device.cursor_select()
+            # Nothing was playing, only the screensaver was active
+            return ucapi.StatusCodes.OK
+    except Exception:
+        pass
+    return None
 
 
 def _get_cmd_param(name: str, params: dict[str, Any] | None) -> str | bool | None:
@@ -595,6 +614,7 @@ def _register_available_entities(identifier: str, name: str) -> bool:
                 SimpleCommands.SWIPE_DOWN.value,
                 SimpleCommands.PLAY.value,
                 SimpleCommands.PAUSE.value,
+                SimpleCommands.PLAY_PAUSE_KEY.value,
             ]
         },
         cmd_handler=media_player_cmd_handler,
