@@ -47,6 +47,7 @@ class AtvDevice:
     global_volume: bool | None = True
     """Change volume on all connected devices."""
 
+
 class _EnhancedJSONEncoder(json.JSONEncoder):
     """Python dataclass json encoder."""
 
@@ -177,7 +178,7 @@ class Devices:
                     item.get("credentials"),
                     item.get("address"),
                     item.get("mac_address"),
-                    item.get("global_volume", True)
+                    item.get("global_volume", True),
                 )
                 self._config.append(atv)
             return True

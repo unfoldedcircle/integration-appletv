@@ -490,7 +490,7 @@ async def _handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Set
             credentials=[],
             address=atv.address if _manual_address else None,
             mac_address=choice,
-            global_volume=global_volume
+            global_volume=global_volume,
         ),
         loop=asyncio.get_event_loop(),
         pairing_atv=atv,
@@ -618,7 +618,7 @@ async def _handle_user_data_companion_pin(msg: UserDataResponse) -> SetupComplet
         credentials=_pairing_apple_tv.get_credentials(),
         address=_pairing_apple_tv.address,
         mac_address=_pairing_apple_tv.identifier,
-        global_volume=_pairing_apple_tv.device_config.global_volume
+        global_volume=_pairing_apple_tv.device_config.global_volume,
     )
     config.devices.add_or_update(device)  # triggers ATV instance creation
 

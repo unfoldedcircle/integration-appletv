@@ -32,8 +32,6 @@ from typing import (
 import pyatv
 import pyatv.const
 import ucapi
-from pyatv.core.protocol import DispatchMessage
-
 from config import AtvDevice, AtvProtocol
 from pyatv import interface
 from pyatv.const import (
@@ -46,10 +44,16 @@ from pyatv.const import (
     RepeatState,
     ShuffleState,
 )
-from pyatv.core.facade import FacadeRemoteControl, FacadeTouchGestures, FacadeAudio
+from pyatv.core.facade import FacadeAudio, FacadeRemoteControl, FacadeTouchGestures
+from pyatv.core.protocol import DispatchMessage
 from pyatv.interface import BaseConfig, OutputDevice
 from pyatv.protocols.companion import CompanionAPI, MediaControlCommand, SystemStatus
-from pyatv.protocols.mrp import MrpRemoteControl, messages, MrpProtocol, MrpAudio, protobuf
+from pyatv.protocols.mrp import (
+    MrpAudio,
+    MrpRemoteControl,
+    messages,
+    protobuf,
+)
 from pyee.asyncio import AsyncIOEventEmitter
 
 _LOG = logging.getLogger(__name__)
@@ -59,6 +63,7 @@ BACKOFF_SEC = 2
 ARTWORK_WIDTH = 400
 ARTWORK_HEIGHT = 400
 
+# pylint: disable=too-many-lines
 
 class EVENTS(IntEnum):
     """Internal driver events."""
@@ -315,7 +320,6 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         if self.device_config.global_volume:
             self._volume_notify()
 
-
     def outputdevices_update(self, old_devices: List[OutputDevice], new_devices: List[OutputDevice]) -> None:
         """Output device change callback handler, for example airplay speaker."""
         _LOG.debug("[%s] Changed output devices to %s", self.log_id, self.output_devices)
@@ -424,9 +428,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         # TODO to be removed when PR https://github.com/postlund/pyatv/pull/2673 available
         audio_facade: FacadeAudio = cast(FacadeAudio, self._atv.audio)
         audio: MrpAudio | None = audio_facade.get(Protocol.MRP) if audio_facade else None
-        audio.protocol.listen_to(
-            protobuf.VOLUME_DID_CHANGE_MESSAGE, self.volume_update_global
-        )
+        audio.protocol.listen_to(protobuf.VOLUME_DID_CHANGE_MESSAGE, self.volume_update_global)
 
         # Reset the backoff counter
         self._connection_attempts = 0
@@ -883,8 +885,6 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                     tasks.append(audio.protocol.send(messages.set_volume(device_id, volume_level / 100.0)))
             async with asyncio.timeout(5):
                 await asyncio.gather(*tasks)
-
-
 
     @async_handle_atvlib_errors
     async def cursor_up(self) -> ucapi.StatusCodes:
