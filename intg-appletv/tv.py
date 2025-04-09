@@ -32,6 +32,8 @@ from typing import (
 import pyatv
 import pyatv.const
 import ucapi
+from pyatv.core.protocol import DispatchMessage
+
 from config import AtvDevice, AtvProtocol
 from pyatv import interface
 from pyatv.const import (
@@ -44,10 +46,10 @@ from pyatv.const import (
     RepeatState,
     ShuffleState,
 )
-from pyatv.core.facade import FacadeRemoteControl, FacadeTouchGestures
+from pyatv.core.facade import FacadeRemoteControl, FacadeTouchGestures, FacadeAudio
 from pyatv.interface import BaseConfig, OutputDevice
 from pyatv.protocols.companion import CompanionAPI, MediaControlCommand, SystemStatus
-from pyatv.protocols.mrp import MrpRemoteControl, messages
+from pyatv.protocols.mrp import MrpRemoteControl, messages, MrpProtocol, MrpAudio, protobuf
 from pyee.asyncio import AsyncIOEventEmitter
 
 _LOG = logging.getLogger(__name__)
@@ -179,6 +181,13 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         self._available_output_devices: dict[str, str] = {}
         self._output_devices: OrderedDict[str, [str]] = OrderedDict[str, [str]]()
         self._playback_state = PlaybackState.NORMAL
+        self._output_devices_volume: dict[str, float] = {}
+        self._volume_level: float = 0.0
+
+    @property
+    def device_config(self) -> AtvDevice:
+        """Return the device configuration."""
+        return self._device
 
     @property
     def identifier(self) -> str:
@@ -270,11 +279,42 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             self._atv = None
         self._start_connect_loop()
 
+    def _volume_notify(self):
+        """Calculate the average volume level of all connected devices."""
+        volume_level: float = self._volume_level
+
+        # If global volume is enabled, calculate the average volume
+        if self.device_config.global_volume:
+            volume_level += sum(list(self._output_devices_volume.values()))
+            count = len(self._output_devices_volume)
+            # Exclude main volume from calculation  if not 0 otherwise it means it cannot be set
+            if self._volume_level > 0.0:
+                count += 1
+            count = max(1, count)
+            volume_level /= count
+
+        update = {"volume": volume_level}
+        self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
+
     def volume_update(self, _old_level: float, new_level: float) -> None:
         """Volume level change callback."""
         _LOG.debug("[%s] Volume level: %d", self.log_id, new_level)
-        update = {"volume": new_level}
-        self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
+        self._volume_level = new_level
+        self._volume_notify()
+
+    # TODO this method may be replaced later with set_device_volume(self, device_uid: str, level: float)
+    async def volume_update_global(self, message: DispatchMessage) -> None:
+        """Volume level change callback for all connected devices."""
+        inner = message.inner()
+        # Skip if volume does not concern an external device
+        if inner.outputDeviceUID == self._atv.device_info.output_device_id:
+            return
+        volume = round(inner.volume * 100.0, 1)
+        _LOG.debug("[%s] Volume level for device %s : %.2f", self.log_id, inner.outputDeviceUID, volume)
+        self._output_devices_volume[inner.outputDeviceUID] = volume
+        if self.device_config.global_volume:
+            self._volume_notify()
+
 
     def outputdevices_update(self, old_devices: List[OutputDevice], new_devices: List[OutputDevice]) -> None:
         """Output device change callback handler, for example airplay speaker."""
@@ -380,6 +420,13 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         self._atv.push_updater.start()
         self._atv.listener = self
         self._atv.audio.listener = self
+
+        # TODO to be removed when PR https://github.com/postlund/pyatv/pull/2673 available
+        audio_facade: FacadeAudio = cast(FacadeAudio, self._atv.audio)
+        audio: MrpAudio | None = audio_facade.get(Protocol.MRP) if audio_facade else None
+        audio.protocol.listen_to(
+            protobuf.VOLUME_DID_CHANGE_MESSAGE, self.volume_update_global
+        )
 
         # Reset the backoff counter
         self._connection_attempts = 0
@@ -818,6 +865,28 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         await self._atv.audio.volume_down()
 
     @async_handle_atvlib_errors
+    async def volume_set(self, volume_level: float | None) -> ucapi.StatusCodes:
+        """Set volume level to all connected devices."""
+        if volume_level is None:
+            return ucapi.StatusCodes.BAD_REQUEST
+        audio_facade: FacadeAudio = cast(FacadeAudio, self._atv.audio)
+        audio: MrpAudio | None = audio_facade.get(Protocol.MRP) if audio_facade else None
+        if audio:
+            tasks: [Coroutine] = [audio.set_volume(volume_level)]
+            # If global volume is set, apply volume to all connected devices
+            if self._device.global_volume:
+                output_devices = audio.output_devices
+                output_devices_ids = [device.identifier for device in output_devices]
+                for device_id in output_devices_ids:
+                    if device_id == self._atv.device_info.output_device_id:
+                        continue
+                    tasks.append(audio.protocol.send(messages.set_volume(device_id, volume_level / 100.0)))
+            async with asyncio.timeout(5):
+                await asyncio.gather(*tasks)
+
+
+
+    @async_handle_atvlib_errors
     async def cursor_up(self) -> ucapi.StatusCodes:
         """Press key up."""
         await self._atv.remote_control.up()
@@ -955,7 +1024,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         """Generate a swipe gesture."""
         touch_facade: FacadeTouchGestures = cast(FacadeTouchGestures, self._atv.touch)
         if touch_facade.get(Protocol.Companion):
-            await cast(FacadeTouchGestures, self._atv.touch).swipe(start_x, start_y, end_x, end_y, duration_ms)
+            await touch_facade.swipe(start_x, start_y, end_x, end_y, duration_ms)
         else:
             raise pyatv.exceptions.CommandError("Touch gestures not supported")
 

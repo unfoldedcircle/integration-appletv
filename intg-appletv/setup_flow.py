@@ -352,6 +352,14 @@ async def _handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput 
                             "fr": "Adresse IP (optionnelle)",
                         },
                     },
+                    {
+                        "id": "global_volume",
+                        "label": {
+                            "en": "Change volume on all connected devices",
+                            "fr": "Régler le volume sur tous les appareils connectés",
+                        },
+                        "field": {"checkbox": {"value": True}},
+                    },
                 ],
             )
 
@@ -432,7 +440,15 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
                     "de": "Wähle deinen Apple TV",
                     "fr": "Choisissez votre Apple TV",
                 },
-            }
+            },
+            {
+                "id": "global_volume",
+                "label": {
+                    "en": "Change volume on all connected devices",
+                    "fr": "Régler le volume sur tous les appareils connectés",
+                },
+                "field": {"checkbox": {"value": True}},
+            },
         ],
     )
 
@@ -450,6 +466,7 @@ async def _handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Set
     global _setup_step
 
     choice = msg.input_values["choice"]
+    global_volume = msg.input_values.get("global_volume", "true") == "true"
 
     atv = _discovered_atv_from_identifier(choice)
     if atv is None:
@@ -473,6 +490,7 @@ async def _handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Set
             credentials=[],
             address=atv.address if _manual_address else None,
             mac_address=choice,
+            global_volume=global_volume
         ),
         loop=asyncio.get_event_loop(),
         pairing_atv=atv,
@@ -600,6 +618,7 @@ async def _handle_user_data_companion_pin(msg: UserDataResponse) -> SetupComplet
         credentials=_pairing_apple_tv.get_credentials(),
         address=_pairing_apple_tv.address,
         mac_address=_pairing_apple_tv.identifier,
+        global_volume=_pairing_apple_tv.device_config.global_volume
     )
     config.devices.add_or_update(device)  # triggers ATV instance creation
 
@@ -629,6 +648,7 @@ async def _handle_device_reconfigure(msg: UserDataResponse) -> SetupComplete | S
 
     mac_address = msg.input_values["mac_address"]
     manual_mac_address = msg.input_values["manual_mac_address"]
+    global_volume = msg.input_values.get("global_volume", "true") == "true"
 
     if mac_address == "" and manual_mac_address == "":
         _LOG.error("Mac address is mandatory, no changes applied")
@@ -642,6 +662,7 @@ async def _handle_device_reconfigure(msg: UserDataResponse) -> SetupComplete | S
     _LOG.debug("User has changed configuration")
     _reconfigured_device.mac_address = mac_address
     _reconfigured_device.address = address
+    _reconfigured_device.global_volume = global_volume
 
     config.devices.add_or_update(_reconfigured_device)  # triggers ATV instance update
 
