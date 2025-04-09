@@ -65,6 +65,7 @@ ARTWORK_HEIGHT = 400
 
 # pylint: disable=too-many-lines
 
+
 class EVENTS(IntEnum):
     """Internal driver events."""
 
