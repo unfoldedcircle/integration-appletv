@@ -10,6 +10,7 @@ import asyncio
 import logging
 import os
 import sys
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -438,6 +439,7 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
         and target_entity.attributes.get(media_player.Attributes.MEDIA_POSITION, 0) != update["position"]
     ):
         attributes[media_player.Attributes.MEDIA_POSITION] = update["position"]
+        attributes["media_position_updated_at"] = datetime.now(tz=UTC).isoformat()
     if (
         "total_time" in update
         and target_entity.attributes.get(media_player.Attributes.MEDIA_DURATION, 0) != update["total_time"]
