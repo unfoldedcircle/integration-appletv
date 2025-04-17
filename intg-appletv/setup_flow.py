@@ -204,6 +204,7 @@ async def _handle_driver_setup(msg: DriverSetupRequest) -> RequestUserInput | Se
                     "id": "configure",
                     "label": {
                         "en": "Configure selected device",
+                        "de": "Selektiertes Gerät konfigurieren",
                         "fr": "Configurer l'appareil sélectionné",
                     },
                 },
@@ -313,7 +314,14 @@ async def _handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput 
                 )
 
             dropdown_items.append(
-                {"id": "", "label": {"en": "Manual mac address (below)", "fr": "Adresse Mac manuelle (ci-dessous)"}}
+                {
+                    "id": "",
+                    "label": {
+                        "en": "Manual mac address (below)",
+                        "de": "Manuelle MAC-Adresse (unten)",
+                        "fr": "Adresse Mac manuelle (ci-dessous)",
+                    },
+                }
             )
 
             _setup_step = SetupSteps.RECONFIGURE
@@ -324,6 +332,7 @@ async def _handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput 
             return RequestUserInput(
                 {
                     "en": "Configure your Apple TV (configured mac address " + mac_address + ")",
+                    "de": "Konfiguriere dein Apple TV (konfigurierte MAC-Adresse " + mac_address + ")",
                     "fr": "Configurez votre Apple TV (addresse mac configurée " + mac_address + ")",
                 },
                 [
@@ -341,6 +350,7 @@ async def _handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput 
                         "id": "manual_mac_address",
                         "label": {
                             "en": "Manual mac address",
+                            "de": "Manuelle MAC-Adresse",
                             "fr": "Adresse Mac manuelle",
                         },
                     },
@@ -349,6 +359,7 @@ async def _handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput 
                         "id": "address",
                         "label": {
                             "en": "IP address (optional)",
+                            "de": "IP-Adresse (optional)",
                             "fr": "Adresse IP (optionnelle)",
                         },
                     },
