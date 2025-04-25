@@ -11,6 +11,9 @@ _Changes in the next release_
 
 ### Added
 - Set media player attribute "media_position_updated_at" ([feature-and-bug-tracker#443](https://github.com/unfoldedcircle/feature-and-bug-tracker/issues/443)).
+- New global volume management and setting specific volume levels.
+  - This only works for connected devices like HomePod, but not for HDMI output.
+  - This feature can be disabled in the device options. Contributed by @albaintor, thanks! ([#37](https://github.com/unfoldedcircle/integration-appletv/pull/37)).
 - Update the embedded Python runtime to 3.11.12 and upgrade common Python libraries like zeroconf and websockets.
 
 ---

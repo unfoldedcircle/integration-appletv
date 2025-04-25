@@ -224,7 +224,7 @@ async def _handle_driver_setup(msg: DriverSetupRequest) -> RequestUserInput | Se
             dropdown_devices.append({"id": "", "label": {"en": "---"}})
 
         return RequestUserInput(
-            {"en": "Configuration mode", "de": "Konfigurations-Modus"},
+            {"en": "Configuration mode", "de": "Konfigurations-Modus", "fr": "Mode de configuration"},
             [
                 {
                     "field": {"dropdown": {"value": dropdown_devices[0]["id"], "items": dropdown_devices}},
@@ -367,6 +367,7 @@ async def _handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput 
                         "id": "global_volume",
                         "label": {
                             "en": "Change volume on all connected devices",
+                            "de": "Lautstärkeregelung auf allen verbundenen Geräten",
                             "fr": "Régler le volume sur tous les appareils connectés",
                         },
                         "field": {"checkbox": {"value": True}},
@@ -456,6 +457,7 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
                 "id": "global_volume",
                 "label": {
                     "en": "Change volume on all connected devices",
+                    "de": "Lautstärkeregelung auf allen verbundenen Geräten",
                     "fr": "Régler le volume sur tous les appareils connectés",
                 },
                 "field": {"checkbox": {"value": True}},
