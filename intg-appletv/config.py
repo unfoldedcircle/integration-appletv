@@ -44,6 +44,8 @@ class AtvDevice:
     """Optional IP address of device. Disables IP discovery by identifier."""
     mac_address: str | None = None
     """Actual identifier of the device, which can change over time."""
+    global_volume: bool | None = True
+    """Change volume on all connected devices."""
 
 
 class _EnhancedJSONEncoder(json.JSONEncoder):
@@ -116,6 +118,7 @@ class Devices:
                 item.address = atv.address
                 item.name = atv.name
                 item.address = atv.address
+                item.global_volume = atv.global_volume if atv.global_volume else True
                 return self.store()
         return False
 
@@ -175,6 +178,7 @@ class Devices:
                     item.get("credentials"),
                     item.get("address"),
                     item.get("mac_address"),
+                    item.get("global_volume", True),
                 )
                 self._config.append(atv)
             return True

@@ -228,6 +228,8 @@ async def media_player_cmd_handler(
             res = await device.volume_up()
         case media_player.Commands.VOLUME_DOWN:
             res = await device.volume_down()
+        case media_player.Commands.VOLUME:
+            res = await device.volume_set(params.get("volume"))
         case media_player.Commands.MUTE_TOGGLE:
             res = await device.send_hid_key(UsagePage.CONSUMER, ConsumerControlCode.MUTE)
         case media_player.Commands.ON:
