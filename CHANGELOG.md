@@ -11,6 +11,10 @@ _Changes in the next release_
 
 ---
 
+## v0.18.1 - 2025-04-26
+### Changed
+- update ucapi to 0.3.0
+
 ## v0.18.0 - 2025-04-25
 ### Added
 - Set media player attribute "media_position_updated_at" ([feature-and-bug-tracker#443](https://github.com/unfoldedcircle/feature-and-bug-tracker/issues/443)).
