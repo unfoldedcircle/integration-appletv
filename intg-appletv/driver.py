@@ -78,6 +78,8 @@ class SimpleCommands(str, Enum):
     """Send pause command. App specific! Some treat it as play_pause."""
     PLAY_PAUSE_KEY = "PLAY_PAUSE_KEY"
     """Alternative play/pause command by sending a HID key press."""
+    CONTROL_CENTER = "CONTROL_CENTER"
+    """Open then control center."""
 
 
 @api.listens_to(ucapi.Events.CONNECT)
@@ -285,6 +287,8 @@ async def media_player_cmd_handler(
             res = await device.channel_up()
         case media_player.Commands.SELECT_SOURCE:
             res = await device.launch_app(params["source"])
+        case media_player.Commands.GUIDE:
+            res = await device.toggle_guide()
         # --- simple commands ---
         case SimpleCommands.TOP_MENU:
             res = await device.top_menu()
@@ -317,6 +321,8 @@ async def media_player_cmd_handler(
             res = await device.play()
         case SimpleCommands.PAUSE:
             res = await device.pause()
+        case SimpleCommands.CONTROL_CENTER:
+            res = await device.control_center()
 
     return res
 
@@ -580,6 +586,7 @@ def _register_available_entities(identifier: str, name: str) -> bool:
         media_player.Features.FAST_FORWARD,
         media_player.Features.SELECT_SOUND_MODE,
         media_player.Features.SEEK,
+        media_player.Features.GUIDE,
     ]
     if ENABLE_REPEAT_FEAT:
         features.append(media_player.Features.REPEAT)
@@ -619,6 +626,7 @@ def _register_available_entities(identifier: str, name: str) -> bool:
                 SimpleCommands.PLAY.value,
                 SimpleCommands.PAUSE.value,
                 SimpleCommands.PLAY_PAUSE_KEY.value,
+                SimpleCommands.CONTROL_CENTER.value,
             ]
         },
         cmd_handler=media_player_cmd_handler,

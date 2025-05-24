@@ -981,6 +981,18 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         await self._atv.remote_control.home(InputAction.DoubleTap)
 
     @async_handle_atvlib_errors
+    async def toggle_guide(self) -> ucapi.StatusCodes:
+        """Toggle the EPG."""
+        if self._is_feature_available(FeatureName.Guide):
+            await self._atv.remote_control.guide()
+
+    @async_handle_atvlib_errors
+    async def control_center(self) -> ucapi.StatusCodes:
+        """Open the Control Center.."""
+        if self._is_feature_available(FeatureName.ControlCenter):
+            await self._atv.remote_control.control_center()
+
+    @async_handle_atvlib_errors
     async def set_output_device(self, device_name: str) -> ucapi.StatusCodes:
         """Set output device selection."""
         if device_name is None:
