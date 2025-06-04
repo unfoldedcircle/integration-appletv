@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: uc-integration-apple-tv\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-06-04 14:51+0200\n"
-"PO-Revision-Date: 2025-06-03 16:09\n"
+"PO-Revision-Date: 2025-06-04 15:41\n"
 "Last-Translator: Unfolded Circle <hello@unfoldedcircle.com>\n"
 "Language-Team: German\n"
 "Language: de\n"
@@ -12,9 +12,13 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Crowdin-SourceKey: msgstr\n"
+"X-Crowdin-Project: uc-integration-apple-tv\n"
+"X-Crowdin-Project-ID: 796802\n"
+"X-Crowdin-Language: de\n"
+"X-Crowdin-File: /feat.12-i18n_gettext/intg-appletv/locales/en_US/LC_MESSAGES/intg-appletv.po\n"
+"X-Crowdin-File-ID: 106\n"
 
 #: ../driver.py:717
-#, fuzzy
 msgid "Control your Apple TV with Remote Two/3."
 msgstr "Steuere Apple TV mit Remote Two/3."
 
@@ -36,7 +40,7 @@ msgstr "Apple TV 4 und neuer werden unterstützt und das Gerät muss sich im gle
 
 #: ../setup_flow.py:79
 msgid "During the process, you need to enter multiple PINs that are shown on your Apple TV. Please make sure to set AirPlay access to _Anyone on the Same Network_ in Apple TV settings."
-msgstr "Während des Prozesses must du mehrere PINs eingeben, die auf deinem Apple TV angezeigt werden. Bitte stelle sicher, dass der AirPlay-Zugriff in den Apple TV-Einstellungen auf _Für jeden im selben Netzwerk_ eingestellt ist."
+msgstr "Während des Prozesses musst du mehrere PINs eingeben, die auf deinem Apple TV angezeigt werden. Bitte stelle sicher, dass der AirPlay-Zugriff in den Apple TV-Einstellungen auf _Für jeden im selben Netzwerk_ eingestellt ist."
 
 #. Translators: Make sure to include the support article link as Markdown. See English text
 #: ../setup_flow.py:83
@@ -81,7 +85,7 @@ msgstr "MAC-Adresse"
 
 #: ../setup_flow.py:309
 msgid "Manual MAC address"
-msgstr "Manuelle MAC-Adress"
+msgstr "Manuelle MAC-Adresse"
 
 #: ../setup_flow.py:314
 msgid "IP address (optional)"
@@ -101,7 +105,7 @@ msgstr "Bitte gib den angezeigten AirPlay-Code auf deinem Apple TV ein"
 
 #: ../setup_flow.py:458
 msgid "Apple TV AirPlay-Code"
-msgstr ""
+msgstr "Apple TV AirPlay-Code"
 
 #: ../setup_flow.py:506
 msgid "Please enter the shown PIN on your Apple TV"
@@ -109,10 +113,9 @@ msgstr "Bitte gib die angezeigte PIN auf deinem Apple TV ein"
 
 #: ../setup_flow.py:511
 msgid "Apple TV PIN"
-msgstr ""
+msgstr "Apple TV PIN"
 
 #: ../setup_flow.py:629
-#, fuzzy
 msgid "Setup mode"
 msgstr "Setup Fortschritt"
 
@@ -126,7 +129,6 @@ msgid "Leave blank to use auto-discovery and click _Next_."
 msgstr "Leer lassen, um automatische Erkennung zu verwenden und auf _Weiter_ klicken."
 
 #: ../setup_flow.py:640
-#, fuzzy
 msgid "The device must be on the same network as the remote."
 msgstr "Das Gerät muss sich im gleichen Netzwerk wie die Fernbedienung befinden."
 
@@ -137,3 +139,4 @@ msgstr "IP-Adresse (nur im gleichen Netzwerk)"
 #: ../setup_flow.py:657
 msgid "Change volume on all connected devices"
 msgstr "Lautstärkeregelung auf allen verbundenen Geräten"
+
