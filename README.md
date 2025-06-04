@@ -2,7 +2,7 @@
 
 This integration is based on the great [pyatv](https://github.com/postlund/pyatv) library and uses our
 [uc-integration-api](https://github.com/aitatoi/integration-python-library) to communicate with the Remote Two/3.
-[Crowdin translations](https://crowdin.com/project/uc-integration-appletv).
+[Crowdin translations](https://crowdin.com/project/uc-integration-apple-tv).
 
 The driver discovers Apple TV devices on the network and pairs them using AirPlay and companion protocols.
 A [media player entity](https://github.com/unfoldedcircle/core-api/blob/main/doc/entities/entity_media_player.md)
