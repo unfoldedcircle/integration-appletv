@@ -1,0 +1,142 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: uc-integration-apple-tv\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-06-04 14:51+0200\n"
+"PO-Revision-Date: 2025-06-04 13:59\n"
+"Last-Translator: Unfolded Circle <hello@unfoldedcircle.com>\n"
+"Language-Team: Hungarian\n"
+"Language: hu\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Crowdin-SourceKey: msgstr\n"
+"X-Crowdin-Project: uc-integration-apple-tv\n"
+"X-Crowdin-Project-ID: 796802\n"
+"X-Crowdin-Language: hu\n"
+"X-Crowdin-File: /feat.12-i18n_gettext/intg-appletv/locales/en_US/LC_MESSAGES/intg-appletv.po\n"
+"X-Crowdin-File-ID: 106\n"
+
+#: ../driver.py:717
+msgid "Control your Apple TV with Remote Two/3."
+msgstr "Control your Apple TV with Remote Two/3."
+
+#: ../setup_flow.py:64
+msgid "Integration setup"
+msgstr "Integration setup"
+
+#: ../setup_flow.py:68
+msgid "Setup proces"
+msgstr "Setup mode"
+
+#: ../setup_flow.py:72
+msgid "The integration will discover your Apple TV on your network."
+msgstr "The integration will discover your Apple TV on your network."
+
+#: ../setup_flow.py:75
+msgid "Apple TV 4 and newer are supported and the device must be on the same network as the remote."
+msgstr "Apple TV 4 and newer are supported and the device must be on the same network as the Remote."
+
+#: ../setup_flow.py:79
+msgid "During the process, you need to enter multiple PINs that are shown on your Apple TV. Please make sure to set AirPlay access to _Anyone on the Same Network_ in Apple TV settings."
+msgstr "During the process, you need to enter multiple PINs that are shown on your Apple TV. Please make sure to set AirPlay access to _Anyone on the Same Network_ in Apple TV settings."
+
+#. Translators: Make sure to include the support article link as Markdown. See English text
+#: ../setup_flow.py:83
+msgid "Please see our support article for requirements, features and restrictions."
+msgstr "Please see our [support article](https://support.unfoldedcircle.com/hc/en-us/articles/19479576638620) for requirements, features and restrictions."
+
+#: ../setup_flow.py:176
+msgid "Add a new device"
+msgstr "Add a new device"
+
+#: ../setup_flow.py:185
+msgid "Delete selected device"
+msgstr "Delete selected device"
+
+#: ../setup_flow.py:191
+msgid "Configure selected device"
+msgstr "Configure selected device"
+
+#: ../setup_flow.py:197
+msgid "Reset configuration and reconfigure"
+msgstr "Reset configuration and reconfigure"
+
+#: ../setup_flow.py:205
+msgid "Configuration mode"
+msgstr "Configuration mode"
+
+#: ../setup_flow.py:210
+msgid "Configured devices"
+msgstr "Configured devices"
+
+#: ../setup_flow.py:215
+msgid "Action"
+msgstr "Action"
+
+#: ../setup_flow.py:289
+msgid "Manual MAC address (below)"
+msgstr "Manual MAC address (below)"
+
+#: ../setup_flow.py:304
+msgid "MAC address"
+msgstr "MAC address"
+
+#: ../setup_flow.py:309
+msgid "Manual MAC address"
+msgstr "Manual MAC address"
+
+#: ../setup_flow.py:314
+msgid "IP address (optional)"
+msgstr "IP address (optional)"
+
+#: ../setup_flow.py:386
+msgid "Please choose your Apple TV"
+msgstr "Please choose your Apple TV"
+
+#: ../setup_flow.py:391
+msgid "Choose your Apple TV"
+msgstr "Choose your Apple TV"
+
+#: ../setup_flow.py:453
+msgid "Please enter the shown AirPlay-Code on your Apple TV"
+msgstr "Please enter the shown AirPlay-Code on your Apple TV"
+
+#: ../setup_flow.py:458
+msgid "Apple TV AirPlay-Code"
+msgstr "Apple TV AirPlay-Code"
+
+#: ../setup_flow.py:506
+msgid "Please enter the shown PIN on your Apple TV"
+msgstr "Please enter the shown PIN on your Apple TV"
+
+#: ../setup_flow.py:511
+msgid "Apple TV PIN"
+msgstr "Apple TV PIN"
+
+#: ../setup_flow.py:629
+msgid "Setup mode"
+msgstr "Setup mode"
+
+#: ../setup_flow.py:633
+msgid "Discover or connect to Apple TV device"
+msgstr "Discover or connect to Apple TV device"
+
+#. Translators: Markdown can be used for formatting
+#: ../setup_flow.py:638
+msgid "Leave blank to use auto-discovery and click _Next_."
+msgstr "Leave blank to use auto-discovery and click _Next_."
+
+#: ../setup_flow.py:640
+msgid "The device must be on the same network as the remote."
+msgstr "The device must be on the same network as the Remote."
+
+#: ../setup_flow.py:647
+msgid "IP address (same network only)"
+msgstr "IP address (same network only)"
+
+#: ../setup_flow.py:657
+msgid "Change volume on all connected devices"
+msgstr "Change volume on all connected devices"
+
