@@ -16,6 +16,7 @@ import discover
 import pyatv
 import tv
 from config import AtvDevice, AtvProtocol
+from i18n import __, _a, _af, _am
 from ucapi import (
     AbortDriverSetup,
     DriverSetupRequest,
@@ -47,51 +48,45 @@ class SetupSteps(IntEnum):
 _setup_step = SetupSteps.INIT
 _cfg_add_device: bool = False
 _manual_address: bool = False
-_discovered_atvs: list[pyatv.interface.BaseConfig] = None
+_discovered_atvs: list[pyatv.interface.BaseConfig] | None = None
 _pairing_apple_tv: tv.AppleTv | None = None
 _reconfigured_device: AtvDevice | None = None
-# TODO #12 externalize language texts
-# pylint: disable=line-too-long
-_user_input_discovery = RequestUserInput(
-    {"en": "Setup mode", "de": "Setup Modus"},
-    [
-        {
-            "id": "info",
-            "label": {
-                "en": "Discover or connect to Apple TV device",
-                "de": "Suche oder Verbinde auf Apple TV Gerät",
-                "fr": "Découvrir ou connexion à l'appareil Apple TV",
-            },
-            "field": {
-                "label": {
-                    "value": {
-                        "en": (
-                            "Leave blank to use auto-discovery and click _Next_."
-                            "The device must be on the same network as the remote."
-                        ),
-                        "de": (
-                            "Leer lassen, um automatische Erkennung zu verwenden und auf _Weiter_ klicken."
-                            "Das Gerät muss sich im gleichen Netzwerk wie die Fernbedienung befinden."
-                        ),
-                        "fr": (
-                            "Laissez le champ vide pour utiliser la découverte automatique et cliquez sur _Suivant_."
-                            "L'appareil doit être sur le même réseau que la télécommande"
-                        ),
+
+
+def setup_data_schema():
+    """
+    Get the JSON setup data structure for the driver.json file.
+
+    :return: ``setup_data_schema`` json object
+    """
+    # pylint: disable=line-too-long
+    return {
+        "title": _a("Integration setup"),
+        "settings": [
+            {
+                "id": "info",
+                "label": _a("Setup proces"),
+                "field": {
+                    "label": {
+                        "value": _am(
+                            __("The integration will discover your Apple TV on your network."),
+                            "\n",
+                            __(
+                                "Apple TV 4 and newer are supported and the device must be on the same network as the remote."
+                            ),
+                            "\n",
+                            __(
+                                "During the process, you need to enter multiple PINs that are shown on your Apple TV. Please make sure to set AirPlay access to _Anyone on the Same Network_ in Apple TV settings."
+                            ),
+                            "\n\n",
+                            # Translators: Make sure to include the support article link as Markdown. See English text
+                            __("Please see our support article for requirements, features and restrictions."),
+                        )
                     }
-                }
-            },
-        },
-        {
-            "field": {"text": {"value": ""}},
-            "id": "address",
-            "label": {
-                "en": "IP address (same network only)",
-                "de": "IP-Adresse (nur im gleichen Netzwerk)",
-                "fr": "Adresse IP (seulement dans le même réseau)",
-            },
-        },
-    ],
-)
+                },
+            }
+        ],
+    }
 
 
 async def driver_setup_handler(msg: SetupDriver) -> SetupAction:  # pylint: disable=too-many-return-statements
@@ -174,16 +169,11 @@ async def _handle_driver_setup(msg: DriverSetupRequest) -> RequestUserInput | Se
         for device in config.devices.all():
             dropdown_devices.append({"id": device.identifier, "label": {"en": f"{device.name} ({device.identifier})"}})
 
-        # TODO #12 externalize language texts
         # build user actions, based on available devices
         dropdown_actions = [
             {
                 "id": "add",
-                "label": {
-                    "en": "Add a new device",
-                    "de": "Neues Gerät hinzufügen",
-                    "fr": "Ajouter un nouvel appareil",
-                },
+                "label": _a("Add a new device"),
             },
         ]
 
@@ -192,31 +182,19 @@ async def _handle_driver_setup(msg: DriverSetupRequest) -> RequestUserInput | Se
             dropdown_actions.append(
                 {
                     "id": "remove",
-                    "label": {
-                        "en": "Delete selected device",
-                        "de": "Selektiertes Gerät löschen",
-                        "fr": "Supprimer l'appareil sélectionné",
-                    },
+                    "label": _a("Delete selected device"),
                 },
             )
             dropdown_actions.append(
                 {
                     "id": "configure",
-                    "label": {
-                        "en": "Configure selected device",
-                        "de": "Selektiertes Gerät konfigurieren",
-                        "fr": "Configurer l'appareil sélectionné",
-                    },
+                    "label": _a("Configure selected device"),
                 },
             )
             dropdown_actions.append(
                 {
                     "id": "reset",
-                    "label": {
-                        "en": "Reset configuration and reconfigure",
-                        "de": "Konfiguration zurücksetzen und neu konfigurieren",
-                        "fr": "Réinitialiser la configuration et reconfigurer",
-                    },
+                    "label": _a("Reset configuration and reconfigure"),
                 },
             )
         else:
@@ -224,25 +202,17 @@ async def _handle_driver_setup(msg: DriverSetupRequest) -> RequestUserInput | Se
             dropdown_devices.append({"id": "", "label": {"en": "---"}})
 
         return RequestUserInput(
-            {"en": "Configuration mode", "de": "Konfigurations-Modus", "fr": "Mode de configuration"},
+            _a("Configuration mode"),
             [
                 {
                     "field": {"dropdown": {"value": dropdown_devices[0]["id"], "items": dropdown_devices}},
                     "id": "choice",
-                    "label": {
-                        "en": "Configured devices",
-                        "de": "Konfigurierte Geräte",
-                        "fr": "Appareils configurés",
-                    },
+                    "label": _a("Configured devices"),
                 },
                 {
                     "field": {"dropdown": {"value": dropdown_actions[0]["id"], "items": dropdown_actions}},
                     "id": "action",
-                    "label": {
-                        "en": "Action",
-                        "de": "Aktion",
-                        "fr": "Appareils configurés",
-                    },
+                    "label": _a("Action"),
                 },
             ],
         )
@@ -250,7 +220,7 @@ async def _handle_driver_setup(msg: DriverSetupRequest) -> RequestUserInput | Se
     # Initial setup, make sure we have a clean configuration
     config.devices.clear()  # triggers device instance removal
     _setup_step = SetupSteps.DISCOVER
-    return _user_input_discovery
+    return __user_input_discovery()
 
 
 async def _handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput | SetupComplete | SetupError:
@@ -295,7 +265,7 @@ async def _handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput 
             discovered_atvs = await discover.apple_tvs(asyncio.get_event_loop())
             dropdown_items = []
 
-            # Found mac address/idenfitier of selected AppleTV upon detection
+            # Found mac address/identifier of selected AppleTV upon detection
             found_selected_device_id = ""
             for discovered_atv in discovered_atvs:
                 # List of detected AppleTVs : exclude already configured ones except the one the user selected
@@ -316,11 +286,7 @@ async def _handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput 
             dropdown_items.append(
                 {
                     "id": "",
-                    "label": {
-                        "en": "Manual mac address (below)",
-                        "de": "Manuelle MAC-Adresse (unten)",
-                        "fr": "Adresse Mac manuelle (ci-dessous)",
-                    },
+                    "label": _a("Manual MAC address (below)"),
                 }
             )
 
@@ -330,48 +296,24 @@ async def _handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput 
             address = selected_device.address if selected_device.address else ""
 
             return RequestUserInput(
-                {
-                    "en": "Configure your Apple TV (configured mac address " + mac_address + ")",
-                    "de": "Konfiguriere dein Apple TV (konfigurierte MAC-Adresse " + mac_address + ")",
-                    "fr": "Configurez votre Apple TV (addresse mac configurée " + mac_address + ")",
-                },
+                _af("Configure your Apple TV (configured mac address {mac_address})", mac_address=mac_address),
                 [
                     {
                         "field": {"dropdown": {"value": found_selected_device_id, "items": dropdown_items}},
                         "id": "mac_address",
-                        "label": {
-                            "en": "Mac address",
-                            "de": "Mac-Adresse",
-                            "fr": "Adresse Mac",
-                        },
+                        "label": _a("MAC address"),
                     },
                     {
                         "field": {"text": {"value": mac_address}},
                         "id": "manual_mac_address",
-                        "label": {
-                            "en": "Manual mac address",
-                            "de": "Manuelle MAC-Adresse",
-                            "fr": "Adresse Mac manuelle",
-                        },
+                        "label": _a("Manual MAC address"),
                     },
                     {
                         "field": {"text": {"value": address}},
                         "id": "address",
-                        "label": {
-                            "en": "IP address (optional)",
-                            "de": "IP-Adresse (optional)",
-                            "fr": "Adresse IP (optionnelle)",
-                        },
+                        "label": _a("IP address (optional)"),
                     },
-                    {
-                        "id": "global_volume",
-                        "label": {
-                            "en": "Change volume on all connected devices",
-                            "de": "Lautstärkeregelung auf allen verbundenen Geräten",
-                            "fr": "Régler le volume sur tous les appareils connectés",
-                        },
-                        "field": {"checkbox": {"value": True}},
-                    },
+                    __global_volume(True),
                 ],
             )
 
@@ -382,7 +324,7 @@ async def _handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput 
             return SetupError(error_type=IntegrationSetupError.OTHER)
 
     _setup_step = SetupSteps.DISCOVER
-    return _user_input_discovery
+    return __user_input_discovery()
 
 
 async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupError:
@@ -440,33 +382,20 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
         return SetupError(error_type=IntegrationSetupError.NOT_FOUND)
 
     _setup_step = SetupSteps.DEVICE_CHOICE
-    # TODO #12 externalize language texts
     return RequestUserInput(
-        {"en": "Please choose your Apple TV", "de": "Bitte wähle deinen Apple TV", "fr": "Choisissez votre Apple TV"},
+        _a("Please choose your Apple TV"),
         [
             {
                 "field": {"dropdown": {"value": dropdown_items[0]["id"], "items": dropdown_items}},
                 "id": "choice",
-                "label": {
-                    "en": "Choose your Apple TV",
-                    "de": "Wähle deinen Apple TV",
-                    "fr": "Choisissez votre Apple TV",
-                },
+                "label": _a("Choose your Apple TV"),
             },
-            {
-                "id": "global_volume",
-                "label": {
-                    "en": "Change volume on all connected devices",
-                    "de": "Lautstärkeregelung auf allen verbundenen Geräten",
-                    "fr": "Régler le volume sur tous les appareils connectés",
-                },
-                "field": {"checkbox": {"value": True}},
-            },
+            __global_volume(True),
         ],
     )
 
 
-async def _handle_device_choice(msg: UserDataResponse) -> RequestUserInput | SetupError:
+async def _handle_device_choice(msg: UserDataResponse) -> RequestUserInput | RequestUserConfirmation | SetupError:
     """
     Process user data device choice response in a setup process.
 
@@ -520,27 +449,24 @@ async def _handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Set
     if res == 0:
         _LOG.debug("Device provides AirPlay-Code")
         _setup_step = SetupSteps.PAIRING_AIRPLAY
-        # TODO #12 externalize language texts
         return RequestUserInput(
-            {
-                "en": "Please enter the shown AirPlay-Code on your Apple TV",
-                "de": "Bitte gib die angezeigte AirPlay-Code auf deinem Apple TV ein",
-                "fr": "Veuillez entrer le code AirPlay affiché sur votre Apple TV",
-            },
+            _a("Please enter the shown AirPlay-Code on your Apple TV"),
             [
                 {
                     "field": {"number": {"max": 9999, "min": 0, "value": 0000}},
                     "id": "pin_airplay",
-                    "label": {"en": "Apple TV AirPlay-Code"},
+                    "label": _a("Apple TV AirPlay-Code"),
                 }
             ],
         )
 
     _LOG.debug("We provide AirPlay-Code")
-    return RequestUserConfirmation("Please enter the following PIN on your Apple TV: " + res)
+    return RequestUserConfirmation(_af("Please enter the following AirPlay-Code on your Apple TV: {pin}", pin=res))
 
 
-async def _handle_user_data_airplay_pin(msg: UserDataResponse) -> RequestUserInput | SetupError:
+async def _handle_user_data_airplay_pin(
+    msg: UserDataResponse,
+) -> RequestUserInput | RequestUserConfirmation | SetupError:
     """
     Process user data airplay pairing pin response in a setup process.
 
@@ -576,24 +502,19 @@ async def _handle_user_data_airplay_pin(msg: UserDataResponse) -> RequestUserInp
     if res == 0:
         _LOG.debug("Device provides PIN")
         _setup_step = SetupSteps.PAIRING_COMPANION
-        # TODO #12 externalize language texts
         return RequestUserInput(
-            {
-                "en": "Please enter the shown PIN on your Apple TV",
-                "de": "Bitte gib die angezeigte PIN auf deinem Apple TV ein",
-                "fr": "Veuillez entrer le code PIN affiché sur votre Apple TV",
-            },
+            _a("Please enter the shown PIN on your Apple TV"),
             [
                 {
                     "field": {"number": {"max": 9999, "min": 0, "value": 0000}},
                     "id": "pin_companion",
-                    "label": {"en": "Apple TV PIN"},
+                    "label": _a("Apple TV PIN"),
                 }
             ],
         )
 
     _LOG.debug("We provide companion PIN")
-    return RequestUserConfirmation("Please enter the following PIN on your Apple TV: " + res)
+    return RequestUserConfirmation(_af("Please enter the following companion PIN on your Apple TV: {pin}", pin=res))
 
 
 async def _handle_user_data_companion_pin(msg: UserDataResponse) -> SetupComplete | SetupError:
@@ -664,7 +585,7 @@ async def _handle_device_reconfigure(msg: UserDataResponse) -> SetupComplete | S
     global_volume = msg.input_values.get("global_volume", "true") == "true"
 
     if mac_address == "" and manual_mac_address == "":
-        _LOG.error("Mac address is mandatory, no changes applied")
+        _LOG.error("MAC address is mandatory, no changes applied")
         return SetupError()
     address = msg.input_values["address"]
     if address == "":
@@ -697,7 +618,44 @@ def _discovered_atv_from_identifier(identifier: str) -> pyatv.interface.BaseConf
     :param identifier: ATV identifier
     :return: Device configuration if found, None otherwise
     """
+    if _discovered_atvs is None:
+        return None
     for atv in _discovered_atvs:
         if atv.identifier == identifier:
             return atv
     return None
+
+
+def __user_input_discovery():
+    return RequestUserInput(
+        _a("Setup mode"),
+        [
+            {
+                "id": "info",
+                "label": _a("Discover or connect to Apple TV device"),
+                "field": {
+                    "label": {
+                        "value": _am(
+                            # Translators: Markdown can be used for formatting
+                            __("Leave blank to use auto-discovery and click _Next_."),
+                            "\n\n",
+                            __("The device must be on the same network as the remote."),
+                        )
+                    }
+                },
+            },
+            {
+                "id": "address",
+                "label": _a("IP address (same network only)"),
+                "field": {"text": {"value": ""}},
+            },
+        ],
+    )
+
+
+def __global_volume(enabled: bool):
+    return {
+        "id": "global_volume",
+        "label": _a("Change volume on all connected devices"),
+        "field": {"checkbox": {"value": enabled}},
+    }

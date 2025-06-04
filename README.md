@@ -2,6 +2,7 @@
 
 This integration is based on the great [pyatv](https://github.com/postlund/pyatv) library and uses our
 [uc-integration-api](https://github.com/aitatoi/integration-python-library) to communicate with the Remote Two/3.
+[Crowdin translations](https://crowdin.com/project/uc-integration-appletv).
 
 The driver discovers Apple TV devices on the network and pairs them using AirPlay and companion protocols.
 A [media player entity](https://github.com/unfoldedcircle/core-api/blob/main/doc/entities/entity_media_player.md)
@@ -39,7 +40,7 @@ Supported commands:
 
 Please note:
 - Certain commands like channel up & down are app dependant and don't work with every app!
-- Media information and artwork are not provided by every app.
+- Not every app provides media information and artwork.
 
 ## Requirements
 
@@ -77,6 +78,18 @@ issue in the library with all the required information to reproduce it.
   (using a [virtual environment](https://docs.python.org/3/library/venv.html) is highly recommended)
 ```shell
 pip3 install -r requirements.txt
+```
+
+- The integration is runnable without updating the language files or compiling the .po files!  
+  If a language file is missing, the language key is used which in most cases is identical to the English language text.
+- Optional: compile gettext translation files:
+  - This requires `msgfmt` from the GNU gettext utilities.
+  - See [docs/i18n.md](docs/i18n.md) for more information.
+  - Helper Makefile:
+  
+```shell
+cd intg-appletv/locales
+make all
 ```
 
 For running a separate integration driver on your network for Remote Two/3, the configuration in file
@@ -132,7 +145,8 @@ docker run --rm --name builder \
     docker.io/unfoldedcircle/r2-pyinstaller:3.11.12  \
     bash -c \
       "python -m pip install -r requirements.txt && \
-      pyinstaller --clean --onedir --name intg-appletv --collect-all zeroconf intg-appletv/driver.py"
+      pyinstaller --clean --onedir --name intg-appletv \
+        --add-data intg-appletv/locales:locales --collect-all zeroconf intg-appletv/driver.py"
 ```
 
 ### aarch64 Linux / Mac
@@ -145,7 +159,8 @@ docker run --rm --name builder \
     docker.io/unfoldedcircle/r2-pyinstaller:3.11.12  \
     bash -c \
       "python -m pip install -r requirements.txt && \
-      pyinstaller --clean --onedir --name intg-appletv --collect-all zeroconf intg-appletv/driver.py"
+      pyinstaller --clean --onedir --name intg-appletv \
+        --add-data intg-appletv/locales:locales --collect-all zeroconf intg-appletv/driver.py"
 ```
 
 ## Versioning

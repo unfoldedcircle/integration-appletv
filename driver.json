@@ -1,13 +1,11 @@
 {
 	"driver_id": "appletv",
 	"version": "0.18.1",
-	"min_core_api": "0.7.0",
+	"min_core_api": "0.7.1",
 	"name": { "en": "Apple TV" },
 	"icon": "uc:integration",
 	"description": {
-		"en": "Control your Apple TV with Remote Two/3.",
-		"de": "Steuere Apple TV mit Remote Two/3.",
-		"fr": "Contrôler votre Apple TV avec Remote Two/3."
+		"_comment": "set at runtime"
 	},
 	"developer": {
 		"name": "Unfolded Circle ApS",
@@ -16,30 +14,7 @@
 	},
 	"home_page": "https://www.unfoldedcircle.com",
 	"setup_data_schema": {
-		"title": {
-			"en": "Integration setup",
-			"de": "Integrationssetup",
-			"fr": "Configuration de l'intégration"
-		},
-		"settings": [
-			{
-				"id": "info",
-				"label": {
-					"en": "Setup process",
-					"de": "Setup Fortschritt",
-					"fr": "Progression de la configuration"
-				},
-				"field": {
-					"label": {
-						"value": {
-							"en": "The integration will discover your Apple TV on your network. Apple TV 4 and newer are supported and the device must be on the same network as the remote. During the process, you need to enter multiple PINs that are shown on your Apple TV. Please make sure to set AirPlay access to _Anyone on the Same Network_ in Apple TV settings.\n\nPlease see our [support article](https://support.unfoldedcircle.com/hc/en-us/articles/19479576638620) for requirements, features and restrictions.",
-							"de": "Die Integration wird dein Apple TV in deinem Netzwerk erkennen. Apple TV 4 und neuer werden unterstützt und das Gerät muss sich im gleichen Netzwerk wie die Fernbedienung befinden. Während des Prozesses must du mehrere PINs eingeben, die auf deinem Apple TV angezeigt werden. Bitte stelle sicher, dass der AirPlay-Zugriff in den Apple TV-Einstellungen auf _Für jeden im selben Netzwerk_ eingestellt ist.\n\nBitte beachte unseren [Support-Artikel](https://support.unfoldedcircle.com/hc/en-us/articles/19479576638620) zu Anforderungen, unterstützten Funktionen und Einschränkungen.",
-							"fr": "L'intégration découvrira votre Apple TV sur votre réseau. Apple TV 4 et plus récentes sont prises en charge et l'appareil doit être sur le même réseau que la télécommande. Au cours du processus, vous devez saisir plusieurs codes PIN qui s'affichent sur votre Apple TV. Veillez à ce que l'accès AirPlay soit réglé sur _Toute personne sur le même réseau_ dans les réglages de l'Apple TV.\n\nVeuillez consulter [l’article de support](https://support.unfoldedcircle.com/hc/en-us/articles/19479576638620) pour connaître les exigences, les fonctionnalités prises en charge et les restrictions."
-						}
-					}
-				}
-			}
-		]
+		"_comment": "set at runtime"
 	},
 	"release_date": "2025-04-26"
 }

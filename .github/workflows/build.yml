@@ -10,6 +10,8 @@ on:
     tags:
       - v[0-9]+.[0-9]+.[0-9]+*
   pull_request:
+    branches:
+      - main
     types: [ opened, synchronize, reopened ]
 
 env:
@@ -43,9 +45,15 @@ jobs:
             exit 1
           fi
 
-      - name: Build
+      - name: Compile language files
         run: |
-          sudo apt-get update && sudo apt-get install -y qemu-system-arm binfmt-support qemu-user-static
+          sudo apt-get update && sudo apt-get install -y gettext
+          cd intg-appletv/locales
+          make all
+
+      - name: Pyinstaller
+        run: |
+          sudo apt-get install -y qemu-system-arm binfmt-support qemu-user-static
           docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
           echo "Starting pyinstaller build"
           docker run --rm --name builder \
@@ -56,7 +64,10 @@ jobs:
             bash -c \
             "cd /workspace && \
               python -m pip install -r requirements.txt && \
-              pyinstaller --clean --onedir --name intg-appletv --collect-all zeroconf intg-appletv/driver.py"
+              pyinstaller --clean --onedir --name intg-appletv --add-data intg-appletv/locales:locales --collect-all zeroconf intg-appletv/driver.py"
+          echo "Clean up locales"
+          cd dist/intg-appletv/_internal/locales
+          rm -Rf *.pot Makefile README.md */LC_MESSAGES/*.po
 
       - name: Add version
         run: |
