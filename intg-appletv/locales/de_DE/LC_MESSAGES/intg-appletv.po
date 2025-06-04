@@ -1,9 +1,9 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: uc-integration-appletv\n"
+"Project-Id-Version: uc-integration-apple-tv\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-06-04 14:51+0200\n"
-"PO-Revision-Date: 2025-06-03 16:09\n"
+"PO-Revision-Date: 2025-06-04 13:59\n"
 "Last-Translator: Unfolded Circle <hello@unfoldedcircle.com>\n"
 "Language-Team: German\n"
 "Language: de\n"
@@ -12,11 +12,15 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Crowdin-SourceKey: msgstr\n"
+"X-Crowdin-Project: uc-integration-apple-tv\n"
+"X-Crowdin-Project-ID: 796802\n"
+"X-Crowdin-Language: de\n"
+"X-Crowdin-File: /feat.12-i18n_gettext/intg-appletv/locales/en_US/LC_MESSAGES/intg-appletv.po\n"
+"X-Crowdin-File-ID: 106\n"
 
 #: ../driver.py:717
-#, fuzzy
 msgid "Control your Apple TV with Remote Two/3."
-msgstr "Steuere Apple TV mit Remote Two/3."
+msgstr "Control your Apple TV with Remote Two/3."
 
 #: ../setup_flow.py:64
 msgid "Integration setup"
@@ -101,7 +105,7 @@ msgstr "Bitte gib den angezeigten AirPlay-Code auf deinem Apple TV ein"
 
 #: ../setup_flow.py:458
 msgid "Apple TV AirPlay-Code"
-msgstr ""
+msgstr "Apple TV AirPlay-Code"
 
 #: ../setup_flow.py:506
 msgid "Please enter the shown PIN on your Apple TV"
@@ -109,10 +113,9 @@ msgstr "Bitte gib die angezeigte PIN auf deinem Apple TV ein"
 
 #: ../setup_flow.py:511
 msgid "Apple TV PIN"
-msgstr ""
+msgstr "Apple TV PIN"
 
 #: ../setup_flow.py:629
-#, fuzzy
 msgid "Setup mode"
 msgstr "Setup Fortschritt"
 
@@ -126,9 +129,8 @@ msgid "Leave blank to use auto-discovery and click _Next_."
 msgstr "Leer lassen, um automatische Erkennung zu verwenden und auf _Weiter_ klicken."
 
 #: ../setup_flow.py:640
-#, fuzzy
 msgid "The device must be on the same network as the remote."
-msgstr "Das Gerät muss sich im gleichen Netzwerk wie die Fernbedienung befinden."
+msgstr "The device must be on the same network as the Remote."
 
 #: ../setup_flow.py:647
 msgid "IP address (same network only)"
@@ -137,3 +139,4 @@ msgstr "IP-Adresse (nur im gleichen Netzwerk)"
 #: ../setup_flow.py:657
 msgid "Change volume on all connected devices"
 msgstr "Lautstärkeregelung auf allen verbundenen Geräten"
+
