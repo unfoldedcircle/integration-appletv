@@ -28,8 +28,8 @@ msgstr "Integration setup"
 
 #: ../setup_flow.py:68
 #, fuzzy
-msgid "Setup proces"
-msgstr "Setup mode"
+msgid "Setup process"
+msgstr "Setup process"
 
 #: ../setup_flow.py:72
 msgid "The integration will discover your Apple TV on your network."
