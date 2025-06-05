@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: uc-integration-apple-tv\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-06-04 14:51+0200\n"
-"PO-Revision-Date: 2025-06-04 15:41\n"
+"PO-Revision-Date: 2025-06-05 15:09\n"
 "Last-Translator: Unfolded Circle <hello@unfoldedcircle.com>\n"
 "Language-Team: German\n"
 "Language: de\n"
@@ -27,8 +27,8 @@ msgid "Integration setup"
 msgstr "Integrationssetup"
 
 #: ../setup_flow.py:68
-msgid "Setup proces"
-msgstr "Setup Fortschritt"
+msgid "Setup process"
+msgstr "Setup process"
 
 #: ../setup_flow.py:72
 msgid "The integration will discover your Apple TV on your network."
