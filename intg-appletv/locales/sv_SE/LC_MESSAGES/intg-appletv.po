@@ -5,138 +5,138 @@ msgstr ""
 "POT-Creation-Date: 2025-06-04 14:51+0200\n"
 "PO-Revision-Date: 2025-06-05 16:42\n"
 "Last-Translator: Unfolded Circle <hello@unfoldedcircle.com>\n"
-"Language-Team: French\n"
-"Language: fr\n"
+"Language-Team: Swedish\n"
+"Language: sv\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Crowdin-SourceKey: msgstr\n"
 "X-Crowdin-Project: uc-integration-apple-tv\n"
 "X-Crowdin-Project-ID: 796802\n"
-"X-Crowdin-Language: fr\n"
+"X-Crowdin-Language: sv-SE\n"
 "X-Crowdin-File: /feat.12-i18n_gettext/intg-appletv/locales/en_US/LC_MESSAGES/intg-appletv.po\n"
 "X-Crowdin-File-ID: 106\n"
 
 #: ../driver.py:717
 msgid "Control your Apple TV with Remote Two/3."
-msgstr "Contrôler votre Apple TV avec Remote Two/3."
+msgstr "Styr din Apple TV med Remote Two/3."
 
 #: ../setup_flow.py:64
 msgid "Integration setup"
-msgstr "Configuration de l'intégration"
+msgstr "Integrationskonfigurering"
 
 #: ../setup_flow.py:68
 msgid "Setup process"
-msgstr "Progression de la configuration"
+msgstr "Konfigureringsprocess"
 
 #: ../setup_flow.py:72
 msgid "The integration will discover your Apple TV on your network."
-msgstr "L'intégration découvrira votre Apple TV sur votre réseau."
+msgstr "Integrationen kommer att upptäcka din Apple TV på ditt nätverket."
 
 #: ../setup_flow.py:75
 msgid "Apple TV 4 and newer are supported and the device must be on the same network as the remote."
-msgstr "Apple TV 4 et plus récentes sont prises en charge et l'appareil doit être sur le même réseau que la télécommande."
+msgstr "Apple TV 4 och nyare modeller stöds. Enheten måste vara på samma nätverk som fjärrkontrollen."
 
 #: ../setup_flow.py:79
 msgid "During the process, you need to enter multiple PINs that are shown on your Apple TV. Please make sure to set AirPlay access to _Anyone on the Same Network_ in Apple TV settings."
-msgstr "Au cours du processus, vous devez saisir plusieurs codes PIN qui s'affichent sur votre Apple TV. Veillez à ce que l'accès AirPlay soit réglé sur _Toute personne sur le même réseau_ dans les réglages de l'Apple TV."
+msgstr "Du kommer behöva skriva in flera PIN-koder under processen. Vänligen säkerställ att åtkomst för AirPlay är satt till _Alla på samma nätverk__ under inställningarna på din Apple TV."
 
 #. Translators: Make sure to include the support article link as Markdown. See English text
 #: ../setup_flow.py:83
 msgid "Please see our support article for requirements, features and restrictions."
-msgstr "Veuillez consulter [l’article de support](https://support.unfoldedcircle.com/hc/en-us/articles/19479576638620) pour connaître les exigences, les fonctionnalités prises en charge et les restrictions."
+msgstr "Vänligen se vår [supportartikel](https://support.unfoldedcircle.com/hc/en-us/articles/19479576638620) för tekniska krav, stödda funktioner och begränsningar."
 
 #: ../setup_flow.py:176
 msgid "Add a new device"
-msgstr "Ajouter un nouvel appareil"
+msgstr "Lägg till ny enhet"
 
 #: ../setup_flow.py:185
 msgid "Delete selected device"
-msgstr "Supprimer l'appareil sélectionné"
+msgstr "Ta bort vald enhet"
 
 #: ../setup_flow.py:191
 msgid "Configure selected device"
-msgstr "Configurer l'appareil sélectionné"
+msgstr "Konfigurera vald enhet"
 
 #: ../setup_flow.py:197
 msgid "Reset configuration and reconfigure"
-msgstr "Réinitialiser la configuration et reconfigurer"
+msgstr "Återställ konfiguration och konfigurera igen"
 
 #: ../setup_flow.py:205
 msgid "Configuration mode"
-msgstr "Mode de configuration"
+msgstr "Konfigurationssätt"
 
 #: ../setup_flow.py:210
 msgid "Configured devices"
-msgstr "Appareils configurés"
+msgstr "Konfigurerade enheter"
 
 #: ../setup_flow.py:215
 msgid "Action"
-msgstr "Action"
+msgstr "Åtgärd"
 
 #: ../setup_flow.py:289
 msgid "Manual MAC address (below)"
-msgstr "Adresse MAC manuelle (ci-dessous)"
+msgstr "Manuell MAC-adress (nedan)"
 
 #: ../setup_flow.py:304
 msgid "MAC address"
-msgstr "Adresse MAC"
+msgstr "MAC-adress"
 
 #: ../setup_flow.py:309
 msgid "Manual MAC address"
-msgstr "Adresse MAC manuelle"
+msgstr "Manuell MAC-adress"
 
 #: ../setup_flow.py:314
 msgid "IP address (optional)"
-msgstr "Adresse IP (optionnelle)"
+msgstr "IP-adress (valfritt)"
 
 #: ../setup_flow.py:386
 msgid "Please choose your Apple TV"
-msgstr "Choisissez votre Apple TV"
+msgstr "Vänligen välj din Apple TV"
 
 #: ../setup_flow.py:391
 msgid "Choose your Apple TV"
-msgstr "Choisissez votre Apple TV"
+msgstr "Välj din Apple TV"
 
 #: ../setup_flow.py:453
 msgid "Please enter the shown AirPlay-Code on your Apple TV"
-msgstr "Veuillez entrer le code AirPlay affiché sur votre Apple TV"
+msgstr "Vänligen ange AirPlay-koden som visas på din Apple TV"
 
 #: ../setup_flow.py:458
 msgid "Apple TV AirPlay-Code"
-msgstr "Code AirPlay de l'Apple TV"
+msgstr "Apple TV AirPlay-kod"
 
 #: ../setup_flow.py:506
 msgid "Please enter the shown PIN on your Apple TV"
-msgstr "Veuillez entrer le code PIN affiché sur votre Apple TV"
+msgstr "Vänligen ange PIN-koden som visas på din Apple TV"
 
 #: ../setup_flow.py:511
 msgid "Apple TV PIN"
-msgstr "Code PIN de l'Apple TV"
+msgstr "Apple TV PIN"
 
 #: ../setup_flow.py:629
 msgid "Setup mode"
-msgstr "Progression de la configuration"
+msgstr "Konfigureringsprocess"
 
 #: ../setup_flow.py:633
 msgid "Discover or connect to Apple TV device"
-msgstr "Découvrir ou connexion à l'appareil Apple TV"
+msgstr "Upptäck eller anslut till Apple TV-enhet"
 
 #. Translators: Markdown can be used for formatting
 #: ../setup_flow.py:638
 msgid "Leave blank to use auto-discovery and click _Next_."
-msgstr "Laissez le champ vide pour utiliser la découverte automatique et cliquez sur _Suivant_."
+msgstr "Lämna tomt för att hitta automatiskt och klicka på _Nästa_."
 
 #: ../setup_flow.py:640
 msgid "The device must be on the same network as the remote."
-msgstr "L'appareil doit être sur le même réseau que la télécommande."
+msgstr "Enheten måste vara på samma nätverk som fjärrkontrollen."
 
 #: ../setup_flow.py:647
 msgid "IP address (same network only)"
-msgstr "Adresse IP (seulement dans le même réseau)"
+msgstr "IP-adress (endast samma nätverk)"
 
 #: ../setup_flow.py:657
 msgid "Change volume on all connected devices"
-msgstr "Régler le volume sur tous les appareils connectés"
+msgstr "Styr volymen på alla anslutna enheter"
 
