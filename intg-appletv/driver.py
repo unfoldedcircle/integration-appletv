@@ -285,6 +285,8 @@ async def media_player_cmd_handler(
             res = await device.channel_up()
         case media_player.Commands.SELECT_SOURCE:
             res = await device.launch_app(params["source"])
+        case media_player.Commands.GUIDE:
+            res = await device.toggle_guide()
         # --- simple commands ---
         case SimpleCommands.TOP_MENU:
             res = await device.top_menu()
@@ -580,6 +582,7 @@ def _register_available_entities(identifier: str, name: str) -> bool:
         media_player.Features.FAST_FORWARD,
         media_player.Features.SELECT_SOUND_MODE,
         media_player.Features.SEEK,
+        media_player.Features.GUIDE,
     ]
     if ENABLE_REPEAT_FEAT:
         features.append(media_player.Features.REPEAT)
