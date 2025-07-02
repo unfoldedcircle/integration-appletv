@@ -47,7 +47,12 @@ from pyatv.const import (
 from pyatv.core.facade import FacadeAudio, FacadeRemoteControl, FacadeTouchGestures
 from pyatv.core.protocol import DispatchMessage
 from pyatv.interface import BaseConfig, OutputDevice
-from pyatv.protocols.companion import CompanionAPI, MediaControlCommand, SystemStatus
+from pyatv.protocols.companion import (
+    CompanionAPI,
+    HidCommand,
+    MediaControlCommand,
+    SystemStatus,
+)
 from pyatv.protocols.mrp import (
     MrpAudio,
     MrpRemoteControl,
@@ -979,6 +984,14 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
     async def app_switcher(self) -> ucapi.StatusCodes:
         """Press the TV/Control Center button two times to open the App Switcher."""
         await self._atv.remote_control.home(InputAction.DoubleTap)
+
+    @async_handle_atvlib_errors
+    async def toggle_guide(self) -> ucapi.StatusCodes:
+        """Toggle the EPG."""
+        companion = cast(FacadeRemoteControl, self._atv.remote_control).get(Protocol.Companion)
+        if companion:
+            # pylint: disable=W0212
+            await companion._press_button(HidCommand.Guide)
 
     @async_handle_atvlib_errors
     async def set_output_device(self, device_name: str) -> ucapi.StatusCodes:
