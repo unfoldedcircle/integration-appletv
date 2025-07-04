@@ -501,7 +501,7 @@ async def _handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Set
             identifier=choice,
             name=atv.name,
             credentials=[],
-            address=atv.address if _manual_address else None,
+            address=str(atv.address) if _manual_address else None,
             mac_address=choice,
             global_volume=global_volume,
         ),
