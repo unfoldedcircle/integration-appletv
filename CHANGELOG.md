@@ -11,6 +11,13 @@ _Changes in the next release_
 
 ---
 
+## v0.18.2 - 2025-07-04
+### Added
+- Add support for EPG/Guide. Contributed by @henrikwidlund, thanks! ([#45](https://github.com/unfoldedcircle/integration-appletv/pull/45)).
+
+### Fixed
+- Sporadic media image replacements.
+
 ## v0.18.1 - 2025-04-26
 ### Changed
 - update ucapi to 0.3.0
