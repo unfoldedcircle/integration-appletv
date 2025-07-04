@@ -12,7 +12,17 @@ _Changes in the next release_
 ### Changed
 - Externalize language strings for translations with Crowdin ([#12](https://github.com/unfoldedcircle/integration-appletv/issues/12)))
 
+### Fixed
+- Setup flow fails when using manual IP address ([#48](https://github.com/unfoldedcircle/integration-appletv/issues/48)).
+
 ---
+
+## v0.18.2 - 2025-07-04
+### Added
+- Add support for EPG/Guide. Contributed by @henrikwidlund, thanks! ([#45](https://github.com/unfoldedcircle/integration-appletv/pull/45)).
+
+### Fixed
+- Sporadic media image replacements.
 
 ## v0.18.1 - 2025-04-26
 ### Changed
