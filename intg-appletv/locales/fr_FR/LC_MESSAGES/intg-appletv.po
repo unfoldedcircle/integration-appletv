@@ -22,7 +22,7 @@ msgid "Integration setup"
 msgstr "Configuration de l'intégration"
 
 #: ../setup_flow.py:68
-msgid "Setup proces"
+msgid "Setup process"
 msgstr "Progression de la configuration"
 
 #: ../setup_flow.py:72
