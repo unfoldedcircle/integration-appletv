@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: uc-integration-apple-tv\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-06-04 14:51+0200\n"
-"PO-Revision-Date: 2025-07-04 22:41\n"
+"PO-Revision-Date: 2025-07-05 14:27\n"
 "Last-Translator: Unfolded Circle <hello@unfoldedcircle.com>\n"
 "Language-Team: Spanish\n"
 "Language: es\n"
@@ -15,12 +15,12 @@ msgstr ""
 "X-Crowdin-Project: uc-integration-apple-tv\n"
 "X-Crowdin-Project-ID: 796802\n"
 "X-Crowdin-Language: es-ES\n"
-"X-Crowdin-File: /feat.12-i18n_gettext/intg-appletv/locales/en_US/LC_MESSAGES/intg-appletv.po\n"
-"X-Crowdin-File-ID: 106\n"
+"X-Crowdin-File: /main/intg-appletv/locales/en_US/LC_MESSAGES/intg-appletv.po\n"
+"X-Crowdin-File-ID: 130\n"
 
 #: ../driver.py:717
 msgid "Control your Apple TV with Remote Two/3."
-msgstr "Control your Apple TV with Remote Two/3."
+msgstr "Controla tu Apple TV con el Remote Two/3."
 
 #: ../setup_flow.py:64
 msgid "Integration setup"
@@ -36,7 +36,7 @@ msgstr "La integración detectará tu Apple TV en tu red."
 
 #: ../setup_flow.py:75
 msgid "Apple TV 4 and newer are supported and the device must be on the same network as the remote."
-msgstr "Apple TV 4 and newer are supported and the device must be on the same network as the Remote."
+msgstr "Apple TV 4 y más recientes son compatibles y debe estar en la misma red que el mando a distancia."
 
 #: ../setup_flow.py:79
 msgid "During the process, you need to enter multiple PINs that are shown on your Apple TV. Please make sure to set AirPlay access to _Anyone on the Same Network_ in Apple TV settings."
@@ -85,7 +85,7 @@ msgstr "MAC adress"
 
 #: ../setup_flow.py:309
 msgid "Manual MAC address"
-msgstr "Manual MAC address"
+msgstr "Direccion MAC manual"
 
 #: ../setup_flow.py:314
 msgid "IP address (optional)"
@@ -130,7 +130,7 @@ msgstr "Deje en blanco para usar auto-discovery y haga click en _Siguiente_."
 
 #: ../setup_flow.py:640
 msgid "The device must be on the same network as the remote."
-msgstr "The device must be on the same network as the Remote."
+msgstr "El dispositivo debe estar en la misma red que el mando a distancia."
 
 #: ../setup_flow.py:647
 msgid "IP address (same network only)"
