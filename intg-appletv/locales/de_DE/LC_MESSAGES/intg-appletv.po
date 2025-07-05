@@ -139,4 +139,3 @@ msgstr "IP-Adresse (nur im gleichen Netzwerk)"
 #: ../setup_flow.py:657
 msgid "Change volume on all connected devices"
 msgstr "Lautstärkeregelung auf allen verbundenen Geräten"
-

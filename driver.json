@@ -1,6 +1,6 @@
 {
 	"driver_id": "appletv",
-	"version": "0.18.1",
+	"version": "0.18.2",
 	"min_core_api": "0.7.1",
 	"name": { "en": "Apple TV" },
 	"icon": "uc:integration",
@@ -16,5 +16,5 @@
 	"setup_data_schema": {
 		"_comment": "set at runtime"
 	},
-	"release_date": "2025-04-26"
+	"release_date": "2025-07-04"
 }
