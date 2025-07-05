@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: uc-integration-apple-tv\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-06-04 14:51+0200\n"
-"PO-Revision-Date: 2025-07-05 12:49\n"
+"PO-Revision-Date: 2025-07-05 14:27\n"
 "Last-Translator: Unfolded Circle <hello@unfoldedcircle.com>\n"
 "Language-Team: Dutch\n"
 "Language: nl\n"
@@ -36,7 +36,7 @@ msgstr "De integratie zal je Apple TV op je netwerk ontdekken."
 
 #: ../setup_flow.py:75
 msgid "Apple TV 4 and newer are supported and the device must be on the same network as the remote."
-msgstr "Apple TV 4 and newer are supported and the device must be on the same network as the Remote."
+msgstr "Apple TV 4 en nieuwere modellen worden ondersteund. Het apparaat moet op hetzelfde netwerk aangesloten zijn als de afstandsbediening."
 
 #: ../setup_flow.py:79
 msgid "During the process, you need to enter multiple PINs that are shown on your Apple TV. Please make sure to set AirPlay access to _Anyone on the Same Network_ in Apple TV settings."
@@ -130,7 +130,7 @@ msgstr "Laat dit veld leeg om auto-discovery te gebruiken en klik _Volgende_."
 
 #: ../setup_flow.py:640
 msgid "The device must be on the same network as the remote."
-msgstr "The device must be on the same network as the Remote."
+msgstr "Het apparaat moet op hetzelfde netwerk aangesloten zijn als de afstandsbediening."
 
 #: ../setup_flow.py:647
 msgid "IP address (same network only)"
