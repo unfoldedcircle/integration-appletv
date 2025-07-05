@@ -11,6 +11,7 @@ _Changes in the next release_
 
 ### Changed
 - Externalize language strings for translations with Crowdin ([#12](https://github.com/unfoldedcircle/integration-appletv/issues/12)))
+- Add Dutch, Spanish and Swedish translations.
 
 ### Fixed
 - Setup flow fails when using manual IP address ([#48](https://github.com/unfoldedcircle/integration-appletv/issues/48)).

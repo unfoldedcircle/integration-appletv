@@ -1,4 +1,4 @@
-LOCALES = de_DE fr_FR en_US
+LOCALES = de_DE en_US es_ES fr_FR nl_NL sv_SE
 PO_FILES = $(foreach loc,$(LOCALES),$(loc)/LC_MESSAGES/intg-appletv.po)
 MO_FILES = $(PO_FILES:.po=.mo)
 
