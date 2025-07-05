@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Changes in the next release_
 
+### Changed
+- Externalize language strings for translations with Crowdin ([#12](https://github.com/unfoldedcircle/integration-appletv/issues/12)))
+
 ### Fixed
 - Setup flow fails when using manual IP address ([#48](https://github.com/unfoldedcircle/integration-appletv/issues/48)).
 

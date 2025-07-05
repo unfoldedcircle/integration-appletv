@@ -29,6 +29,7 @@ import ucapi
 import ucapi.api as uc
 from hid import UsagePage
 from hid.consumer_control_code import ConsumerControlCode
+from i18n import _a
 from ucapi import MediaPlayer, media_player
 
 _LOG = logging.getLogger("driver")  # avoid having __main__ in log messages
@@ -715,6 +716,9 @@ async def main():
         _register_available_entities(device.identifier, device.name)
 
     await api.init("driver.json", setup_flow.driver_setup_handler)
+    # temporary hack to change driver.json language texts until supported by the wrapper lib
+    api._driver_info["description"] = _a("Control your Apple TV with Remote Two/3.")  # pylint: disable=W0212
+    api._driver_info["setup_data_schema"] = setup_flow.setup_data_schema()  # pylint: disable=W0212
 
 
 if __name__ == "__main__":
