@@ -21,6 +21,9 @@ env:
   # Python version to use in the builder image. See https://hub.docker.com/r/unfoldedcircle/r2-pyinstaller for possible versions.
   PYTHON_VER: 3.11.12-0.3.0
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -180,7 +183,7 @@ jobs:
 
       # Use conventional commit changelog, and append the GitHub generated changelog
       - name: Create Pre-Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v2.3.2
         if: "!contains(github.ref, 'tags/v')"
         with:
           prerelease: true
