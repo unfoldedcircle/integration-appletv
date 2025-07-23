@@ -9,14 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Changes in the next release_
 
-### Changed
-- Externalize language strings for translations with Crowdin ([#12](https://github.com/unfoldedcircle/integration-appletv/issues/12)))
-- Add Dutch, Spanish and Swedish translations.
+---
 
+## v0.19.0 - 2025-07-23
 ### Fixed
 - Setup flow fails when using manual IP address ([#48](https://github.com/unfoldedcircle/integration-appletv/issues/48)).
 
----
+### Changed
+- Externalize language strings for translations with Crowdin ([#12](https://github.com/unfoldedcircle/integration-appletv/issues/12))).
+  - Add Dutch, Spanish and Swedish translations.
+- Update pyatv library to 0.16.1 that should fix connection issues with tvOS 18.4+ ([#53](https://github.com/unfoldedcircle/integration-appletv/pull/53)).
 
 ## v0.18.2 - 2025-07-04
 ### Added
