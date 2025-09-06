@@ -29,7 +29,7 @@ class AppleTvRemote(Remote):
         super().__init__(
             create_entity_id(entity_id, EntityTypes.REMOTE),
             f"{name} Remote",
-            [Features.SEND_CMD, Features.ON_OFF],
+            [Features.SEND_CMD, Features.ON_OFF, Features.TOGGLE],
             attributes={
                 Attributes.STATE: ucapi.remote.States.UNAVAILABLE,
             },
@@ -86,10 +86,8 @@ class AppleTvRemote(Remote):
         # pylint: disable=R0911,R0912
         # Import here to avoid circular import
         match cmd_id:
-            case Commands.ON:
-                return await media_player_cmd_handler(self._media_player, media_player.Commands.ON, None)
-            case Commands.OFF:
-                return await media_player_cmd_handler(self._media_player, media_player.Commands.OFF, None)
+            case Commands.ON | Commands.OFF | Commands.TOGGLE:
+                return await media_player_cmd_handler(self._media_player, cmd_id, None)
 
         if cmd_id.startswith("remote."):
             _LOG.error("Command %s is not allowed.", cmd_id)
@@ -187,50 +185,6 @@ class AppleTvRemote(Remote):
         if isinstance(value, str) and len(value) > 0:
             return int(float(value))
         return default
-
-    @staticmethod
-    def get_media_player_command(cmd_id: str) -> str:
-        """Map remote command to media player command."""
-        # pylint: disable=R0911
-        match cmd_id:
-            case Buttons.BACK:
-                return media_player.Commands.BACK
-            case Buttons.HOME:
-                return media_player.Commands.HOME
-            case Buttons.VOLUME_UP:
-                return media_player.Commands.VOLUME_UP
-            case Buttons.VOLUME_DOWN:
-                return media_player.Commands.VOLUME_DOWN
-            case Buttons.MUTE:
-                return media_player.Commands.MUTE_TOGGLE
-            case Buttons.DPAD_UP:
-                return media_player.Commands.CURSOR_UP
-            case Buttons.DPAD_DOWN:
-                return media_player.Commands.CURSOR_DOWN
-            case Buttons.DPAD_LEFT:
-                return media_player.Commands.CURSOR_LEFT
-            case Buttons.DPAD_RIGHT:
-                return media_player.Commands.CURSOR_RIGHT
-            case Buttons.DPAD_MIDDLE:
-                return media_player.Commands.CURSOR_ENTER
-            case Buttons.CHANNEL_UP:
-                return media_player.Commands.CHANNEL_UP
-            case Buttons.CHANNEL_DOWN:
-                return media_player.Commands.CHANNEL_DOWN
-            case Buttons.PREV:
-                return media_player.Commands.PREVIOUS
-            case Buttons.PLAY:
-                return media_player.Commands.PLAY_PAUSE
-            case Buttons.NEXT:
-                return media_player.Commands.NEXT
-            # pylint: disable=R0801
-            case "MENU":
-                return media_player.Commands.MENU
-            # pylint: disable=R0801
-            case "STOP":
-                return media_player.Commands.STOP
-            case _:
-                return cmd_id
 
     @staticmethod
     def _get_main_page():

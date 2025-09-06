@@ -10,6 +10,7 @@ import asyncio
 import logging
 from typing import Any
 
+from pyatv.const import PowerState
 import tv
 import ucapi
 from globals import _configured_atvs, api
@@ -54,13 +55,14 @@ async def media_player_cmd_handler(
 
     # TODO #15 implement proper fix for correct entity OFF state (it may not remain in OFF state if connection is
     #  established) + online check if we think it is in standby mode.
-    if state == media_player.States.OFF and cmd_id != media_player.Commands.OFF:
+    if state == media_player.States.OFF and not (cmd_id is media_player.Commands.OFF or media_player.Commands.TOGGLE):
         _LOG.debug("Device is off, sending turn on command")
         # quick & dirty workaround for #15: the entity state is not always correct!
         res = await device.turn_on()
         if res != ucapi.StatusCodes.OK:
             return res
 
+    # TODO: This seems wrong, why not use self._atv.power.power_state == PowerState.On?
     # Only proceed if device connection is established
     if device.is_on is False:
         return ucapi.StatusCodes.SERVICE_UNAVAILABLE
@@ -94,6 +96,11 @@ async def media_player_cmd_handler(
             res = await device.turn_on()
         case media_player.Commands.OFF:
             res = await device.turn_off()
+        case media_player.Commands.TOGGLE:
+            if device._atv.power.power_state == PowerState.On:
+                res = await device.turn_off()
+            else:
+                res = await device.turn_on()
         case media_player.Commands.CURSOR_UP:
             res = await device.cursor_up()
         case media_player.Commands.CURSOR_DOWN:
