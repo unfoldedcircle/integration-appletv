@@ -10,12 +10,12 @@ import asyncio
 import logging
 from typing import Any
 
-from pyatv.const import PowerState
 import tv
 import ucapi
 from globals import _configured_atvs, api
 from hid import UsagePage
 from hid.consumer_control_code import ConsumerControlCode
+from pyatv.const import PowerState
 from simple_commands import SimpleCommands
 from ucapi import MediaPlayer, media_player
 
