@@ -53,6 +53,7 @@ class AppleTvRemote(Remote):
                 # pylint: disable=R0801
                 "MENU",
                 "STOP",
+                "GUIDE",
                 SimpleCommands.TOP_MENU.value,
                 SimpleCommands.APP_SWITCHER.value,
                 SimpleCommands.SCREENSAVER.value,
