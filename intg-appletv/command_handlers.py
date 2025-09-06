@@ -97,6 +97,7 @@ async def media_player_cmd_handler(
         case media_player.Commands.OFF:
             res = await device.turn_off()
         case media_player.Commands.TOGGLE:
+            # pylint: disable=W0212
             if device._atv.power.power_state == PowerState.On:
                 res = await device.turn_off()
             else:
