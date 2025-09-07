@@ -501,7 +501,12 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
         attributes[media_player.Attributes.SHUFFLE] = update["shuffle"]
 
     if media_player.Attributes.STATE in attributes:
-        if attributes[media_player.Attributes.STATE] == media_player.States.OFF:
+        # not playing anymore, clear the playback information
+        if attributes[media_player.Attributes.STATE] in [
+            media_player.States.OFF,
+            media_player.States.UNAVAILABLE,
+            media_player.States.ON,
+        ]:
             attributes[media_player.Attributes.MEDIA_IMAGE_URL] = ""
             attributes[media_player.Attributes.MEDIA_ALBUM] = ""
             attributes[media_player.Attributes.MEDIA_ARTIST] = ""
