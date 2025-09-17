@@ -146,7 +146,7 @@ docker run --rm --name builder \
     --platform=aarch64 \
     --user=$(id -u):$(id -g) \
     -v "$PWD":/workspace \
-    docker.io/unfoldedcircle/r2-pyinstaller:3.11.12  \
+    docker.io/unfoldedcircle/r2-pyinstaller:3.11.13  \
     bash -c \
       "python -m pip install -r requirements.txt && \
       pyinstaller --clean --onedir --name intg-appletv \
@@ -160,7 +160,7 @@ On an aarch64 host platform, the build image can be run directly (and much faste
 docker run --rm --name builder \
     --user=$(id -u):$(id -g) \
     -v "$PWD":/workspace \
-    docker.io/unfoldedcircle/r2-pyinstaller:3.11.12  \
+    docker.io/unfoldedcircle/r2-pyinstaller:3.11.13  \
     bash -c \
       "python -m pip install -r requirements.txt && \
       pyinstaller --clean --onedir --name intg-appletv \
