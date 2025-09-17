@@ -136,7 +136,7 @@ The `--onefile` option to create a one-file bundled executable should be avoided
 
 On x86-64 Linux we need Qemu to emulate the aarch64 target platform:
 ```bash
-sudo apt install qemu binfmt-support qemu-user-static
+sudo apt install qemu-system-arm binfmt-support qemu-user-static
 docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 ```
 
