@@ -266,7 +266,10 @@ async def media_player_cmd_handler(
 
             # we wait a bit to get a push update, because music can play in the background
             await asyncio.sleep(1)
-            if configured_entity.attributes[media_player.Attributes.STATE] != media_player.States.PLAYING:
+            if configured_entity.attributes[media_player.Attributes.STATE] not in [
+                media_player.States.PLAYING,
+                media_player.States.PAUSED,
+            ]:
                 # if nothing is playing: clear the playing information
                 attributes = {
                     media_player.Attributes.MEDIA_IMAGE_URL: "",
@@ -444,7 +447,7 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
         and target_entity.attributes.get(media_player.Attributes.MEDIA_POSITION, 0) != update["position"]
     ):
         attributes[media_player.Attributes.MEDIA_POSITION] = update["position"]
-        attributes["media_position_updated_at"] = datetime.now(tz=UTC).isoformat()
+        attributes[media_player.Attributes.MEDIA_POSITION_UPDATED_AT] = datetime.now(tz=UTC).isoformat()
     if (
         "total_time" in update
         and target_entity.attributes.get(media_player.Attributes.MEDIA_DURATION, 0) != update["total_time"]
@@ -513,7 +516,9 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
             attributes[media_player.Attributes.MEDIA_TITLE] = ""
             attributes[media_player.Attributes.MEDIA_TYPE] = ""
             attributes[media_player.Attributes.SOURCE] = ""
-            attributes[media_player.Attributes.MEDIA_DURATION] = 0
+            attributes[media_player.Attributes.MEDIA_POSITION] = None
+            attributes[media_player.Attributes.MEDIA_DURATION] = None
+            attributes[media_player.Attributes.MEDIA_POSITION_UPDATED_AT] = datetime.now(UTC).isoformat()
 
     if attributes:
         if api.configured_entities.contains(entity_id):
@@ -604,8 +609,8 @@ def _register_available_entities(identifier: str, name: str) -> bool:
             media_player.Attributes.VOLUME: 0,
             # TODO(#34) is there a way to find out if the device is muted?
             # media_player.Attributes.MUTED: False,
-            media_player.Attributes.MEDIA_DURATION: 0,
-            media_player.Attributes.MEDIA_POSITION: 0,
+            media_player.Attributes.MEDIA_DURATION: None,
+            media_player.Attributes.MEDIA_POSITION: None,
             media_player.Attributes.MEDIA_IMAGE_URL: "",
             media_player.Attributes.MEDIA_TITLE: "",
             media_player.Attributes.MEDIA_ARTIST: "",
