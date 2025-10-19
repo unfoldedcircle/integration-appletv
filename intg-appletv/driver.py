@@ -266,10 +266,15 @@ async def media_player_cmd_handler(
 
             # we wait a bit to get a push update, because music can play in the background
             await asyncio.sleep(1)
-            if configured_entity.attributes[media_player.Attributes.STATE] not in [
-                media_player.States.PLAYING,
-                media_player.States.PAUSED,
-            ]:
+            if (
+                (attribute_state := configured_entity.attributes[media_player.Attributes.STATE])
+                and attribute_state
+                and attribute_state
+                not in [
+                    media_player.States.PLAYING,
+                    media_player.States.PAUSED,
+                ]
+            ):
                 # if nothing is playing: clear the playing information
                 attributes = {
                     media_player.Attributes.MEDIA_IMAGE_URL: "",
@@ -425,6 +430,7 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
     :param entity_id: ATV media-player entity identifier
     :param update: dictionary containing the updated properties or None
     """
+    _LOG.info("Updating entity: %s, update: %s", entity_id, update)
     attributes = {}
 
     # FIXME temporary workaround until ucapi has been refactored:
@@ -503,22 +509,19 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
     if ENABLE_SHUFFLE_FEAT and "shuffle" in update:
         attributes[media_player.Attributes.SHUFFLE] = update["shuffle"]
 
-    if media_player.Attributes.STATE in attributes:
-        # not playing anymore, clear the playback information
-        if attributes[media_player.Attributes.STATE] in [
-            media_player.States.OFF,
-            media_player.States.UNAVAILABLE,
-            media_player.States.ON,
-        ]:
-            attributes[media_player.Attributes.MEDIA_IMAGE_URL] = ""
-            attributes[media_player.Attributes.MEDIA_ALBUM] = ""
-            attributes[media_player.Attributes.MEDIA_ARTIST] = ""
-            attributes[media_player.Attributes.MEDIA_TITLE] = ""
-            attributes[media_player.Attributes.MEDIA_TYPE] = ""
-            attributes[media_player.Attributes.SOURCE] = ""
-            attributes[media_player.Attributes.MEDIA_POSITION] = None
-            attributes[media_player.Attributes.MEDIA_DURATION] = None
-            attributes[media_player.Attributes.MEDIA_POSITION_UPDATED_AT] = datetime.now(UTC).isoformat()
+    # not playing anymore, clear the playback information
+    if media_player.Attributes.STATE in attributes and attributes[media_player.Attributes.STATE] not in [
+        media_player.States.PLAYING,
+        media_player.States.PAUSED,
+        media_player.States.BUFFERING,
+    ]:
+        attributes[media_player.Attributes.MEDIA_IMAGE_URL] = ""
+        attributes[media_player.Attributes.MEDIA_ALBUM] = ""
+        attributes[media_player.Attributes.MEDIA_ARTIST] = ""
+        attributes[media_player.Attributes.MEDIA_TITLE] = ""
+        attributes[media_player.Attributes.MEDIA_TYPE] = ""
+        attributes[media_player.Attributes.SOURCE] = ""
+        attributes[media_player.Attributes.MEDIA_DURATION] = 0
 
     if attributes:
         if api.configured_entities.contains(entity_id):
