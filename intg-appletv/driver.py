@@ -267,16 +267,7 @@ async def media_player_cmd_handler(
 
             # we wait a bit to get a push update, because music can play in the background
             await asyncio.sleep(1)
-            if (
-                (attribute_state := configured_entity.attributes[media_player.Attributes.STATE])
-                and attribute_state
-                and attribute_state
-                not in [
-                    media_player.States.PLAYING,
-                    media_player.States.PAUSED,
-                    media_player.States.BUFFERING,
-                ]
-            ):
+            if configured_entity.attributes[media_player.Attributes.STATE] != media_player.States.PLAYING:
                 # if nothing is playing: clear the playing information
                 attributes = {
                     media_player.Attributes.MEDIA_IMAGE_URL: "",
