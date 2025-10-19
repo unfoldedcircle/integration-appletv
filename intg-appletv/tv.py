@@ -563,25 +563,9 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             update["repeat"] = "OFF"
             update["shuffle"] = False
         else:
-            if self._state == DeviceState.Playing:
-                try:
-                    artwork = await self._atv.metadata.artwork(width=ARTWORK_WIDTH, height=ARTWORK_HEIGHT)
-                    if artwork:
-                        artwork_encoded = "data:image/png;base64," + base64.b64encode(artwork.bytes).decode("utf-8")
-                        update["artwork"] = artwork_encoded
-                except Exception as err:  # pylint: disable=broad-exception-caught
-                    _LOG.warning("[%s] Error while updating the artwork: %s", self.log_id, err)
+            await self.process_artwork(update)
 
-            if data.title is not None:
-                # TODO filter out non-printable characters, for example all emojis
-                # workaround for Plex DVR
-                if data.title.startswith("(null):"):
-                    title = data.title.removeprefix("(null):").strip()
-                else:
-                    title = data.title
-                update["title"] = title
-            else:
-                update["title"] = ""
+            await self.cleanup_data(data, update)
 
             update["artist"] = data.artist if data.artist else ""
             update["album"] = data.album if data.album else ""
@@ -601,7 +585,23 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             if data.shuffle is not None:
                 update["shuffle"] = data.shuffle != ShuffleState.Off
 
+        if self._is_feature_available(FeatureName.App) and self._atv.metadata.app.name:
+            update["source"] = self._atv.metadata.app.name
+
         self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
+
+    @staticmethod
+    async def cleanup_data(data: pyatv.interface.Playing, update: dict[Any, Any]):
+        if data.title is not None:
+            # TODO filter out non-printable characters, for example all emojis
+            # workaround for Plex DVR
+            if data.title.startswith("(null):"):
+                title = data.title.removeprefix("(null):").strip()
+            else:
+                title = data.title
+            update["title"] = title
+        else:
+            update["title"] = ""
 
     async def _update_app_list(self) -> None:
         _LOG.debug("[%s] Updating app list", self.log_id)
@@ -699,28 +699,43 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             if self._is_feature_available(FeatureName.App) and self._atv.metadata.app.name:
                 update["source"] = self._atv.metadata.app.name
 
-            if playing := await self._atv.metadata.playing():
-                _LOG.debug("[%s] Playing: %s", self.log_id, playing)
-                update["position"] = playing.position if playing.position else 0
-                update["total_time"] = playing.total_time if playing.total_time else 0
-                update["title"] = playing.title if playing.title else ""
-                update["artist"] = playing.artist if playing.artist else ""
-                update["album"] = playing.album if playing.album else ""
-                update["media_type"] = playing.media_type if playing.media_type else ""
-                match playing.repeat:
+            if data := await self._atv.metadata.playing():
+                _LOG.debug("[%s] Playing: %s", self.log_id, data)
+                update["position"] = data.position if data.position else 0
+                update["total_time"] = data.total_time if data.total_time else 0
+                update["title"] = data.title if data.title else ""
+                update["artist"] = data.artist if data.artist else ""
+                update["album"] = data.album if data.album else ""
+                update["media_type"] = data.media_type if data.media_type else ""
+                match data.repeat:
                     case RepeatState.Off:
                         update["repeat"] = "OFF"
                     case RepeatState.All:
                         update["repeat"] = "ALL"
                     case RepeatState.Track:
                         update["repeat"] = "ONE"
-                update["shuffle"] = playing.shuffle != ShuffleState.Off
-                update["state"] = playing.device_state if playing.device_state else update["state"]
+                update["shuffle"] = data.shuffle != ShuffleState.Off
+                update["state"] = data.device_state
+                self._state = data.device_state
+
+                await self.process_artwork(update)
+
+                await self.cleanup_data(data, update)
 
             if update:
                 self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
             await asyncio.sleep(self._poll_interval)
+
+    async def process_artwork(self, update: dict[Any, Any]):
+        if self._state == DeviceState.Playing:
+            try:
+                artwork = await self._atv.metadata.artwork(width=ARTWORK_WIDTH, height=ARTWORK_HEIGHT)
+                if artwork:
+                    artwork_encoded = "data:image/png;base64," + base64.b64encode(artwork.bytes).decode("utf-8")
+                    update["artwork"] = artwork_encoded
+            except Exception as err:  # pylint: disable=broad-exception-caught
+                _LOG.warning("[%s] Error while updating the artwork: %s", self.log_id, err)
 
     def _is_feature_available(self, feature: FeatureName) -> bool:
         if self._atv:

@@ -512,7 +512,7 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
         attributes[media_player.Attributes.SHUFFLE] = update["shuffle"]
 
     # state unknown or not playing anymore, clear the playback information
-    if state and state not in [
+    if not state or state not in [
         media_player.States.PLAYING,
         media_player.States.PAUSED,
         media_player.States.BUFFERING,
