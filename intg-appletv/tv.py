@@ -565,7 +565,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         else:
             await self.process_artwork(update)
 
-            await self.cleanup_data(data, update)
+            await self._cleanup_data(data, update)
 
             update["artist"] = data.artist if data.artist else ""
             update["album"] = data.album if data.album else ""
@@ -591,7 +591,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
     @staticmethod
-    async def cleanup_data(data: pyatv.interface.Playing, update: dict[Any, Any]):
+    async def _cleanup_data(data: pyatv.interface.Playing, update: dict[Any, Any]):
         if data.title is not None:
             # TODO filter out non-printable characters, for example all emojis
             # workaround for Plex DVR
@@ -720,7 +720,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
                 await self.process_artwork(update)
 
-                await self.cleanup_data(data, update)
+                await self._cleanup_data(data, update)
 
             if update:
                 self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
