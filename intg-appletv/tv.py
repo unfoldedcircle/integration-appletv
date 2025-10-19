@@ -698,16 +698,17 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
             if self._is_feature_available(FeatureName.App) and self._atv.metadata.app.name:
                 update["source"] = self._atv.metadata.app.name
-                if playing := await self._atv.metadata.playing():
-                    update["position"] = playing.position if playing.position else 0
-                    update["total_time"] = playing.total_time if playing.total_time else 0
-                    update["title"] = playing.title if playing.title else ""
-                    update["artist"] = playing.artist if playing.artist else ""
-                    update["album"] = playing.album if playing.album else ""
-                    update["media_type"] = playing.media_type if playing.media_type else ""
-                    update["repeat"] = playing.repeat
-                    update["shuffle"] = playing.shuffle != ShuffleState.Off
-                    update["device_state"] = playing.device_state
+
+            if playing := await self._atv.metadata.playing():
+                update["position"] = playing.position if playing.position else 0
+                update["total_time"] = playing.total_time if playing.total_time else 0
+                update["title"] = playing.title if playing.title else ""
+                update["artist"] = playing.artist if playing.artist else ""
+                update["album"] = playing.album if playing.album else ""
+                update["media_type"] = playing.media_type if playing.media_type else ""
+                update["repeat"] = playing.repeat
+                update["shuffle"] = playing.shuffle != ShuffleState.Off
+                update["device_state"] = playing.device_state
 
             if update:
                 self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
