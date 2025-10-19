@@ -599,7 +599,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                         update["repeat"] = "ONE"
 
             if data.shuffle is not None:
-                update["shuffle"] = data.shuffle in (ShuffleState.Albums, ShuffleState.Songs)
+                update["shuffle"] = data.shuffle != ShuffleState.Off
 
         self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
@@ -707,9 +707,15 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                 update["artist"] = playing.artist if playing.artist else ""
                 update["album"] = playing.album if playing.album else ""
                 update["media_type"] = playing.media_type if playing.media_type else ""
-                update["repeat"] = playing.repeat
+                match playing.repeat:
+                    case RepeatState.Off:
+                        update["repeat"] = "OFF"
+                    case RepeatState.All:
+                        update["repeat"] = "ALL"
+                    case RepeatState.Track:
+                        update["repeat"] = "ONE"
                 update["shuffle"] = playing.shuffle != ShuffleState.Off
-                update["device_state"] = playing.device_state
+                update["state"] = playing.device_state if playing.device_state else update["state"]
 
             if update:
                 self.events.emit(EVENTS.UPDATE, self._device.identifier, update)

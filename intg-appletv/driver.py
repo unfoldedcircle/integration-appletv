@@ -267,7 +267,12 @@ async def media_player_cmd_handler(
 
             # we wait a bit to get a push update, because music can play in the background
             await asyncio.sleep(1)
-            if configured_entity.attributes[media_player.Attributes.STATE] != media_player.States.PLAYING:
+            attribute_state = configured_entity.attributes[media_player.Attributes.STATE]
+            if attribute_state and attribute_state not in [
+                media_player.States.PLAYING,
+                media_player.States.PAUSED,
+                media_player.States.BUFFERING,
+            ]:
                 # if nothing is playing: clear the playing information
                 attributes = {
                     media_player.Attributes.MEDIA_IMAGE_URL: "",
@@ -507,7 +512,7 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
         attributes[media_player.Attributes.SHUFFLE] = update["shuffle"]
 
     # state unknown or not playing anymore, clear the playback information
-    if not state or state not in [
+    if state and state not in [
         media_player.States.PLAYING,
         media_player.States.PAUSED,
         media_player.States.BUFFERING,
