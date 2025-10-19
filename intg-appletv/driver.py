@@ -164,6 +164,7 @@ async def on_unsubscribe_entities(entity_ids: list[str]) -> None:
 
 
 # pylint: disable=too-many-statements
+# pylint: disable=too-many-branches
 async def media_player_cmd_handler(
     entity: MediaPlayer, cmd_id: str, params: dict[str, Any] | None
 ) -> ucapi.StatusCodes:
@@ -273,6 +274,7 @@ async def media_player_cmd_handler(
                 not in [
                     media_player.States.PLAYING,
                     media_player.States.PAUSED,
+                    media_player.States.BUFFERING,
                 ]
             ):
                 # if nothing is playing: clear the playing information
@@ -283,7 +285,8 @@ async def media_player_cmd_handler(
                     media_player.Attributes.MEDIA_TITLE: "",
                     media_player.Attributes.MEDIA_TYPE: "",
                     media_player.Attributes.SOURCE: "",
-                    media_player.Attributes.MEDIA_DURATION: 0,
+                    media_player.Attributes.MEDIA_DURATION: None,
+                    media_player.Attributes.MEDIA_POSITION: None,
                 }
                 api.configured_entities.update_attributes(entity.id, attributes)
         case media_player.Commands.BACK:
@@ -521,7 +524,8 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
         attributes[media_player.Attributes.MEDIA_TITLE] = ""
         attributes[media_player.Attributes.MEDIA_TYPE] = ""
         attributes[media_player.Attributes.SOURCE] = ""
-        attributes[media_player.Attributes.MEDIA_DURATION] = 0
+        attributes[media_player.Attributes.MEDIA_DURATION] = None
+        attributes[media_player.Attributes.MEDIA_POSITION] = None
 
     if attributes:
         if api.configured_entities.contains(entity_id):

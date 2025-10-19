@@ -534,7 +534,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             _LOG.debug("[%s] Polling was already stopped", self.log_id)
 
     async def _process_update(self, data: pyatv.interface.Playing) -> None:  # pylint: disable=too-many-branches
-        _LOG.debug("[%s] Process update", self.log_id)
+        _LOG.debug("[%s] Process update: %s", self.log_id, data)
 
         update = {}
         reset_playback_info = self._state not in [
@@ -701,6 +701,12 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                 if playing := await self._atv.metadata.playing():
                     update["position"] = playing.position if playing.position else 0
                     update["total_time"] = playing.total_time if playing.total_time else 0
+                    update["title"] = playing.title if playing.title else ""
+                    update["artist"] = playing.artist if playing.artist else ""
+                    update["album"] = playing.album if playing.album else ""
+                    update["media_type"] = playing.media_type if playing.media_type else ""
+                    update["repeat"] = playing.repeat
+                    update["shuffle"] = playing.shuffle != ShuffleState.Off
 
             if update:
                 self.events.emit(EVENTS.UPDATE, self._device.identifier, update)

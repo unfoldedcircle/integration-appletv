@@ -308,4 +308,5 @@ class Devices:
         return result
 
 
+# pylint: disable=invalid-name
 devices: Devices | None = None
