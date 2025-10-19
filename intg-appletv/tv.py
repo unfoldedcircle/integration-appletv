@@ -707,6 +707,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                     update["media_type"] = playing.media_type if playing.media_type else ""
                     update["repeat"] = playing.repeat
                     update["shuffle"] = playing.shuffle != ShuffleState.Off
+                    update["device_state"] = playing.device_state
 
             if update:
                 self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
