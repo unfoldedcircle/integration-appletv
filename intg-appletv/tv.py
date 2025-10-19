@@ -534,21 +534,20 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             _LOG.debug("[%s] Polling was already stopped", self.log_id)
 
     async def _process_update(self, data: pyatv.interface.Playing) -> None:  # pylint: disable=too-many-branches
-        _LOG.debug("[%s] Process update: %s", self.log_id, data)
+        _LOG.debug("[%s] Process update", self.log_id)
 
         update = {}
+        await self._handle_power(update)
+        # off state is not included in metadata, don't override it
+        if update["state"] != PowerState.Off:
+            self._state = data.device_state
+            update["state"] = data.device_state
         reset_playback_info = self._state not in [
             DeviceState.Playing,
             DeviceState.Paused,
             DeviceState.Loading,
             DeviceState.Seeking,
         ]
-
-        await self._handle_power(update)
-        # off state is not included in metadata, don't override it
-        if update["state"] != PowerState.Off:
-            self._state = data.device_state
-            update["state"] = data.device_state
 
         # image operations are expensive, so we only do it when the hash changed
         if reset_playback_info:
@@ -687,7 +686,6 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                 update["source"] = self._atv.metadata.app.name
 
             if data := await self._atv.metadata.playing():
-                _LOG.debug("[%s] Playing: %s", self.log_id, data)
                 update["position"] = data.position if data.position else ""
                 update["total_time"] = data.total_time if data.total_time else ""
                 update["title"] = data.title if data.title else ""
@@ -733,7 +731,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                 update["state"] = self._atv.power.power_state
 
     async def _process_artwork(self, update: dict[Any, Any]):
-        if self._state == DeviceState.Playing:
+        if self._state not in [DeviceState.Idle, DeviceState.Stopped]:
             try:
                 artwork = await self._atv.metadata.artwork(width=ARTWORK_WIDTH, height=ARTWORK_HEIGHT)
                 if artwork:
