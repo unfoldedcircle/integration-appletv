@@ -438,8 +438,11 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
 
     if "state" in update:
         state = _atv_state_to_media_player_state(update["state"])
+        _LOG.debug("[%s] Updating state: %s", entity_id, state)
         if target_entity.attributes.get(media_player.Attributes.STATE, None) != state:
             attributes[media_player.Attributes.STATE] = state
+    else:
+        state = None
 
     # updates initiated by the poller always include the data, even if it hasn't changed
     if (
@@ -503,8 +506,8 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
     if ENABLE_SHUFFLE_FEAT and "shuffle" in update:
         attributes[media_player.Attributes.SHUFFLE] = update["shuffle"]
 
-    # not playing anymore, clear the playback information
-    if media_player.Attributes.STATE in attributes and attributes[media_player.Attributes.STATE] not in [
+    # state unknown or not playing anymore, clear the playback information
+    if not state or state not in [
         media_player.States.PLAYING,
         media_player.States.PAUSED,
         media_player.States.BUFFERING,
