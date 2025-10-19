@@ -443,9 +443,7 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
 
     if "state" in update:
         state = _atv_state_to_media_player_state(update["state"])
-        _LOG.debug("[%s] Updating state: %s", entity_id, state)
-        if target_entity.attributes.get(media_player.Attributes.STATE, None) != state:
-            attributes[media_player.Attributes.STATE] = state
+        attributes[media_player.Attributes.STATE] = state
     else:
         state = None
 
@@ -526,6 +524,7 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
         attributes[media_player.Attributes.MEDIA_DURATION] = None
         attributes[media_player.Attributes.MEDIA_POSITION] = None
 
+    _LOG.debug("attributes to update: %s", attributes)
     if attributes:
         if api.configured_entities.contains(entity_id):
             api.configured_entities.update_attributes(entity_id, attributes)
