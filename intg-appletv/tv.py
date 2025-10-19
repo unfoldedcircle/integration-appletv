@@ -700,6 +700,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                 update["source"] = self._atv.metadata.app.name
 
             if playing := await self._atv.metadata.playing():
+                _LOG.debug("[%s] Playing: %s", self.log_id, playing)
                 update["position"] = playing.position if playing.position else 0
                 update["total_time"] = playing.total_time if playing.total_time else 0
                 update["title"] = playing.title if playing.title else ""
