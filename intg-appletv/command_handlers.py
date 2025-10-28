@@ -22,6 +22,7 @@ from ucapi import MediaPlayer, media_player
 _LOG = logging.getLogger("command_handlers")
 
 
+# pylint: disable=too-many-branches
 async def media_player_cmd_handler(
     entity: MediaPlayer, cmd_id: str, params: dict[str, Any] | None
 ) -> ucapi.StatusCodes:
