@@ -163,7 +163,7 @@ async def on_unsubscribe_entities(entity_ids: list[str]) -> None:
             device.events.remove_all_listeners()
 
 
-# pylint: disable=too-many-statements
+# pylint: disable=too-many-statements,too-many-branches
 async def media_player_cmd_handler(
     entity: MediaPlayer, cmd_id: str, params: dict[str, Any] | None
 ) -> ucapi.StatusCodes:
