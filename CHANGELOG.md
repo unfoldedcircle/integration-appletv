@@ -11,6 +11,12 @@ _Changes in the next release_
 
 ---
 
+## v0.19.1 - 2025-09-17
+### Fixed
+- Clear playback info when not playing. Contributed by @henrikwidlund, thanks! ([#8](https://github.com/unfoldedcircle/integration-appletv/issues/8).
+### Changed
+- Update embedded Python runtime to 3.11.13 and pyinstaller to 6.16.0.
+
 ## v0.19.0 - 2025-07-23
 ### Fixed
 - Setup flow fails when using manual IP address ([#48](https://github.com/unfoldedcircle/integration-appletv/issues/48)).

@@ -538,7 +538,12 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         _LOG.debug("[%s] Process update", self.log_id)
 
         update = {}
-
+        reset_playback_info = self._state not in [
+            DeviceState.Playing,
+            DeviceState.Paused,
+            DeviceState.Loading,
+            DeviceState.Seeking,
+        ]
         # We only update device state (playing, paused, etc) if the power state is On
         # otherwise we'll set the state to Off in the polling method
         self._state = data.device_state
@@ -548,43 +553,54 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         update["total_time"] = data.total_time if data.total_time else 0
 
         # image operations are expensive, so we only do it when the hash changed
-        if self._state == DeviceState.Playing:
-            try:
-                artwork = await self._atv.metadata.artwork(width=ARTWORK_WIDTH, height=ARTWORK_HEIGHT)
-                if artwork:
-                    artwork_encoded = "data:image/png;base64," + base64.b64encode(artwork.bytes).decode("utf-8")
-                    update["artwork"] = artwork_encoded
-            except Exception as err:  # pylint: disable=broad-exception-caught
-                _LOG.warning("[%s] Error while updating the artwork: %s", self.log_id, err)
-
-        if data.title is not None:
-            # TODO filter out non-printable characters, for example all emojis
-            # workaround for Plex DVR
-            if data.title.startswith("(null):"):
-                title = data.title.removeprefix("(null):").strip()
-            else:
-                title = data.title
-            update["title"] = title
-        else:
+        if reset_playback_info:
+            update["position"] = ""
+            update["total_time"] = ""
+            update["artwork"] = ""
             update["title"] = ""
+            update["artist"] = ""
+            update["album"] = ""
+            update["media_type"] = ""
+            update["repeat"] = "OFF"
+            update["shuffle"] = False
+        else:
+            if self._state == DeviceState.Playing:
+                try:
+                    artwork = await self._atv.metadata.artwork(width=ARTWORK_WIDTH, height=ARTWORK_HEIGHT)
+                    if artwork:
+                        artwork_encoded = "data:image/png;base64," + base64.b64encode(artwork.bytes).decode("utf-8")
+                        update["artwork"] = artwork_encoded
+                except Exception as err:  # pylint: disable=broad-exception-caught
+                    _LOG.warning("[%s] Error while updating the artwork: %s", self.log_id, err)
 
-        update["artist"] = data.artist if data.artist else ""
-        update["album"] = data.album if data.album else ""
+            if data.title is not None:
+                # TODO filter out non-printable characters, for example all emojis
+                # workaround for Plex DVR
+                if data.title.startswith("(null):"):
+                    title = data.title.removeprefix("(null):").strip()
+                else:
+                    title = data.title
+                update["title"] = title
+            else:
+                update["title"] = ""
 
-        if data.media_type is not None:
-            update["media_type"] = data.media_type
+            update["artist"] = data.artist if data.artist else ""
+            update["album"] = data.album if data.album else ""
 
-        if data.repeat is not None:
-            match data.repeat:
-                case RepeatState.Off:
-                    update["repeat"] = "OFF"
-                case RepeatState.All:
-                    update["repeat"] = "ALL"
-                case RepeatState.Track:
-                    update["repeat"] = "ONE"
+            if data.media_type is not None:
+                update["media_type"] = data.media_type
 
-        if data.shuffle is not None:
-            update["shuffle"] = data.shuffle in (ShuffleState.Albums, ShuffleState.Songs)
+            if data.repeat is not None:
+                match data.repeat:
+                    case RepeatState.Off:
+                        update["repeat"] = "OFF"
+                    case RepeatState.All:
+                        update["repeat"] = "ALL"
+                    case RepeatState.Track:
+                        update["repeat"] = "ONE"
+
+            if data.shuffle is not None:
+                update["shuffle"] = data.shuffle in (ShuffleState.Albums, ShuffleState.Songs)
 
         self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
