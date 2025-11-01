@@ -451,17 +451,17 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
     ):
         attributes[media_player.Attributes.MEDIA_DURATION] = update["total_time"]
     if "source" in update and target_entity.attributes.get(media_player.Attributes.SOURCE, "") != update["source"]:
-        attributes[media_player.Attributes.SOURCE] = update["source"]
+        attributes[media_player.Attributes.SOURCE] = _replace_bad_chars(update["source"])
     # end poller update handling
 
     if "artwork" in update:
         attributes[media_player.Attributes.MEDIA_IMAGE_URL] = update["artwork"]
     if "title" in update:
-        attributes[media_player.Attributes.MEDIA_TITLE] = update["title"]
+        attributes[media_player.Attributes.MEDIA_TITLE] = _replace_bad_chars(update["title"])
     if "artist" in update:
-        attributes[media_player.Attributes.MEDIA_ARTIST] = update["artist"]
+        attributes[media_player.Attributes.MEDIA_ARTIST] = _replace_bad_chars(update["artist"])
     if "album" in update:
-        attributes[media_player.Attributes.MEDIA_ALBUM] = update["album"]
+        attributes[media_player.Attributes.MEDIA_ALBUM] = _replace_bad_chars(update["album"])
     if "sourceList" in update:
         if media_player.Attributes.SOURCE_LIST in target_entity.attributes:
             if len(target_entity.attributes[media_player.Attributes.SOURCE_LIST]) != len(update["sourceList"]):
@@ -520,6 +520,13 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
             api.configured_entities.update_attributes(entity_id, attributes)
         else:
             api.available_entities.update_attributes(entity_id, attributes)
+
+
+def _replace_bad_chars(value: str) -> str:
+    if not value:
+        return value
+
+    return value.replace("\u200a", " ")
 
 
 def _add_configured_atv(device: config.AtvDevice, connect: bool = True) -> None:
