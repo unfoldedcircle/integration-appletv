@@ -267,7 +267,12 @@ async def media_player_cmd_handler(
 
             # we wait a bit to get a push update, because music can play in the background
             await asyncio.sleep(1)
-            if configured_entity.attributes[media_player.Attributes.STATE] != media_player.States.PLAYING:
+            attribute_state = configured_entity.attributes[media_player.Attributes.STATE]
+            if attribute_state and attribute_state not in [
+                media_player.States.PLAYING,
+                media_player.States.PAUSED,
+                media_player.States.BUFFERING,
+            ]:
                 # if nothing is playing: clear the playing information
                 attributes = {
                     media_player.Attributes.MEDIA_IMAGE_URL: "",
@@ -276,7 +281,10 @@ async def media_player_cmd_handler(
                     media_player.Attributes.MEDIA_TITLE: "",
                     media_player.Attributes.MEDIA_TYPE: "",
                     media_player.Attributes.SOURCE: "",
-                    media_player.Attributes.MEDIA_DURATION: 0,
+                    media_player.Attributes.MEDIA_DURATION: None,
+                    media_player.Attributes.MEDIA_POSITION: None,
+                    media_player.Attributes.REPEAT: "OFF",
+                    media_player.Attributes.SHUFFLE: False,
                 }
                 api.configured_entities.update_attributes(entity.id, attributes)
         case media_player.Commands.BACK:
@@ -436,33 +444,72 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
 
     if "state" in update:
         state = _atv_state_to_media_player_state(update["state"])
-        if target_entity.attributes.get(media_player.Attributes.STATE, None) != state:
-            attributes[media_player.Attributes.STATE] = state
+        attributes[media_player.Attributes.STATE] = state
+    else:
+        state = None
 
-    # updates initiated by the poller always include the data, even if it hasn't changed
-    if (
-        "position" in update
-        and target_entity.attributes.get(media_player.Attributes.MEDIA_POSITION, 0) != update["position"]
-    ):
-        attributes[media_player.Attributes.MEDIA_POSITION] = update["position"]
-        attributes["media_position_updated_at"] = datetime.now(tz=UTC).isoformat()
-    if (
-        "total_time" in update
-        and target_entity.attributes.get(media_player.Attributes.MEDIA_DURATION, 0) != update["total_time"]
-    ):
-        attributes[media_player.Attributes.MEDIA_DURATION] = update["total_time"]
-    if "source" in update and target_entity.attributes.get(media_player.Attributes.SOURCE, "") != update["source"]:
-        attributes[media_player.Attributes.SOURCE] = _replace_bad_chars(update["source"])
-    # end poller update handling
+    # not playing anymore, clear the playback information
+    reset_playback_info = state and state not in [
+        media_player.States.PLAYING,
+        media_player.States.PAUSED,
+        media_player.States.BUFFERING,
+    ]
 
-    if "artwork" in update:
-        attributes[media_player.Attributes.MEDIA_IMAGE_URL] = update["artwork"]
-    if "title" in update:
-        attributes[media_player.Attributes.MEDIA_TITLE] = _replace_bad_chars(update["title"])
-    if "artist" in update:
-        attributes[media_player.Attributes.MEDIA_ARTIST] = _replace_bad_chars(update["artist"])
-    if "album" in update:
-        attributes[media_player.Attributes.MEDIA_ALBUM] = _replace_bad_chars(update["album"])
+    if reset_playback_info:
+        attributes[media_player.Attributes.MEDIA_IMAGE_URL] = ""
+        attributes[media_player.Attributes.MEDIA_ALBUM] = ""
+        attributes[media_player.Attributes.MEDIA_ARTIST] = ""
+        attributes[media_player.Attributes.MEDIA_TITLE] = ""
+        attributes[media_player.Attributes.MEDIA_TYPE] = ""
+        attributes[media_player.Attributes.SOURCE] = ""
+        attributes[media_player.Attributes.MEDIA_DURATION] = None
+        attributes[media_player.Attributes.MEDIA_POSITION] = None
+        attributes[media_player.Attributes.REPEAT] = "OFF"
+        attributes[media_player.Attributes.SHUFFLE] = False
+    else:
+        # updates initiated by the poller always include the data, even if it hasn't changed
+        if (
+            "position" in update
+            and target_entity.attributes.get(media_player.Attributes.MEDIA_POSITION, 0) != update["position"]
+        ):
+            attributes[media_player.Attributes.MEDIA_POSITION] = update["position"]
+            attributes[media_player.Attributes.MEDIA_POSITION_UPDATED_AT] = datetime.now(tz=UTC).isoformat()
+        if (
+            "total_time" in update
+            and target_entity.attributes.get(media_player.Attributes.MEDIA_DURATION, 0) != update["total_time"]
+        ):
+            attributes[media_player.Attributes.MEDIA_DURATION] = update["total_time"]
+        if "source" in update and target_entity.attributes.get(
+            media_player.Attributes.SOURCE, ""
+        ) != _replace_bad_chars(update["source"]):
+            attributes[media_player.Attributes.SOURCE] = update["source"]
+        # end poller update handling
+
+        if "artwork" in update:
+            attributes[media_player.Attributes.MEDIA_IMAGE_URL] = update["artwork"]
+        if "title" in update:
+            attributes[media_player.Attributes.MEDIA_TITLE] = _replace_bad_chars(update["title"])
+        if "artist" in update:
+            attributes[media_player.Attributes.MEDIA_ARTIST] = _replace_bad_chars(update["artist"])
+        if "album" in update:
+            attributes[media_player.Attributes.MEDIA_ALBUM] = _replace_bad_chars(update["album"])
+        if "media_type" in update:
+            if update["media_type"] == pyatv.const.MediaType.Music:
+                media_type = media_player.MediaType.MUSIC
+            elif update["media_type"] == pyatv.const.MediaType.TV:
+                media_type = media_player.MediaType.TVSHOW
+            elif update["media_type"] == pyatv.const.MediaType.Video:
+                media_type = media_player.MediaType.VIDEO
+            else:
+                media_type = ""
+
+            attributes[media_player.Attributes.MEDIA_TYPE] = media_type
+        if ENABLE_REPEAT_FEAT and "repeat" in update:
+            attributes[media_player.Attributes.REPEAT] = update["repeat"]
+        if ENABLE_SHUFFLE_FEAT and "shuffle" in update:
+            attributes[media_player.Attributes.SHUFFLE] = update["shuffle"]
+
+    # always update if available
     if "sourceList" in update:
         if media_player.Attributes.SOURCE_LIST in target_entity.attributes:
             if len(target_entity.attributes[media_player.Attributes.SOURCE_LIST]) != len(update["sourceList"]):
@@ -480,41 +527,8 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
                 attributes[media_player.Attributes.SOUND_MODE_LIST] = update["sound_mode_list"]
         else:
             attributes[media_player.Attributes.SOUND_MODE_LIST] = update["sound_mode_list"]
-    if "media_type" in update:
-        if update["media_type"] == pyatv.const.MediaType.Music:
-            media_type = media_player.MediaType.MUSIC
-        elif update["media_type"] == pyatv.const.MediaType.TV:
-            media_type = media_player.MediaType.TVSHOW
-        elif update["media_type"] == pyatv.const.MediaType.Video:
-            media_type = media_player.MediaType.VIDEO
-        else:
-            media_type = ""
-
-        attributes[media_player.Attributes.MEDIA_TYPE] = media_type
-
     if "volume" in update:
         attributes[media_player.Attributes.VOLUME] = update["volume"]
-
-    if ENABLE_REPEAT_FEAT and "repeat" in update:
-        attributes[media_player.Attributes.REPEAT] = update["repeat"]
-
-    if ENABLE_SHUFFLE_FEAT and "shuffle" in update:
-        attributes[media_player.Attributes.SHUFFLE] = update["shuffle"]
-
-    if media_player.Attributes.STATE in attributes:
-        # not playing anymore, clear the playback information
-        if attributes[media_player.Attributes.STATE] in [
-            media_player.States.OFF,
-            media_player.States.UNAVAILABLE,
-            media_player.States.ON,
-        ]:
-            attributes[media_player.Attributes.MEDIA_IMAGE_URL] = ""
-            attributes[media_player.Attributes.MEDIA_ALBUM] = ""
-            attributes[media_player.Attributes.MEDIA_ARTIST] = ""
-            attributes[media_player.Attributes.MEDIA_TITLE] = ""
-            attributes[media_player.Attributes.MEDIA_TYPE] = ""
-            attributes[media_player.Attributes.SOURCE] = ""
-            attributes[media_player.Attributes.MEDIA_DURATION] = 0
 
     if attributes:
         if api.configured_entities.contains(entity_id):
@@ -612,12 +626,19 @@ def _register_available_entities(identifier: str, name: str) -> bool:
             media_player.Attributes.VOLUME: 0,
             # TODO(#34) is there a way to find out if the device is muted?
             # media_player.Attributes.MUTED: False,
-            media_player.Attributes.MEDIA_DURATION: 0,
-            media_player.Attributes.MEDIA_POSITION: 0,
+            media_player.Attributes.MEDIA_DURATION: None,
+            media_player.Attributes.MEDIA_POSITION: None,
             media_player.Attributes.MEDIA_IMAGE_URL: "",
             media_player.Attributes.MEDIA_TITLE: "",
             media_player.Attributes.MEDIA_ARTIST: "",
             media_player.Attributes.MEDIA_ALBUM: "",
+            media_player.Attributes.MEDIA_TYPE: "",
+            media_player.Attributes.SOURCE: "",
+            media_player.Attributes.REPEAT: "OFF",
+            media_player.Attributes.SHUFFLE: False,
+            media_player.Attributes.SOURCE_LIST: [],
+            media_player.Attributes.SOUND_MODE: "",
+            media_player.Attributes.SOUND_MODE_LIST: [],
         },
         device_class=media_player.DeviceClasses.TV,
         options={
