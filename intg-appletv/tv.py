@@ -10,6 +10,7 @@ Uses the [pyatv](https://github.com/postlund/pyatv) library with concepts borrow
 
 import asyncio
 import base64
+import hashlib
 import itertools
 import logging
 import random
@@ -162,6 +163,9 @@ def async_handle_atvlib_errors(
         return result
 
     return wrapper
+
+
+ARTWORK_CACHE: dict[str, str] = {}
 
 
 class AppleTv(interface.AudioListener, interface.DeviceListener):
@@ -735,8 +739,13 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             try:
                 artwork = await self._atv.metadata.artwork(width=ARTWORK_WIDTH, height=ARTWORK_HEIGHT)
                 if artwork:
+                    # Check hash of the artwork to avoid processing it again if it's unchanged
+                    artwork_hash = hashlib.md5(artwork.bytes).hexdigest()
+                    if ARTWORK_CACHE.get(self._device.identifier) == artwork_hash:
+                        return
                     artwork_encoded = "data:image/png;base64," + base64.b64encode(artwork.bytes).decode("utf-8")
                     update["artwork"] = artwork_encoded
+                    ARTWORK_CACHE[self._device.identifier] = artwork_hash
             except Exception as err:  # pylint: disable=broad-exception-caught
                 _LOG.warning("[%s] Error while updating the artwork: %s", self.log_id, err)
 
