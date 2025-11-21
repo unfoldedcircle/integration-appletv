@@ -632,6 +632,7 @@ def _register_available_entities(identifier: str, name: str) -> bool:
                 SimpleCommands.PLAY.value,
                 SimpleCommands.PAUSE.value,
                 SimpleCommands.PLAY_PAUSE_KEY.value,
+                SimpleCommands.MENU_PICK.value,
             ]
         },
         cmd_handler=media_player_cmd_handler,
