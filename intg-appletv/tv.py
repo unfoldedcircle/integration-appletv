@@ -10,6 +10,7 @@ Uses the [pyatv](https://github.com/postlund/pyatv) library with concepts borrow
 
 import asyncio
 import base64
+import hashlib
 import itertools
 import logging
 import random
@@ -162,6 +163,9 @@ def async_handle_atvlib_errors(
         return result
 
     return wrapper
+
+
+ARTWORK_CACHE: dict[str, bytes] = {}
 
 
 class AppleTv(interface.AudioListener, interface.DeviceListener):
@@ -537,19 +541,17 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         _LOG.debug("[%s] Process update", self.log_id)
 
         update = {}
+        await self._handle_power(update)
+        # off state is not included in metadata, don't override it
+        if update["state"] != PowerState.Off:
+            self._state = data.device_state
+            update["state"] = data.device_state
         reset_playback_info = self._state not in [
             DeviceState.Playing,
             DeviceState.Paused,
             DeviceState.Loading,
             DeviceState.Seeking,
         ]
-        # We only update device state (playing, paused, etc) if the power state is On
-        # otherwise we'll set the state to Off in the polling method
-        self._state = data.device_state
-        update["state"] = data.device_state
-
-        update["position"] = data.position if data.position else 0
-        update["total_time"] = data.total_time if data.total_time else 0
 
         # image operations are expensive, so we only do it when the hash changed
         if reset_playback_info:
@@ -563,28 +565,14 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             update["repeat"] = "OFF"
             update["shuffle"] = False
         else:
-            if self._state == DeviceState.Playing:
-                try:
-                    artwork = await self._atv.metadata.artwork(width=ARTWORK_WIDTH, height=ARTWORK_HEIGHT)
-                    if artwork:
-                        artwork_encoded = "data:image/png;base64," + base64.b64encode(artwork.bytes).decode("utf-8")
-                        update["artwork"] = artwork_encoded
-                except Exception as err:  # pylint: disable=broad-exception-caught
-                    _LOG.warning("[%s] Error while updating the artwork: %s", self.log_id, err)
+            await self._process_artwork(update)
 
-            if data.title is not None:
-                # TODO filter out non-printable characters, for example all emojis
-                # workaround for Plex DVR
-                if data.title.startswith("(null):"):
-                    title = data.title.removeprefix("(null):").strip()
-                else:
-                    title = data.title
-                update["title"] = title
-            else:
-                update["title"] = ""
+            await self._cleanup_data(data, update)
 
             update["artist"] = data.artist if data.artist else ""
             update["album"] = data.album if data.album else ""
+            update["position"] = data.position if data.position else ""
+            update["total_time"] = data.total_time if data.total_time else ""
 
             if data.media_type is not None:
                 update["media_type"] = data.media_type
@@ -599,9 +587,25 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                         update["repeat"] = "ONE"
 
             if data.shuffle is not None:
-                update["shuffle"] = data.shuffle in (ShuffleState.Albums, ShuffleState.Songs)
+                update["shuffle"] = data.shuffle != ShuffleState.Off
+
+        if self._is_feature_available(FeatureName.App) and self._atv.metadata.app.name:
+            update["source"] = self._atv.metadata.app.name
 
         self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
+
+    @staticmethod
+    async def _cleanup_data(data: pyatv.interface.Playing, update: dict[Any, Any]):
+        if data.title is not None:
+            # TODO filter out non-printable characters, for example all emojis
+            # workaround for Plex DVR
+            if data.title.startswith("(null):"):
+                title = data.title.removeprefix("(null):").strip()
+            else:
+                title = data.title
+            update["title"] = title
+        else:
+            update["title"] = ""
 
     async def _update_app_list(self) -> None:
         _LOG.debug("[%s] Updating app list", self.log_id)
@@ -680,32 +684,70 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         while self._atv is not None:
             update = {}
 
-            # Push updates are not reliable for power events, and if the device is in standby it reports state idle!
-            if self._is_feature_available(FeatureName.PowerState):
-                # Off isn't sent with push updates with the current pyatv library
-                # Care must be taken to not override certain states like playing and paused
-                if self._atv.power.power_state == PowerState.Off:
-                    # The Off state is important to wakeup the device in the command handler
-                    update["state"] = self._atv.power.power_state
-                elif self._atv.power.power_state == PowerState.On and self._state not in (
-                    DeviceState.Playing,
-                    DeviceState.Paused,
-                    DeviceState.Stopped,
-                    DeviceState.Seeking,
-                    DeviceState.Loading,
-                ):
-                    update["state"] = self._atv.power.power_state
+            await self._handle_power(update)
 
             if self._is_feature_available(FeatureName.App) and self._atv.metadata.app.name:
                 update["source"] = self._atv.metadata.app.name
-                if playing := await self._atv.metadata.playing():
-                    update["position"] = playing.position if playing.position else 0
-                    update["total_time"] = playing.total_time if playing.total_time else 0
+
+            if data := await self._atv.metadata.playing():
+                update["position"] = data.position if data.position else ""
+                update["total_time"] = data.total_time if data.total_time else ""
+                update["title"] = data.title if data.title else ""
+                update["artist"] = data.artist if data.artist else ""
+                update["album"] = data.album if data.album else ""
+                if data.media_type is not None:
+                    update["media_type"] = data.media_type
+
+                match data.repeat:
+                    case RepeatState.Off:
+                        update["repeat"] = "OFF"
+                    case RepeatState.All:
+                        update["repeat"] = "ALL"
+                    case RepeatState.Track:
+                        update["repeat"] = "ONE"
+
+                if data.shuffle is not None:
+                    update["shuffle"] = data.shuffle != ShuffleState.Off
+
+                # off state is not included in metadata, don't override it
+                if update["state"] != PowerState.Off:
+                    self._state = data.device_state
+                    update["state"] = data.device_state
+
+                await self._process_artwork(update)
+
+                await self._cleanup_data(data, update)
 
             if update:
                 self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
             await asyncio.sleep(self._poll_interval)
+
+    async def _handle_power(self, update: dict[Any, Any]):
+        # Push updates are not reliable for power events, and if the device is in standby it reports state idle!
+        if self._is_feature_available(FeatureName.PowerState):
+            # Off isn't sent with push updates with the current pyatv library
+            # Care must be taken to not override certain states like playing and paused
+            if self._atv.power.power_state == PowerState.Off:
+                # The Off state is important to wakeup the device in the command handler
+                update["state"] = self._atv.power.power_state
+            else:
+                update["state"] = self._atv.power.power_state
+
+    async def _process_artwork(self, update: dict[Any, Any]):
+        if self._state not in [DeviceState.Idle, DeviceState.Stopped]:
+            try:
+                artwork = await self._atv.metadata.artwork(width=ARTWORK_WIDTH, height=ARTWORK_HEIGHT)
+                if artwork:
+                    # Check hash of the artwork to avoid processing it again if it's unchanged
+                    artwork_hash = hashlib.md5(artwork.bytes).digest()
+                    if ARTWORK_CACHE.get(self._device.identifier) == artwork_hash:
+                        return
+                    artwork_encoded = "data:image/png;base64," + base64.b64encode(artwork.bytes).decode("utf-8")
+                    update["artwork"] = artwork_encoded
+                    ARTWORK_CACHE[self._device.identifier] = artwork_hash
+            except Exception as err:  # pylint: disable=broad-exception-caught
+                _LOG.warning("[%s] Error while updating the artwork: %s", self.log_id, err)
 
     def _is_feature_available(self, feature: FeatureName) -> bool:
         if self._atv:
