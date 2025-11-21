@@ -9,6 +9,7 @@ This module implements a Remote Two integration driver for Apple TV devices.
 import asyncio
 import logging
 import os
+import re
 import sys
 from datetime import UTC, datetime
 from enum import Enum
@@ -526,7 +527,7 @@ def _replace_bad_chars(value: str) -> str:
     if not value:
         return value
 
-    return value.replace("\u200a", " ")
+    return re.sub(r"[\f\n\r\t\v\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]", " ", value)
 
 
 def _add_configured_atv(device: config.AtvDevice, connect: bool = True) -> None:
