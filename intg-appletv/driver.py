@@ -9,6 +9,7 @@ This module implements a Remote Two integration driver for Apple TV devices.
 import asyncio
 import logging
 import os
+import re
 import sys
 from datetime import UTC, datetime
 from enum import Enum
@@ -478,18 +479,20 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
             and target_entity.attributes.get(media_player.Attributes.MEDIA_DURATION, 0) != update["total_time"]
         ):
             attributes[media_player.Attributes.MEDIA_DURATION] = update["total_time"]
-        if "source" in update and target_entity.attributes.get(media_player.Attributes.SOURCE, "") != update["source"]:
-            attributes[media_player.Attributes.SOURCE] = update["source"]
+        if "source" in update:
+            source = _replace_bad_chars(update["source"])
+            if target_entity.attributes.get(media_player.Attributes.SOURCE, "") != source:
+                attributes[media_player.Attributes.SOURCE] = source
         # end poller update handling
 
         if "artwork" in update:
             attributes[media_player.Attributes.MEDIA_IMAGE_URL] = update["artwork"]
         if "title" in update:
-            attributes[media_player.Attributes.MEDIA_TITLE] = update["title"]
+            attributes[media_player.Attributes.MEDIA_TITLE] = _replace_bad_chars(update["title"])
         if "artist" in update:
-            attributes[media_player.Attributes.MEDIA_ARTIST] = update["artist"]
+            attributes[media_player.Attributes.MEDIA_ARTIST] = _replace_bad_chars(update["artist"])
         if "album" in update:
-            attributes[media_player.Attributes.MEDIA_ALBUM] = update["album"]
+            attributes[media_player.Attributes.MEDIA_ALBUM] = _replace_bad_chars(update["album"])
         if "media_type" in update:
             if update["media_type"] == pyatv.const.MediaType.Music:
                 media_type = media_player.MediaType.MUSIC
@@ -532,6 +535,13 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
             api.configured_entities.update_attributes(entity_id, attributes)
         else:
             api.available_entities.update_attributes(entity_id, attributes)
+
+
+def _replace_bad_chars(value: str) -> str:
+    if not value:
+        return value
+    # Replace all whitespace characters except the normal space and non-breaking space (#72).
+    return re.sub(r"[\f\n\r\t\v\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]", " ", value)
 
 
 def _add_configured_atv(device: config.AtvDevice, connect: bool = True) -> None:
