@@ -6,6 +6,7 @@ This integration is based on the great [pyatv](https://github.com/postlund/pyatv
 
 The driver discovers Apple TV devices on the network and pairs them using AirPlay and companion protocols.
 A [media player entity](https://github.com/unfoldedcircle/core-api/blob/main/doc/entities/entity_media_player.md)
+and a [remote entity](https://github.com/unfoldedcircle/core-api/blob/main/doc/entities/entity_remote.md)
 is exposed to the Remote Two/3.
 
 ‼️ Do not install this integration as a custom integration on the Remote, or it can interfere with the included version.  
