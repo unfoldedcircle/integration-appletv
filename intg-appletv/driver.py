@@ -479,10 +479,10 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
             and target_entity.attributes.get(media_player.Attributes.MEDIA_DURATION, 0) != update["total_time"]
         ):
             attributes[media_player.Attributes.MEDIA_DURATION] = update["total_time"]
-        if "source" in update and target_entity.attributes.get(
-            media_player.Attributes.SOURCE, ""
-        ) != _replace_bad_chars(update["source"]):
-            attributes[media_player.Attributes.SOURCE] = update["source"]
+        if "source" in update:
+            source = _replace_bad_chars(update["source"])
+            if target_entity.attributes.get(media_player.Attributes.SOURCE, "") != source:
+                attributes[media_player.Attributes.SOURCE] = source
         # end poller update handling
 
         if "artwork" in update:
