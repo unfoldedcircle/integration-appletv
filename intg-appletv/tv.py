@@ -165,7 +165,7 @@ def async_handle_atvlib_errors(
     return wrapper
 
 
-ARTWORK_CACHE: dict[str, str] = {}
+ARTWORK_CACHE: dict[str, bytes] = {}
 
 
 class AppleTv(interface.AudioListener, interface.DeviceListener):
@@ -740,7 +740,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                 artwork = await self._atv.metadata.artwork(width=ARTWORK_WIDTH, height=ARTWORK_HEIGHT)
                 if artwork:
                     # Check hash of the artwork to avoid processing it again if it's unchanged
-                    artwork_hash = hashlib.md5(artwork.bytes).hexdigest()
+                    artwork_hash = hashlib.md5(artwork.bytes).digest()
                     if ARTWORK_CACHE.get(self._device.identifier) == artwork_hash:
                         return
                     artwork_encoded = "data:image/png;base64," + base64.b64encode(artwork.bytes).decode("utf-8")
