@@ -526,7 +526,7 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
 def _replace_bad_chars(value: str) -> str:
     if not value:
         return value
-
+    # Replace all whitespace characters except the normal space and non-breaking space (#72).
     return re.sub(r"[\f\n\r\t\v\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]", " ", value)
 
 
