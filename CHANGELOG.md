@@ -11,9 +11,23 @@ _Changes in the next release_
 
 ---
 
+## v0.19.2 - 2025-11-21
+### Fixed
+- Missing state information and state info not clearing in some cases. Contributed by @henrikwidlund, thanks! ([#66](https://github.com/unfoldedcircle/integration-appletv/pull/66)).
+
+### Changed
+- Cleanup of characters that can't be rendered ([#75](https://github.com/unfoldedcircle/integration-appletv/pull/75)).
+- Update ucapi library to 0.3.2 ([#68](https://github.com/unfoldedcircle/integration-appletv/pull/68)).
+- Pylint fixes to satisfy repository lint rules.
+- CI: bump GitHub Actions versions
+  - actions/setup-node from 5 to 6 ([#70](https://github.com/unfoldedcircle/integration-appletv/pull/70)).
+  - actions/download-artifact from 5 to 6 ([#73](https://github.com/unfoldedcircle/integration-appletv/pull/73)).
+  - actions/upload-artifact from 4 to 5 ([#74](https://github.com/unfoldedcircle/integration-appletv/pull/74)).
+  - actions/checkout from 5 to 6 ([#77](https://github.com/unfoldedcircle/integration-appletv/pull/77)).
+
 ## v0.19.1 - 2025-09-17
 ### Fixed
-- Clear playback info when not playing. Contributed by @henrikwidlund, thanks! ([#8](https://github.com/unfoldedcircle/integration-appletv/issues/8).
+- Clear playback info when not playing. Contributed by @henrikwidlund, thanks! ([#8](https://github.com/unfoldedcircle/integration-appletv/issues/8)).
 ### Changed
 - Update embedded Python runtime to 3.11.13 and pyinstaller to 6.16.0.
 
@@ -22,7 +36,7 @@ _Changes in the next release_
 - Setup flow fails when using manual IP address ([#48](https://github.com/unfoldedcircle/integration-appletv/issues/48)).
 
 ### Changed
-- Externalize language strings for translations with Crowdin ([#12](https://github.com/unfoldedcircle/integration-appletv/issues/12))).
+- Externalize language strings for translations with Crowdin ([#12](https://github.com/unfoldedcircle/integration-appletv/issues/12)).
   - Add Dutch, Spanish and Swedish translations.
 - Update pyatv library to 0.16.1 that should fix connection issues with tvOS 18.4+ ([#53](https://github.com/unfoldedcircle/integration-appletv/pull/53)).
 
