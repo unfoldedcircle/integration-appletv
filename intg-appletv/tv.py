@@ -166,6 +166,7 @@ def async_handle_atvlib_errors(
 
 
 ARTWORK_CACHE: dict[str, bytes] = {}
+PLAYING_STATE_CACHE: dict[str, int] = {}
 
 
 class AppleTv(interface.AudioListener, interface.DeviceListener):
@@ -564,7 +565,9 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             update["media_type"] = ""
             update["repeat"] = "OFF"
             update["shuffle"] = False
+            self._handle_cache_clear(None)
         else:
+            self._handle_cache_clear(data)
             await self._process_artwork(update)
 
             await self._cleanup_data(data, update)
@@ -714,9 +717,12 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                     self._state = data.device_state
                     update["state"] = data.device_state
 
+                self._handle_cache_clear(data)
                 await self._process_artwork(update)
 
                 await self._cleanup_data(data, update)
+            else:
+                self._handle_cache_clear(None)
 
             if update:
                 self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
@@ -748,6 +754,16 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                     ARTWORK_CACHE[self._device.identifier] = artwork_hash
             except Exception as err:  # pylint: disable=broad-exception-caught
                 _LOG.warning("[%s] Error while updating the artwork: %s", self.log_id, err)
+
+    def _handle_cache_clear(self, data: pyatv.interface.Playing | None):
+        """Clears artwork cache if data is different from previous value or None"""
+        if data is None:
+            ARTWORK_CACHE.pop(self._device.identifier, None)
+        else:
+            playback_hash = hash((data.title, data.artist, data.album))
+            if PLAYING_STATE_CACHE.get(self._device.identifier) != playback_hash:
+                ARTWORK_CACHE.pop(self._device.identifier, None)
+                PLAYING_STATE_CACHE[self._device.identifier] = playback_hash
 
     def _is_feature_available(self, feature: FeatureName) -> bool:
         if self._atv:
