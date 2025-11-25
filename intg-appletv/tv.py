@@ -756,7 +756,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                 _LOG.warning("[%s] Error while updating the artwork: %s", self.log_id, err)
 
     def _handle_cache_clear(self, data: pyatv.interface.Playing | None):
-        """Clears artwork cache if data is different from previous value or None"""
+        """Clear artwork cache if data is different from previous value or None."""
         if data is None:
             ARTWORK_CACHE.pop(self._device.identifier, None)
         else:
