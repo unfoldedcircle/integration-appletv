@@ -33,7 +33,6 @@ from typing import (
 import pyatv
 import pyatv.const
 import ucapi
-
 from config import AtvDevice, AtvProtocol
 from pyatv import interface
 from pyatv.const import (
