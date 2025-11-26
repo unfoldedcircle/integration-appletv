@@ -33,7 +33,6 @@ from typing import (
 import pyatv
 import pyatv.const
 import ucapi
-from aiohttp import ClientOSError
 
 from config import AtvDevice, AtvProtocol
 from pyatv import interface
@@ -472,8 +471,8 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             try:
                 if conf := await self._find_atv():
                     await self._connect(conf)
-            except Exception as err:  # pylint: disable=broad-exception-caught
-                _LOG.warning("[%s] Could not connect: %s", self.log_id, err)
+            except Exception as err2:  # pylint: disable=broad-exception-caught
+                _LOG.warning("[%s] Could not connect: %s", self.log_id, err2)
                 self._atv = None
         except Exception as err:  # pylint: disable=broad-exception-caught
             _LOG.warning("[%s] Could not connect: %s", self.log_id, err)
