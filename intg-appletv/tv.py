@@ -33,6 +33,8 @@ from typing import (
 import pyatv
 import pyatv.const
 import ucapi
+from aiohttp import ClientOSError
+
 from config import AtvDevice, AtvProtocol
 from pyatv import interface
 from pyatv.const import (
@@ -68,6 +70,7 @@ BACKOFF_MAX = 30
 BACKOFF_SEC = 2
 ARTWORK_WIDTH = 400
 ARTWORK_HEIGHT = 400
+ERROR_OS_WAIT = 0.5
 
 # pylint: disable=too-many-lines
 
@@ -463,6 +466,15 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             return
         except asyncio.CancelledError:
             pass
+        except OSError as err:  # Try again if OSError raised (maybe network not ready yet)
+            _LOG.warning("[%s] Network may not be ready yet %s : retry", self.log_id, err)
+            await asyncio.sleep(ERROR_OS_WAIT)
+            try:
+                if conf := await self._find_atv():
+                    await self._connect(conf)
+            except Exception as err:  # pylint: disable=broad-exception-caught
+                _LOG.warning("[%s] Could not connect: %s", self.log_id, err)
+                self._atv = None
         except Exception as err:  # pylint: disable=broad-exception-caught
             _LOG.warning("[%s] Could not connect: %s", self.log_id, err)
             self._atv = None
