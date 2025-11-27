@@ -166,6 +166,7 @@ def async_handle_atvlib_errors(
 
 
 ARTWORK_CACHE: dict[str, bytes] = {}
+PLAYING_STATE_CACHE: dict[str, int] = {}
 
 
 class AppleTv(interface.AudioListener, interface.DeviceListener):
@@ -564,8 +565,10 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             update["media_type"] = ""
             update["repeat"] = "OFF"
             update["shuffle"] = False
+            # Send None for data so that artwork is cleared
+            await self._process_artwork(update, None)
         else:
-            await self._process_artwork(update)
+            await self._process_artwork(update, data)
 
             await self._cleanup_data(data, update)
 
@@ -714,9 +717,12 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                     self._state = data.device_state
                     update["state"] = data.device_state
 
-                await self._process_artwork(update)
+                await self._process_artwork(update, data)
 
                 await self._cleanup_data(data, update)
+            else:
+                # No playback data available, clear the artwork
+                await self._process_artwork(update, None)
 
             if update:
                 self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
@@ -734,20 +740,40 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             else:
                 update["state"] = self._atv.power.power_state
 
-    async def _process_artwork(self, update: dict[Any, Any]):
+    async def _process_artwork(self, update: dict[Any, Any], data: pyatv.interface.Playing | None):
         if self._state not in [DeviceState.Idle, DeviceState.Stopped]:
             try:
+                if data:
+                    playback_hash = hash((data.title, data.artist, data.album))
+                    # Hash has changed, invalidate/update cache
+                    if PLAYING_STATE_CACHE.get(self._device.identifier, None) != playback_hash:
+                        ARTWORK_CACHE.pop(self._device.identifier, None)
+                        PLAYING_STATE_CACHE[self._device.identifier] = playback_hash
+                else:
+                    # No way of knowing if playback changed, clear cache so that the artwork is sent again
+                    ARTWORK_CACHE.pop(self._device.identifier, None)
+                    PLAYING_STATE_CACHE.pop(self._device.identifier, None)
+                    # Send empty artwork so that it's not stuck in the UI
+                    update["artwork"] = ""
+                    return
+
                 artwork = await self._atv.metadata.artwork(width=ARTWORK_WIDTH, height=ARTWORK_HEIGHT)
                 if artwork:
-                    # Check hash of the artwork to avoid processing it again if it's unchanged
                     artwork_hash = hashlib.md5(artwork.bytes).digest()
-                    if ARTWORK_CACHE.get(self._device.identifier) == artwork_hash:
+                    # Check hash of the artwork to avoid processing it again if it's unchanged
+                    if ARTWORK_CACHE.get(self._device.identifier, None) == artwork_hash:
                         return
                     artwork_encoded = "data:image/png;base64," + base64.b64encode(artwork.bytes).decode("utf-8")
                     update["artwork"] = artwork_encoded
                     ARTWORK_CACHE[self._device.identifier] = artwork_hash
             except Exception as err:  # pylint: disable=broad-exception-caught
                 _LOG.warning("[%s] Error while updating the artwork: %s", self.log_id, err)
+        else:
+            # Not playing - clear caches so that artwork is sent again when playback starts
+            ARTWORK_CACHE.pop(self._device.identifier, None)
+            PLAYING_STATE_CACHE.pop(self._device.identifier, None)
+            # Send empty artwork so that it's not stuck in the UI
+            update["artwork"] = ""
 
     def _is_feature_available(self, feature: FeatureName) -> bool:
         if self._atv:
