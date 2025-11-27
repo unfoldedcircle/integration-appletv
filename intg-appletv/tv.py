@@ -754,7 +754,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                     ARTWORK_CACHE.pop(self._device.identifier, None)
                     PLAYING_STATE_CACHE.pop(self._device.identifier, None)
                     # Send empty artwork so that it's not stuck in the UI
-                    update["artwork"] = None
+                    update["artwork"] = ""
                     return
 
                 artwork = await self._atv.metadata.artwork(width=ARTWORK_WIDTH, height=ARTWORK_HEIGHT)
@@ -773,7 +773,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             ARTWORK_CACHE.pop(self._device.identifier, None)
             PLAYING_STATE_CACHE.pop(self._device.identifier, None)
             # Send empty artwork so that it's not stuck in the UI
-            update["artwork"] = None
+            update["artwork"] = ""
 
     def _is_feature_available(self, feature: FeatureName) -> bool:
         if self._atv:
