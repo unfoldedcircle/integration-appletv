@@ -11,6 +11,12 @@ _Changes in the next release_
 
 ---
 
+## v0.19.3 - 2025-11-27
+### Fixed
+- Artwork not being updated ([#79](https://github.com/unfoldedcircle/integration-appletv/pull/79).
+### Changed
+- If a client disconnects, the connections to the ATV devices are no longer closed ([#78](https://github.com/unfoldedcircle/integration-appletv/pull/78).
+
 ## v0.19.2 - 2025-11-21
 ### Fixed
 - Missing state information and state info not clearing in some cases. Contributed by @henrikwidlund, thanks! ([#66](https://github.com/unfoldedcircle/integration-appletv/pull/66)).
