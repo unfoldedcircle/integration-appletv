@@ -465,13 +465,17 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         except asyncio.CancelledError:
             pass
         except OSError as err:  # Try again if OSError raised (maybe network not ready yet)
-            _LOG.warning("[%s] Network may not be ready yet %s : retry", self.log_id, err)
-            await asyncio.sleep(ERROR_OS_WAIT)
-            try:
-                if conf := await self._find_atv():
-                    await self._connect(conf)
-            except Exception as err2:  # pylint: disable=broad-exception-caught
-                _LOG.warning("[%s] Could not connect: %s", self.log_id, err2)
+            _LOG.warning("[%s] Could not connect: %s", self.log_id, err)
+            if err.errno == 101:  # OSError(101, 'Network is unreachable')
+                _LOG.warning("[%s] Network may not be ready yet %s : retry", self.log_id, err)
+                await asyncio.sleep(ERROR_OS_WAIT)
+                try:
+                    if conf := await self._find_atv():
+                        await self._connect(conf)
+                except Exception as err2:  # pylint: disable=broad-exception-caught
+                    _LOG.warning("[%s] Could not connect: %s", self.log_id, err2)
+                    self._atv = None
+            else:
                 self._atv = None
         except Exception as err:  # pylint: disable=broad-exception-caught
             _LOG.warning("[%s] Could not connect: %s", self.log_id, err)
