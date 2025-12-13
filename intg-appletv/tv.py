@@ -199,6 +199,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         self._playback_state = PlaybackState.NORMAL
         self._output_devices_volume: dict[str, float] = {}
         self._volume_level: float = 0.0
+        self._apple_tv_conf: pyatv.interface.BaseConfig | None = None
 
     @property
     def device_config(self) -> AtvDevice:
@@ -456,30 +457,35 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
     async def _connect_once(self) -> None:
         try:
-            if conf := await self._find_atv():
-                await self._connect(conf)
+            # Reuse the latest AppleTV instance (Mac and IP) if defined to avoid a scan
+            if self._apple_tv_conf is None:
+                self._apple_tv_conf = await self._find_atv()
+            if self._apple_tv_conf:
+                await self._connect(self._apple_tv_conf)
         except pyatv.exceptions.AuthenticationError:
             _LOG.warning("[%s] Could not connect: auth error", self.log_id)
             await self.disconnect()
             return
         except asyncio.CancelledError:
             pass
-        except OSError as err:  # Try again if OSError raised (maybe network not ready yet)
+        except Exception as err:  # pylint: disable=broad-exception-caught
             _LOG.warning("[%s] Could not connect: %s", self.log_id, err)
-            if err.errno == 101:  # OSError(101, 'Network is unreachable')
+            # OSError(101, 'Network is unreachable') or 10065 for Windows
+            if err.__cause__ and isinstance(err.__cause__, OSError) and err.__cause__.errno in [101, 10065]:
                 _LOG.warning("[%s] Network may not be ready yet %s : retry", self.log_id, err)
                 await asyncio.sleep(ERROR_OS_WAIT)
                 try:
-                    if conf := await self._find_atv():
-                        await self._connect(conf)
+                    if self._apple_tv_conf is None:
+                        self._apple_tv_conf = await self._find_atv()
+                    if self._apple_tv_conf:
+                        await self._connect(self._apple_tv_conf)
                 except Exception as err2:  # pylint: disable=broad-exception-caught
                     _LOG.warning("[%s] Could not connect: %s", self.log_id, err2)
                     self._atv = None
             else:
+                # Reset AppleTV configuration in case this is the wrong conf (changed Mac or IP)
+                self._apple_tv_conf = None
                 self._atv = None
-        except Exception as err:  # pylint: disable=broad-exception-caught
-            _LOG.warning("[%s] Could not connect: %s", self.log_id, err)
-            self._atv = None
 
     async def _connect(self, conf: pyatv.interface.BaseConfig) -> None:
         # We try to connect with all the protocols.
