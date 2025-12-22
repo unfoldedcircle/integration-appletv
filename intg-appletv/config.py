@@ -28,6 +28,8 @@ class AtvProtocol(str, Enum):
 
     AIRPLAY = "airplay"
     COMPANION = "companion"
+    DMAP = "dmap"
+    MRP = "mrp"
 
 
 @dataclass
