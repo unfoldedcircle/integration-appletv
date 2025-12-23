@@ -11,6 +11,11 @@ _Changes in the next release_
 
 ---
 
+## v0.20.0 - 2025-12-23
+### Changed
+- Added connection retry when network is not ready. Contributed by @albaintor, thanks! ([#80](https://github.com/unfoldedcircle/integration-appletv/pull/80).
+- Update ucapi to 0.5.1 ([#88](https://github.com/unfoldedcircle/integration-appletv/pull/88).
+
 ## v0.19.3 - 2025-11-27
 ### Fixed
 - Artwork not being updated ([#79](https://github.com/unfoldedcircle/integration-appletv/pull/79).
