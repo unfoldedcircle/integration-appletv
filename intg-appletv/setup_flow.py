@@ -10,7 +10,6 @@ import logging
 import os
 import socket
 from enum import IntEnum
-from typing import Set
 
 import config
 import discover
@@ -43,9 +42,7 @@ class SetupSteps(IntEnum):
     DEVICE_CHOICE = 3
     PAIRING_AIRPLAY = 4
     PAIRING_COMPANION = 5
-    PAIRING_DMAP = 6
-    PAIRING_MRP = 7
-    RECONFIGURE = 8
+    RECONFIGURE = 6
 
 
 SETUP_STEP = SetupSteps.INIT
@@ -54,21 +51,17 @@ manual_address: bool = False
 DISCOVERED_ATVS: list[pyatv.interface.BaseConfig] | None = None
 pairing_apple_tv: tv.AppleTv | None = None
 RECONFIGURED_DEVICE: AtvDevice | None = None
-supported_protocols: Set[pyatv.const.Protocol] | None = None
+supported_protocols: set[pyatv.const.Protocol] | None = None
 current_protocol: pyatv.const.Protocol | None = None
 
 MAP_PROTOCOL_TO_SETUP_STEP = {
     pyatv.const.Protocol.AirPlay: SetupSteps.PAIRING_AIRPLAY,
     pyatv.const.Protocol.Companion: SetupSteps.PAIRING_COMPANION,
-    pyatv.const.Protocol.DMAP: SetupSteps.PAIRING_DMAP,
-    pyatv.const.Protocol.MRP: SetupSteps.PAIRING_MRP,
 }
 
 MAP_PROTOCOL_TO_ATV_PROTOCOL = {
     pyatv.const.Protocol.AirPlay: AtvProtocol.AIRPLAY,
     pyatv.const.Protocol.Companion: AtvProtocol.COMPANION,
-    pyatv.const.Protocol.DMAP: AtvProtocol.DMAP,
-    pyatv.const.Protocol.MRP: AtvProtocol.MRP,
 }
 
 
@@ -547,7 +540,9 @@ async def _handle_user_data_pin(
     _LOG.debug("User has entered the %s PIN", current_protocol.name)
 
     if pairing_apple_tv is None:
-        _LOG.error("Pairing Apple TV device no longer available after entering AirPlay pin. Aborting setup")
+        _LOG.error(
+            "Pairing Apple TV device no longer available after entering %s pin. Aborting setup", current_protocol.name
+        )
         return SetupError()
 
     pin = int(msg.input_values[f"pin_{current_protocol.name.lower()}"])
@@ -558,9 +553,10 @@ async def _handle_user_data_pin(
         return SetupError()
 
     # Store credentials
-    pairing_apple_tv.add_credentials({MAP_PROTOCOL_TO_ATV_PROTOCOL[current_protocol]: res.credentials})
+    c = {"protocol": MAP_PROTOCOL_TO_ATV_PROTOCOL[current_protocol], "credentials": res.credentials}
+    pairing_apple_tv.add_credentials(c)
 
-    # Start new pairing process
+    # Start next pairing process
     return await _create_next_pairing_step()
 
 
