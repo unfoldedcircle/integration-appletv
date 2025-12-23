@@ -166,7 +166,7 @@ async def on_unsubscribe_entities(entity_ids: list[str]) -> None:
 
 # pylint: disable=too-many-statements,too-many-branches
 async def media_player_cmd_handler(
-    entity: MediaPlayer, cmd_id: str, params: dict[str, Any] | None
+    entity: MediaPlayer, cmd_id: str, params: dict[str, Any] | None, **_kwargs: Any
 ) -> ucapi.StatusCodes:
     """
     Media-player entity command handler.
@@ -176,6 +176,7 @@ async def media_player_cmd_handler(
     :param entity: media-player entity
     :param cmd_id: command
     :param params: optional command parameters
+    :param _kwargs: additional arguments like websocket (not used)
     :return: status code of the command. StatusCodes.OK if the command succeeded.
     """
     _LOG.info("Got %s command request: %s %s", entity.id, cmd_id, params if params else "")
