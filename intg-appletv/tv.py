@@ -472,6 +472,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         except Exception as err:  # pylint: disable=broad-exception-caught
             _LOG.warning("[%s] Could not connect: %s", self.log_id, err)
             # OSError(101, 'Network is unreachable') or 10065 for Windows
+            # pylint: disable=E1101
             if err.__cause__ and isinstance(err.__cause__, OSError) and err.__cause__.errno in [101, 10065]:
                 _LOG.warning("[%s] Network may not be ready yet %s : retry", self.log_id, err)
                 await asyncio.sleep(ERROR_OS_WAIT)
