@@ -1,5 +1,5 @@
 # pylint 4.0.4 is way stricter - a patch update!
-pylint==4.0.3
+pylint==4.0.4
 flake8-docstrings
 flake8
 black
