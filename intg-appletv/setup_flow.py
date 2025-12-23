@@ -471,8 +471,16 @@ async def _handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Req
 
 
 async def _create_next_pairing_step() -> RequestUserInput | RequestUserConfirmation | SetupError | SetupComplete:
-    global _CURRENT_PROTOCOL, _PAIRING_APPLE_TV, _SUPPORTED_PROTOCOLS
-    _CURRENT_PROTOCOL = _SUPPORTED_PROTOCOLS.pop()
+    """
+    Create the next pairing step in the setup process.
+
+    Uses _SUPPORTED_PROTOCOLS to determine the next protocol to pair.
+    If no more protocols are left, the setup is complete.
+
+    :return: the setup action on how to continue.
+    """
+    global _CURRENT_PROTOCOL, _PAIRING_APPLE_TV, _SUPPORTED_PROTOCOLS, _SETUP_STEP
+    _CURRENT_PROTOCOL = _SUPPORTED_PROTOCOLS.pop() if _SUPPORTED_PROTOCOLS else None
     if _CURRENT_PROTOCOL is None:
         # no more protocols to pair means we're done
         device = AtvDevice(
@@ -502,7 +510,7 @@ async def _create_next_pairing_step() -> RequestUserInput | RequestUserConfirmat
 
     if res == 0:
         _LOG.debug("Device provides %s-Code", _CURRENT_PROTOCOL.name)
-        _setup_step = MAP_PROTOCOL_TO_SETUP_STEP[_CURRENT_PROTOCOL]
+        _SETUP_STEP = MAP_PROTOCOL_TO_SETUP_STEP[_CURRENT_PROTOCOL]
         return RequestUserInput(
             _af("Please enter the shown {protocol}-Code on your Apple TV", protocol=_CURRENT_PROTOCOL.name),
             [
@@ -528,7 +536,7 @@ async def _handle_user_data_pin(
     msg: UserDataResponse,
 ) -> RequestUserInput | RequestUserConfirmation | SetupError:
     """
-    Process user data airplay pairing pin response in a setup process.
+    Process user data pairing pin response in a setup process.
 
     Driver setup callback to provide requested user data during the setup process.
 
