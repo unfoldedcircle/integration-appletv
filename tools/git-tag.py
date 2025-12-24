@@ -113,7 +113,7 @@ def main():
         if len(parts) < 2:
             continue
         message = parts[0]
-        author = parts[1]
+        _author = parts[1]
 
         # Extract PR number if present
         pr_match = re.search(r"\(#(\d+)\)", message)
@@ -121,10 +121,10 @@ def main():
             pr_num = pr_match.group(1)
             # Remove the (#num) part from message
             clean_message = re.sub(r"\s*\(#\d+\)", "", message).strip()
-            formatted_line = f"{clean_message} by @{author} in #{pr_num}"
+            formatted_line = f"{clean_message} in #{pr_num}"
             formatted_pr_commits.append(formatted_line)
         else:
-            formatted_line = f"{message} by @{author}"
+            formatted_line = f"{message}"
             formatted_other_commits.append(formatted_line)
 
     initial_message = f"Release {new_tag}\n\n"
