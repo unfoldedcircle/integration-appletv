@@ -9,10 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Changes in the next release_
 
-### Changed
-- Use journald log levels if running as a systemd service
-
 ---
+
+## v0.20.1 - 2025-12-24
+### Changed
+- Use journald log levels if running as a systemd service ([#89](https://github.com/unfoldedcircle/integration-appletv/pull/89)).
 
 ## v0.20.0 - 2025-12-23
 ### Changed
