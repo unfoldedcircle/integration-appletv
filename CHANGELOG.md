@@ -9,18 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Changes in the next release_
 
+### Changed
+- Use journald log levels if running as a systemd service
+
 ---
 
 ## v0.20.0 - 2025-12-23
 ### Changed
-- Added connection retry when network is not ready. Contributed by @albaintor, thanks! ([#80](https://github.com/unfoldedcircle/integration-appletv/pull/80).
-- Update ucapi to 0.5.1 ([#88](https://github.com/unfoldedcircle/integration-appletv/pull/88).
+- Added connection retry when network is not ready. Contributed by @albaintor, thanks! ([#80](https://github.com/unfoldedcircle/integration-appletv/pull/80)).
+- Update ucapi to 0.5.1 ([#88](https://github.com/unfoldedcircle/integration-appletv/pull/88)).
 
 ## v0.19.3 - 2025-11-27
 ### Fixed
-- Artwork not being updated ([#79](https://github.com/unfoldedcircle/integration-appletv/pull/79).
+- Artwork not being updated ([#79](https://github.com/unfoldedcircle/integration-appletv/pull/79)).
 ### Changed
-- If a client disconnects, the connections to the ATV devices are no longer closed ([#78](https://github.com/unfoldedcircle/integration-appletv/pull/78).
+- If a client disconnects, the connections to the ATV devices are no longer closed ([#78](https://github.com/unfoldedcircle/integration-appletv/pull/78)).
 
 ## v0.19.2 - 2025-11-21
 ### Fixed

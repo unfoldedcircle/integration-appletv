@@ -721,9 +721,36 @@ async def pyatv_patched_system_info(self):
     )
 
 
+class JournaldFormatter(logging.Formatter):
+    """Formatter for journald. Prefixes messages with priority level."""
+
+    def format(self, record):
+        """Format the log record with journald priority prefix."""
+        # mapping of logging levels to journald priority levels
+        # https://www.freedesktop.org/software/systemd/man/latest/sd-daemon.html#syslog-compatible-log-levels
+        priority = {
+            logging.DEBUG: "<7>",
+            logging.INFO: "<6>",
+            logging.WARNING: "<4>",
+            logging.ERROR: "<3>",
+            logging.CRITICAL: "<2>",
+        }.get(record.levelno, "<6>")
+        return f"{priority}{record.name}: {record.getMessage()}"
+
+
 async def main():
-    """Start the Remote Two integration driver."""
-    logging.basicConfig()
+    """Start the Remote Two/3 integration driver."""
+    if os.getenv("INVOCATION_ID"):
+        # when running under systemd: timestamps are added by the journal
+        # and we use a custom formatter for journald priority levels
+        handler = logging.StreamHandler()
+        handler.setFormatter(JournaldFormatter())
+        logging.basicConfig(handlers=[handler])
+    else:
+        logging.basicConfig(
+            format="%(asctime)s.%(msecs)03d %(levelname)-5s %(name)s.%(funcName)s: %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
 
     level = os.getenv("UC_LOG_LEVEL", "DEBUG").upper()
     logging.getLogger("tv").setLevel(level)
