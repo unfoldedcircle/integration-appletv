@@ -5,14 +5,20 @@ name: "Build & Release"
 on:
   workflow_dispatch:
   push:
-    branches-ignore:
-      - l10n
+    # only build on pushes to main
+    branches:
+      - main
     tags:
       - v[0-9]+.[0-9]+.[0-9]+*
   pull_request:
     branches:
       - main
     types: [ opened, synchronize, reopened ]
+
+# prevent concurrent runs of this workflow for open pull requests
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 env:
   INTG_NAME: appletv

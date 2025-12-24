@@ -2,6 +2,7 @@ name: Check Python code formatting
 
 on:
   push:
+    # always check code formatting in all feature branches
     branches-ignore:
       - l10n
     paths:
@@ -15,6 +16,11 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened]
+
+# prevent concurrent runs of this workflow for open pull requests
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
