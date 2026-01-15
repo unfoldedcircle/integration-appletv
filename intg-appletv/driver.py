@@ -728,9 +728,11 @@ class JournaldFormatter(logging.Formatter):
         """Format the log record with journald priority prefix."""
         # mapping of logging levels to journald priority levels
         # https://www.freedesktop.org/software/systemd/man/latest/sd-daemon.html#syslog-compatible-log-levels
+        # Note: DEBUG app messages are logged with priority 6 (info) and INFO with priority 5 (notice)
+        # This is a workaround until the log subsystem on the Remote is updated to support debug levels.
         priority = {
-            logging.DEBUG: "<7>",
-            logging.INFO: "<6>",
+            logging.DEBUG: "<6>",  # SD_INFO
+            logging.INFO: "<5>",  # SD_NOTICE
             logging.WARNING: "<4>",
             logging.ERROR: "<3>",
             logging.CRITICAL: "<2>",

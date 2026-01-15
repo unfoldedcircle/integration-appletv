@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Changes in the next release_
 
+### Changed
+- Adapt journald log levels until the Remote supports native debug levels.
+
 ---
 
 ## v0.20.1 - 2025-12-24
