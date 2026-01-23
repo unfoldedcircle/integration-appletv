@@ -46,7 +46,6 @@ from pyatv.const import (
     ShuffleState,
 )
 from pyatv.core.facade import FacadeAudio, FacadeRemoteControl, FacadeTouchGestures
-from pyatv.core.protocol import DispatchMessage
 from pyatv.interface import BaseConfig, OutputDevice
 from pyatv.protocols.companion import (
     CompanionAPI,
@@ -58,7 +57,6 @@ from pyatv.protocols.mrp import (
     MrpAudio,
     MrpRemoteControl,
     messages,
-    protobuf,
 )
 from pyee.asyncio import AsyncIOEventEmitter
 
