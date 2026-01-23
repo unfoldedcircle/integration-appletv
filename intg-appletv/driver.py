@@ -761,9 +761,6 @@ async def main():
     logging.getLogger("discover").setLevel(level)
     logging.getLogger("setup_flow").setLevel(level)
 
-    # TODO be removed when https://github.com/postlund/pyatv/issues/2656 is resolved
-    pyatv.protocols.companion.api.CompanionAPI.system_info = pyatv_patched_system_info
-
     # logging.getLogger("pyatv").setLevel(logging.DEBUG)
 
     # load paired devices
