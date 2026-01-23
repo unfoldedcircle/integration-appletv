@@ -318,9 +318,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         self._volume_level = new_level
         self._volume_notify()
 
-    def volume_device_update(
-        self, output_device: OutputDevice, old_level: float, new_level: float
-    ) -> None:
+    def volume_device_update(self, output_device: OutputDevice, old_level: float, new_level: float) -> None:
         """Output device volume was updated."""
         # Skip if volume does not concern an external device
         _LOG.debug("[%s] Volume level for device %s", self.log_id, output_device.identifier)
