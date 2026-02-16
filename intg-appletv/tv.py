@@ -642,7 +642,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
         try:
             update["sourceList"] = []
-            app_list = await self._atv.apps.app_list()
+            app_list = sorted(await self._atv.apps.app_list(), key=lambda item: item.name.lower())
             for app in app_list:
                 self._app_list[app.name] = app.identifier
                 update["sourceList"].append(app.name)
