@@ -46,7 +46,6 @@ from pyatv.const import (
     ShuffleState,
 )
 from pyatv.core.facade import FacadeAudio, FacadeRemoteControl, FacadeTouchGestures
-from pyatv.core.protocol import DispatchMessage
 from pyatv.interface import BaseConfig, OutputDevice
 from pyatv.protocols.companion import (
     CompanionAPI,
@@ -57,7 +56,6 @@ from pyatv.protocols.mrp import (
     MrpAudio,
     MrpRemoteControl,
     messages,
-    protobuf,
 )
 from pyee.asyncio import AsyncIOEventEmitter
 
@@ -288,12 +286,6 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         _LOG.debug("[%s] Connection closed!", self.log_id)
         self._handle_disconnect()
 
-    def volume_device_update(self, output_device: OutputDevice, _old_level: float, new_level: float) -> None:
-        """Volume level change callback for a specific output device."""
-        if output_device.identifier == self._atv.device_info.output_device_id:
-            self._volume_level = new_level
-            self._volume_notify()
-
     def _handle_disconnect(self):
         """Handle that the device disconnected and restart connect loop."""
         _ = asyncio.ensure_future(self._stop_polling())
@@ -325,16 +317,15 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         self._volume_level = new_level
         self._volume_notify()
 
-    # TODO this method may be replaced later with set_device_volume(self, device_uid: str, level: float)
-    async def volume_update_global(self, message: DispatchMessage) -> None:
-        """Volume level change callback for all connected devices."""
-        inner = message.inner()
+    def volume_device_update(self, output_device: OutputDevice, old_level: float, new_level: float) -> None:
+        """Output device volume was updated."""
         # Skip if volume does not concern an external device
-        if inner.outputDeviceUID == self._atv.device_info.output_device_id:
+        _LOG.debug("[%s] Volume level for device %s", self.log_id, output_device.identifier)
+        if output_device.identifier == self._atv.device_info.output_device_id:
             return
-        volume = round(inner.volume * 100.0, 1)
-        _LOG.debug("[%s] Volume level for device %s : %.2f", self.log_id, inner.outputDeviceUID, volume)
-        self._output_devices_volume[inner.outputDeviceUID] = volume
+        volume = round(new_level, 1)
+        _LOG.debug("[%s] Volume level for device %s : %.2f", self.log_id, output_device.identifier, volume)
+        self._output_devices_volume[output_device.identifier] = volume
         if self.device_config.global_volume:
             self._volume_notify()
 
@@ -442,11 +433,6 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         self._atv.push_updater.start()
         self._atv.listener = self
         self._atv.audio.listener = self
-
-        # TODO to be removed when PR https://github.com/postlund/pyatv/pull/2673 available
-        audio_facade: FacadeAudio = cast(FacadeAudio, self._atv.audio)
-        audio: MrpAudio | None = audio_facade.get(Protocol.MRP) if audio_facade else None
-        audio.protocol.listen_to(protobuf.VOLUME_DID_CHANGE_MESSAGE, self.volume_update_global)
 
         # Reset the backoff counter
         self._connection_attempts = 0
