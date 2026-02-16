@@ -49,7 +49,6 @@ from pyatv.core.facade import FacadeAudio, FacadeRemoteControl, FacadeTouchGestu
 from pyatv.interface import BaseConfig, OutputDevice
 from pyatv.protocols.companion import (
     CompanionAPI,
-    HidCommand,
     MediaControlCommand,
     SystemStatus,
 )
@@ -286,6 +285,12 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         """
         _LOG.debug("[%s] Connection closed!", self.log_id)
         self._handle_disconnect()
+
+    def volume_device_update(self, output_device: OutputDevice, _old_level: float, new_level: float) -> None:
+        """Volume level change callback for a specific output device."""
+        if output_device.identifier == self._atv.device_info.output_device_id:
+            self._volume_level = new_level
+            self._volume_notify()
 
     def _handle_disconnect(self):
         """Handle that the device disconnected and restart connect loop."""
@@ -1027,7 +1032,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
     @async_handle_atvlib_errors
     async def control_center(self) -> ucapi.StatusCodes:
         """Show control center: press and hold home key for one second."""
-        await self._atv.remote_control.home(InputAction.Hold)
+        await self._atv.remote_control.control_center()
 
     @async_handle_atvlib_errors
     async def menu(self) -> ucapi.StatusCodes:
@@ -1085,10 +1090,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
     @async_handle_atvlib_errors
     async def toggle_guide(self) -> ucapi.StatusCodes:
         """Toggle the EPG."""
-        companion = cast(FacadeRemoteControl, self._atv.remote_control).get(Protocol.Companion)
-        if companion:
-            # pylint: disable=W0212
-            await companion._press_button(HidCommand.Guide)
+        await self._atv.remote_control.guide()
 
     @async_handle_atvlib_errors
     async def set_output_device(self, device_name: str) -> ucapi.StatusCodes:
