@@ -286,12 +286,6 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         _LOG.debug("[%s] Connection closed!", self.log_id)
         self._handle_disconnect()
 
-    def volume_device_update(self, output_device: OutputDevice, _old_level: float, new_level: float) -> None:
-        """Volume level change callback for a specific output device."""
-        if output_device.identifier == self._atv.device_info.output_device_id:
-            self._volume_level = new_level
-            self._volume_notify()
-
     def _handle_disconnect(self):
         """Handle that the device disconnected and restart connect loop."""
         _ = asyncio.ensure_future(self._stop_polling())

@@ -695,32 +695,6 @@ def on_device_removed(device: config.AtvDevice | None) -> None:
             api.available_entities.remove(entity_id)
 
 
-# TODO be removed when https://github.com/postlund/pyatv/issues/2656 is resolved
-async def pyatv_patched_system_info(self):
-    """Send system information to device."""
-    creds = pyatv.auth.hap_pairing.parse_credentials(self.core.service.credentials)
-    info = self.core.settings.info
-
-    # Bunch of semi-random values here...
-    # pylint: disable=W0212
-    await self._send_command(
-        "_systemInfo",
-        {
-            "_bf": 0,
-            "_cf": 512,
-            "_clFl": 128,
-            "_i": os.urandom(6).hex(),  # TODO: Figure out what to put here => "cafecafecafe" don't work anymore
-            "_idsID": creds.client_id,
-            # Not really device id here, but better then anything...
-            "_pubID": info.device_id,
-            "_sf": 256,  # Status flags?
-            "_sv": "170.18",  # Software Version (I guess?)
-            "model": info.model,
-            "name": info.name,
-        },
-    )
-
-
 class JournaldFormatter(logging.Formatter):
     """Formatter for journald. Prefixes messages with priority level."""
 
