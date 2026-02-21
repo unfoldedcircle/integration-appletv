@@ -11,6 +11,15 @@ _Changes in the next release_
 
 ---
 
+## v0.20.3 - 2026-02-21
+### Changed
+- Sort the available apps by name by @henrikwidlund ([#101](https://github.com/unfoldedcircle/integration-appletv/pull/101)).
+- Removed patched functions for disconnection and global volume by @albaintor ([#97](https://github.com/unfoldedcircle/integration-appletv/pull/97)).
+- Update Docker build image ([#102](https://github.com/unfoldedcircle/integration-appletv/pull/102)).
+- Update ucapi to 0.5.2 ([#98](https://github.com/unfoldedcircle/integration-appletv/pull/98)).
+- Update pyatv to 0.17.0 ([#95](https://github.com/unfoldedcircle/integration-appletv/pull/95)).
+- Update pyee to 13.0.1  ([#100](https://github.com/unfoldedcircle/integration-appletv/pull/100)).
+
 ## v0.20.2 - 2026-01-15
 ### Changed
 - Adapt journald log levels until the Remote supports native debug levels ([#94](https://github.com/unfoldedcircle/integration-appletv/pull/94)).
