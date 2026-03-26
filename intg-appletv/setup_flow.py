@@ -9,6 +9,7 @@ import asyncio
 import logging
 import os
 import socket
+from collections import deque
 from enum import IntEnum
 
 import config
@@ -40,9 +41,11 @@ class SetupSteps(IntEnum):
     CONFIGURATION_MODE = 1
     DISCOVER = 2
     DEVICE_CHOICE = 3
-    PAIRING_AIRPLAY = 4
-    PAIRING_COMPANION = 5
-    RECONFIGURE = 6
+    PAIRING_MRP = 4
+    PAIRING_AIRPLAY = 5
+    PAIRING_COMPANION = 6
+    PAIRING_RAOP = 7
+    RECONFIGURE = 8
 
 
 SETUP_STEP = SetupSteps.INIT
@@ -51,17 +54,21 @@ manual_address: bool = False
 DISCOVERED_ATVS: list[pyatv.interface.BaseConfig] | None = None
 pairing_apple_tv: tv.AppleTv | None = None
 RECONFIGURED_DEVICE: AtvDevice | None = None
-supported_protocols: set[pyatv.const.Protocol] | None = None
+supported_protocols: deque[pyatv.const.Protocol] | None = None
 current_protocol: pyatv.const.Protocol | None = None
 
 MAP_PROTOCOL_TO_SETUP_STEP = {
+    pyatv.const.Protocol.MRP: SetupSteps.PAIRING_MRP,
     pyatv.const.Protocol.AirPlay: SetupSteps.PAIRING_AIRPLAY,
     pyatv.const.Protocol.Companion: SetupSteps.PAIRING_COMPANION,
+    pyatv.const.Protocol.RAOP: SetupSteps.PAIRING_RAOP,
 }
 
 MAP_PROTOCOL_TO_ATV_PROTOCOL = {
+    pyatv.const.Protocol.MRP: AtvProtocol.MRP,
     pyatv.const.Protocol.AirPlay: AtvProtocol.AIRPLAY,
     pyatv.const.Protocol.Companion: AtvProtocol.COMPANION,
+    pyatv.const.Protocol.RAOP: AtvProtocol.RAOP,
 }
 
 
@@ -129,6 +136,7 @@ async def driver_setup_handler(msg: SetupDriver) -> SetupAction:  # pylint: disa
             return await _handle_device_choice(msg)
         if (
             SETUP_STEP in MAP_PROTOCOL_TO_SETUP_STEP.values()
+            and current_protocol is not None
             and f"pin_{current_protocol.name.lower()}" in msg.input_values
         ):
             return await _handle_user_data_pin(msg)
@@ -451,31 +459,35 @@ async def _handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Req
         pairing_atv=atv,
     )
 
-    _LOG.debug("Pairing process begin")
     # Hook up to signals
     # TODO error conditions in start_pairing?
     # Determine supported protocols
-    supported_protocols = set()
-    for service in atv.services:
-        if service.protocol in MAP_PROTOCOL_TO_SETUP_STEP:
-            supported_protocols.add(service.protocol)
+    supported_protocols = deque(
+        service.protocol for service in atv.services if service.protocol in MAP_PROTOCOL_TO_SETUP_STEP
+    )
 
+    _LOG.debug("Pairing process begin, protocols: %s", list(supported_protocols))
     return await _create_next_pairing_step()
 
 
 async def _create_next_pairing_step() -> RequestUserInput | RequestUserConfirmation | SetupError | SetupComplete:
     """
-    Create the next pairing step in the setup process.
+    Advance to the next protocol pairing step.
 
-    Uses SUPPORTED_PROTOCOLS to determine the next protocol to pair.
-    If no more protocols are left, the setup is complete.
+    Pops the next protocol from ``supported_protocols`` and starts its pairing process.
+    When the deque is empty all protocols have been paired and setup completes.
 
     :return: the setup action on how to continue.
     """
-    global current_protocol, pairing_apple_tv, supported_protocols, SETUP_STEP
-    current_protocol = supported_protocols.pop() if supported_protocols else None
+    global current_protocol
+    global pairing_apple_tv
+    global supported_protocols
+    global SETUP_STEP
+    current_protocol = supported_protocols.popleft() if supported_protocols else None
+
     if current_protocol is None:
-        # no more protocols to pair means we're done
+        # All protocols paired — persist the device and finish.
+        assert pairing_apple_tv is not None
         device = AtvDevice(
             identifier=pairing_apple_tv.identifier,
             name=pairing_apple_tv.name,
@@ -488,6 +500,7 @@ async def _create_next_pairing_step() -> RequestUserInput | RequestUserConfirmat
 
         # ATV device connection will be triggered with subscribe_entities request
 
+        await pairing_apple_tv.disconnect()
         pairing_apple_tv = None
         supported_protocols = None
         await asyncio.sleep(1)
@@ -536,12 +549,14 @@ async def _handle_user_data_pin(
     :param msg: response data from the requested user data
     :return: the setup action on how to continue
     """
+    assert current_protocol is not None
 
     _LOG.debug("User has entered the %s PIN", current_protocol.name)
 
     if pairing_apple_tv is None:
         _LOG.error(
-            "Pairing Apple TV device no longer available after entering %s pin. Aborting setup", current_protocol.name
+            "Pairing Apple TV device no longer available after entering %s PIN. Aborting setup",
+            current_protocol.name,
         )
         return SetupError()
 
@@ -598,7 +613,7 @@ async def _handle_device_reconfigure(msg: UserDataResponse) -> SetupComplete | S
     new_identifier = (
         RECONFIGURED_DEVICE.identifier if RECONFIGURED_DEVICE.mac_address is None else RECONFIGURED_DEVICE.mac_address
     )
-    _LOG.info("Setup successfully completed for %s with new identifier : %s", RECONFIGURED_DEVICE.name, new_identifier)
+    _LOG.info("Setup successfully completed for %s with new identifier: %s", RECONFIGURED_DEVICE.name, new_identifier)
 
     return SetupComplete()
 
@@ -618,7 +633,7 @@ def _discovered_atv_from_identifier(identifier: str) -> pyatv.interface.BaseConf
     return None
 
 
-def __user_input_discovery():
+def __user_input_discovery() -> RequestUserInput:
     return RequestUserInput(
         _a("Setup mode"),
         [
@@ -645,7 +660,7 @@ def __user_input_discovery():
     )
 
 
-def __global_volume(enabled: bool):
+def __global_volume(enabled: bool) -> dict:
     return {
         "id": "global_volume",
         "label": _a("Change volume on all connected devices"),

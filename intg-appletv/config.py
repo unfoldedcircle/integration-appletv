@@ -26,8 +26,10 @@ _CFG_FILENAME = "config.json"
 class AtvProtocol(str, Enum):
     """Apple TV protocols."""
 
+    MRP = "mrp"
     AIRPLAY = "airplay"
     COMPANION = "companion"
+    RAOP = "raop"
 
 
 @dataclass
