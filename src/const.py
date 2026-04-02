@@ -6,7 +6,7 @@ Configuration handling of the integration driver.
 """
 
 from enum import Enum
-from typing import Type, Any
+from typing import Any, Type
 
 
 def filter_attributes(attributes, attribute_type: Type[Enum]) -> dict[str, Any]:

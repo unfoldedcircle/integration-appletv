@@ -13,10 +13,11 @@ import logging
 import sys
 from typing import Any
 
-from config import AtvDevice
 from rich import print_json
-from tv import EVENTS, AppleTv
 from ucapi.media_player import Attributes
+
+from config import AtvDevice
+from tv import EVENTS, AppleTv
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())

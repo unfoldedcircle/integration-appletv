@@ -15,8 +15,10 @@ from dataclasses import dataclass, field, fields
 from enum import Enum
 from typing import Iterator
 
-import discover
 import pyatv
+from ucapi import Entity
+
+import discover
 
 _LOG = logging.getLogger(__name__)
 
@@ -28,6 +30,15 @@ class AtvProtocol(str, Enum):
 
     AIRPLAY = "airplay"
     COMPANION = "companion"
+
+
+class AppleTVEntity(Entity):
+    """Global AppleTV entity."""
+
+    @property
+    def deviceid(self) -> str:
+        """Return the device identifier."""
+        raise NotImplementedError()
 
 
 @dataclass
@@ -176,16 +187,12 @@ class Devices:
         :return: True if the configuration could be loaded.
         """
         try:
+            _LOG.debug("Load config file: %s", self._cfg_file_path)
             with open(self._cfg_file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
             for item in data:
-                # Copy fields and handle default values in case the model has evolved
-                atv = AtvDevice(
-                    identifier=item.get("identifier"), name=item.get("name"), credentials=item.get("credentials")
-                )
-                for f in fields(item):
-                    setattr(atv, f.name, getattr(atv, f.name))
-                self._config.append(atv)
+                # Handle default values in case the model has evolved
+                self._config.append(AtvDevice(**item))
             return True
         except OSError as err:
             _LOG.error("Cannot open the config file: %s", err)

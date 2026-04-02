@@ -150,7 +150,7 @@ docker run --rm --name builder \
     bash -c \
       "python -m pip install -r requirements.txt && \
       pyinstaller --clean --onedir --name intg-appletv \
-        --add-data intg-appletv/locales:locales --collect-all zeroconf intg-appletv/driver.py"
+        --add-data src/locales:locales --collect-all zeroconf src/driver.py"
 ```
 
 ### aarch64 Linux / Mac
@@ -164,7 +164,7 @@ docker run --rm --name builder \
     bash -c \
       "python -m pip install -r requirements.txt && \
       pyinstaller --clean --onedir --name intg-appletv \
-        --add-data intg-appletv/locales:locales --collect-all zeroconf intg-appletv/driver.py"
+        --add-data src/locales:locales --collect-all zeroconf src/driver.py"
 ```
 
 ## Versioning

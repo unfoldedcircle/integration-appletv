@@ -11,26 +11,18 @@ import logging
 import os
 import re
 import sys
-from datetime import UTC, datetime
-from typing import Any
+from enum import Enum
+from typing import Any, Type
 
-import config
-import pyatv
-
-# TODO begin To be removed when https://github.com/postlund/pyatv/issues/2656 is resolved
-import pyatv.auth.hap_pairing
-import pyatv.const
-import pyatv.protocols.companion.api
-
-# TODO end
-import setup_flow
-import tv
 import ucapi
 import ucapi.api as uc
+from ucapi import Entity, media_player
 
+import config
+import setup_flow
+import tv
+from config import AppleTVEntity
 from i18n import _a
-from ucapi import media_player
-
 from media_player import AppleTVMediaPlayer
 
 _LOG = logging.getLogger("driver")  # avoid having __main__ in log messages
@@ -95,20 +87,19 @@ async def on_subscribe_entities(entity_ids: list[str]) -> None:
     :param entity_ids: entity identifiers.
     """
     _LOG.debug("Subscribe entities event: %s", entity_ids)
+
     for entity_id in entity_ids:
-        atv_id = entity_id
-        if atv_id in _configured_atvs:
-            atv = _configured_atvs[atv_id]
-            _LOG.info("Add '%s' to configured devices and connect", atv.name)
-            if atv.is_on is None:
-                state = media_player.States.UNAVAILABLE
-            else:
-                state = media_player.States.ON if atv.is_on else media_player.States.OFF
-            api.configured_entities.update_attributes(entity_id, {media_player.Attributes.STATE: state})
-            await atv.connect()
+        entity: AppleTVEntity | None = api.configured_entities.get(entity_id)
+        device_id = entity.deviceid
+        if device_id in _configured_atvs:
+            device = _configured_atvs[device_id]
+            if isinstance(entity, media_player.MediaPlayer):
+                api.configured_entities.update_attributes(
+                    entity_id, filter_attributes(device.attributes, ucapi.media_player.Attributes)
+                )
             continue
 
-        device = config.devices.get(atv_id)
+        device = config.devices.get(device_id)
         if device:
             _add_configured_atv(device)
         else:
@@ -132,9 +123,9 @@ async def on_atv_connected(identifier: str) -> None:
     _LOG.debug("Apple TV connected: %s", identifier)
     state = media_player.States.UNKNOWN
     if identifier in _configured_atvs:
-        atv = _configured_atvs[identifier]
-        if atv_state := atv.state:
-            state = _atv_state_to_media_player_state(atv_state)
+        await on_atv_update(identifier, None)
+        await api.set_device_state(ucapi.DeviceStates.CONNECTED)  # just to make sure the device state is set
+        return
 
     api.configured_entities.update_attributes(identifier, {media_player.Attributes.STATE: state})
     await api.set_device_state(ucapi.DeviceStates.CONNECTED)  # just to make sure the device state is set
@@ -143,158 +134,80 @@ async def on_atv_connected(identifier: str) -> None:
 async def on_atv_disconnected(identifier: str) -> None:
     """Handle ATV disconnection."""
     _LOG.debug("Apple TV disconnected: %s", identifier)
-    api.configured_entities.update_attributes(
-        identifier, {media_player.Attributes.STATE: media_player.States.UNAVAILABLE}
-    )
+    for configured_entity in _get_entities(identifier):
+        if configured_entity.entity_type == ucapi.EntityTypes.MEDIA_PLAYER:
+            api.configured_entities.update_attributes(
+                configured_entity.id, {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.UNAVAILABLE}
+            )
 
 
 async def on_atv_connection_error(identifier: str, message) -> None:
     """Set entities of ATV to state UNAVAILABLE if ATV connection error occurred."""
     _LOG.error(message)
-    api.configured_entities.update_attributes(
-        identifier, {media_player.Attributes.STATE: media_player.States.UNAVAILABLE}
-    )
+    for configured_entity in _get_entities(identifier):
+        if configured_entity.entity_type == ucapi.EntityTypes.MEDIA_PLAYER:
+            api.configured_entities.update_attributes(
+                configured_entity.id, {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.UNAVAILABLE}
+            )
     await api.set_device_state(ucapi.DeviceStates.ERROR)
 
 
-def _atv_state_to_media_player_state(
-    device_state: pyatv.const.PowerState | pyatv.const.DeviceState,
-) -> media_player.States:
-    match device_state:
-        case pyatv.const.PowerState.On:
-            state = media_player.States.ON
-        case pyatv.const.PowerState.Off:
-            state = media_player.States.OFF
-        case pyatv.const.DeviceState.Idle:
-            state = media_player.States.ON
-        case pyatv.const.DeviceState.Loading:
-            state = media_player.States.BUFFERING
-        case pyatv.const.DeviceState.Paused:
-            state = media_player.States.PAUSED
-        case pyatv.const.DeviceState.Playing:
-            state = media_player.States.PLAYING
-        case pyatv.const.DeviceState.Seeking:
-            state = media_player.States.PLAYING
-        case pyatv.const.DeviceState.Stopped:
-            state = media_player.States.ON
-        case _:
-            state = media_player.States.UNKNOWN
-    return state
+def filter_attributes(attributes: dict[str, Any], attribute_type: Type[Enum]) -> dict[str, Any]:
+    """Filter attributes based on an Enum class."""
+    valid_keys = {e.value for e in attribute_type}
+    return {k: v for k, v in attributes.items() if k in valid_keys}
+
+
+def _get_entities(device_id: str, include_all=False) -> list[Entity]:
+    """
+    Return all associated entities of the given device.
+
+    :param device_id: the device  identifier
+    :param include_all: include both configured and available entities
+    :return: list of entities
+    """
+    entities = []
+    for entity_entry in api.configured_entities.get_all():
+        entity: AppleTVEntity | None = api.configured_entities.get(entity_entry.get("entity_id", ""))
+        if entity is None or entity.deviceid != device_id:
+            continue
+        entities.append(entity)
+    if not include_all:
+        return entities
+    for entity_entry in api.available_entities.get_all():
+        entity: AppleTVEntity | None = api.available_entities.get(entity_entry.get("entity_id", ""))
+        if entity is None or entity.deviceid != device_id:
+            continue
+        entities.append(entity)
+    return entities
 
 
 # pylint: disable=too-many-branches,too-many-statements
-async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
+async def on_atv_update(device_id: str, update: dict[str, Any] | None) -> None:
     """
     Update attributes of configured media-player entity if ATV properties changed.
 
-    :param entity_id: ATV media-player entity identifier
+    :param device_id: ATV media-player entity identifier
     :param update: dictionary containing the updated properties or None
     """
+    if update is None:
+        if device_id not in _configured_atvs:
+            return
+        device = _configured_atvs[device_id]
+        update = device.attributes
+    else:
+        _LOG.info("[%s] Device update: %s", device_id, update)
     attributes = {}
 
     # FIXME temporary workaround until ucapi has been refactored:
     #       there's shouldn't be separate lists for available and configured entities
-    if api.configured_entities.contains(entity_id):
-        target_entity = api.configured_entities.get(entity_id)
-    else:
-        target_entity = api.available_entities.get(entity_id)
-    if target_entity is None:
-        return
+    _LOG.debug("Updating attributes for device %s : %s", device_id, update)
 
-    if "state" in update:
-        state = _atv_state_to_media_player_state(update["state"])
-        attributes[media_player.Attributes.STATE] = state
-    else:
-        state = None
-
-    # not playing anymore, clear the playback information
-    reset_playback_info = state and state not in [
-        media_player.States.PLAYING,
-        media_player.States.PAUSED,
-        media_player.States.BUFFERING,
-    ]
-
-    if reset_playback_info:
-        attributes[media_player.Attributes.MEDIA_IMAGE_URL] = ""
-        attributes[media_player.Attributes.MEDIA_ALBUM] = ""
-        attributes[media_player.Attributes.MEDIA_ARTIST] = ""
-        attributes[media_player.Attributes.MEDIA_TITLE] = ""
-        attributes[media_player.Attributes.MEDIA_TYPE] = ""
-        attributes[media_player.Attributes.SOURCE] = ""
-        attributes[media_player.Attributes.MEDIA_DURATION] = None
-        attributes[media_player.Attributes.MEDIA_POSITION] = None
-        attributes[media_player.Attributes.REPEAT] = "OFF"
-        attributes[media_player.Attributes.SHUFFLE] = False
-    else:
-        # updates initiated by the poller always include the data, even if it hasn't changed
-        if (
-            "position" in update
-            and target_entity.attributes.get(media_player.Attributes.MEDIA_POSITION, 0) != update["position"]
-        ):
-            attributes[media_player.Attributes.MEDIA_POSITION] = update["position"]
-            attributes[media_player.Attributes.MEDIA_POSITION_UPDATED_AT] = datetime.now(tz=UTC).isoformat()
-        if (
-            media_player.Attributes.MEDIA_DURATION in update
-            and target_entity.attributes.get(media_player.Attributes.MEDIA_DURATION, 0)
-            != update[media_player.Attributes.MEDIA_DURATION]
-        ):
-            attributes[media_player.Attributes.MEDIA_DURATION] = update["total_time"]
-        if "source" in update:
-            source = _replace_bad_chars(update["source"])
-            if target_entity.attributes.get(media_player.Attributes.SOURCE, "") != source:
-                attributes[media_player.Attributes.SOURCE] = source
-        # end poller update handling
-
-        if "artwork" in update:
-            attributes[media_player.Attributes.MEDIA_IMAGE_URL] = update["artwork"]
-        if "title" in update:
-            attributes[media_player.Attributes.MEDIA_TITLE] = _replace_bad_chars(update["title"])
-        if "artist" in update:
-            attributes[media_player.Attributes.MEDIA_ARTIST] = _replace_bad_chars(update["artist"])
-        if "album" in update:
-            attributes[media_player.Attributes.MEDIA_ALBUM] = _replace_bad_chars(update["album"])
-        if "media_type" in update:
-            if update["media_type"] == pyatv.const.MediaType.Music:
-                media_type = media_player.MediaType.MUSIC
-            elif update["media_type"] == pyatv.const.MediaType.TV:
-                media_type = media_player.MediaType.TVSHOW
-            elif update["media_type"] == pyatv.const.MediaType.Video:
-                media_type = media_player.MediaType.VIDEO
-            else:
-                media_type = ""
-
-            attributes[media_player.Attributes.MEDIA_TYPE] = media_type
-        if ENABLE_REPEAT_FEAT and "repeat" in update:
-            attributes[media_player.Attributes.REPEAT] = update["repeat"]
-        if ENABLE_SHUFFLE_FEAT and "shuffle" in update:
-            attributes[media_player.Attributes.SHUFFLE] = update["shuffle"]
-
-    # always update if available
-    if "sourceList" in update:
-        if media_player.Attributes.SOURCE_LIST in target_entity.attributes:
-            if len(target_entity.attributes[media_player.Attributes.SOURCE_LIST]) != len(update["sourceList"]):
-                attributes[media_player.Attributes.SOURCE_LIST] = update["sourceList"]
-        else:
-            attributes[media_player.Attributes.SOURCE_LIST] = update["sourceList"]
-    if (
-        "sound_mode" in update
-        and target_entity.attributes.get(media_player.Attributes.SOUND_MODE, "") != update["sound_mode"]
-    ):
-        attributes[media_player.Attributes.SOUND_MODE] = update["sound_mode"]
-    if "sound_mode_list" in update:
-        if media_player.Attributes.SOUND_MODE_LIST in target_entity.attributes:
-            if len(target_entity.attributes[media_player.Attributes.SOUND_MODE_LIST]) != len(update["sound_mode_list"]):
-                attributes[media_player.Attributes.SOUND_MODE_LIST] = update["sound_mode_list"]
-        else:
-            attributes[media_player.Attributes.SOUND_MODE_LIST] = update["sound_mode_list"]
-    if "volume" in update:
-        attributes[media_player.Attributes.VOLUME] = update["volume"]
-
-    if attributes:
-        if api.configured_entities.contains(entity_id):
-            api.configured_entities.update_attributes(entity_id, attributes)
-        else:
-            api.available_entities.update_attributes(entity_id, attributes)
+    for configured_entity in _get_entities(device_id):
+        if isinstance(configured_entity, media_player.MediaPlayer):
+            attributes = filter_attributes(update, ucapi.media_player.Attributes)
+        if attributes:
+            api.configured_entities.update_attributes(configured_entity.id, attributes)
 
 
 def _replace_bad_chars(value: str) -> str:
@@ -304,24 +217,24 @@ def _replace_bad_chars(value: str) -> str:
     return re.sub(r"[\f\n\r\t\v\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]", " ", value)
 
 
-def _add_configured_atv(device: config.AtvDevice, connect: bool = True) -> None:
+def _add_configured_atv(device_config: config.AtvDevice, connect: bool = True) -> None:
     # the device should not yet be configured, but better be safe
-    if device.identifier in _configured_atvs:
-        atv = _configured_atvs[device.identifier]
+    if device_config.identifier in _configured_atvs:
+        atv = _configured_atvs[device_config.identifier]
         _LOOP.create_task(atv.disconnect())
     else:
         _LOG.debug(
             "Adding new ATV device: %s (%s) %s",
-            device.name,
-            device.identifier,
-            device.address if device.address else "",
+            device_config.name,
+            device_config.identifier,
+            device_config.address if device_config.address else "",
         )
-        atv = tv.AppleTv(device, loop=_LOOP)
+        atv = tv.AppleTv(device_config, loop=_LOOP)
         atv.events.on(tv.EVENTS.CONNECTED, on_atv_connected)
         atv.events.on(tv.EVENTS.DISCONNECTED, on_atv_disconnected)
         atv.events.on(tv.EVENTS.ERROR, on_atv_connection_error)
         atv.events.on(tv.EVENTS.UPDATE, on_atv_update)
-        _configured_atvs[device.identifier] = atv
+        _configured_atvs[device_config.identifier] = atv
 
     async def start_connection():
         await atv.connect()
@@ -330,10 +243,10 @@ def _add_configured_atv(device: config.AtvDevice, connect: bool = True) -> None:
         # start background task
         _LOOP.create_task(start_connection())
 
-    _register_available_entities(device.identifier, device.name)
+    _register_available_entities(device_config, atv)
 
 
-def _register_available_entities(identifier: str, name: str) -> bool:
+def _register_available_entities(device_config: config.AtvDevice, device: tv.AppleTv) -> bool:
     """
     Add a new ATV device to the available entities.
 
@@ -341,11 +254,8 @@ def _register_available_entities(identifier: str, name: str) -> bool:
     :param name: Friendly name
     :return: True if added, False if the device was already in storage.
     """
-    device = _configured_atvs.get(identifier)
-    if device is None:
-        _LOG.error("Unknown device to register entities %s", identifier)
-    entity = AppleTVMediaPlayer(config_device=device.device_config, device=device)
 
+    entity = AppleTVMediaPlayer(config_device=device_config, device=device)
     if api.available_entities.contains(entity.id):
         api.available_entities.remove(entity.id)
     return api.available_entities.add(entity)
@@ -417,6 +327,7 @@ async def main():
     logging.getLogger("config").setLevel(level)
     logging.getLogger("discover").setLevel(level)
     logging.getLogger("setup_flow").setLevel(level)
+    logging.getLogger("media_player").setLevel(level)
 
     # logging.getLogger("pyatv").setLevel(logging.DEBUG)
 
@@ -430,8 +341,8 @@ async def main():
     # and register them as available devices.
     # Note: device will be moved to configured devices with the subscribe_events request!
     # This will also start the device connection.
-    for device in config.devices.all():
-        _register_available_entities(device.identifier, device.name)
+    for device_config in config.devices.all():
+        _add_configured_atv(device_config, connect=True)
 
     await api.init("driver.json", setup_flow.driver_setup_handler)
     # temporary hack to change driver.json language texts until supported by the wrapper lib

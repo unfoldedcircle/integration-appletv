@@ -11,12 +11,7 @@ import os
 import socket
 from enum import IntEnum
 
-import config
-import discover
 import pyatv
-import tv
-from config import AtvDevice, AtvProtocol
-from i18n import __, _a, _af, _am
 from ucapi import (
     AbortDriverSetup,
     DriverSetupRequest,
@@ -29,6 +24,12 @@ from ucapi import (
     SetupError,
     UserDataResponse,
 )
+
+import config
+import discover
+import tv
+from config import AtvDevice, AtvProtocol
+from i18n import __, _a, _af, _am
 
 _LOG = logging.getLogger(__name__)
 
@@ -45,6 +46,7 @@ class SetupSteps(IntEnum):
     RECONFIGURE = 6
 
 
+# pylint: disable=C0103
 _setup_step = SetupSteps.INIT
 _cfg_add_device: bool = False
 _manual_address: bool = False

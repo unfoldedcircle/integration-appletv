@@ -15,14 +15,15 @@ from ucapi.media_player import (
     Attributes,
     Commands,
     DeviceClasses,
+    Features,
     Options,
 )
 
 import tv
-from config import AtvDevice
+from config import AppleTVEntity, AtvDevice
+from const import filter_attributes
 from hid import UsagePage
 from hid.consumer_control_code import ConsumerControlCode
-from const import filter_attributes
 
 _LOG = logging.getLogger(__name__)
 # Experimental features, don't seem to work / supported (yet) with ATV4
@@ -69,7 +70,7 @@ def _get_cmd_param(name: str, params: dict[str, Any] | None) -> str | bool | Non
     return params.get(name)
 
 
-class AppleTVMediaPlayer(MediaPlayer):
+class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
     """Representation of a AppleTV Media Player entity."""
 
     def __init__(self, config_device: AtvDevice, device: tv.AppleTv):
@@ -79,43 +80,48 @@ class AppleTVMediaPlayer(MediaPlayer):
         # entity_id = create_entity_id(config_device.name, EntityTypes.MEDIA_PLAYER)
         entity_id = config_device.identifier
         features = [
-            media_player.Features.ON_OFF,
-            media_player.Features.VOLUME,
-            media_player.Features.VOLUME_UP_DOWN,
-            media_player.Features.MUTE_TOGGLE,
-            media_player.Features.PLAY_PAUSE,
-            media_player.Features.STOP,
-            media_player.Features.NEXT,
-            media_player.Features.PREVIOUS,
-            media_player.Features.MEDIA_DURATION,
-            media_player.Features.MEDIA_POSITION,
-            media_player.Features.MEDIA_TITLE,
-            media_player.Features.MEDIA_ARTIST,
-            media_player.Features.MEDIA_ALBUM,
-            media_player.Features.MEDIA_IMAGE_URL,
-            media_player.Features.MEDIA_TYPE,
-            media_player.Features.HOME,
-            media_player.Features.CHANNEL_SWITCHER,
-            media_player.Features.DPAD,
-            media_player.Features.SELECT_SOURCE,
-            media_player.Features.CONTEXT_MENU,
-            media_player.Features.MENU,
-            media_player.Features.REWIND,
-            media_player.Features.FAST_FORWARD,
-            media_player.Features.SELECT_SOUND_MODE,
-            media_player.Features.SEEK,
-            media_player.Features.GUIDE,
+            Features.ON_OFF,
+            Features.VOLUME,
+            Features.VOLUME_UP_DOWN,
+            Features.MUTE_TOGGLE,
+            Features.PLAY_PAUSE,
+            Features.STOP,
+            Features.NEXT,
+            Features.PREVIOUS,
+            Features.MEDIA_DURATION,
+            Features.MEDIA_POSITION,
+            Features.MEDIA_TITLE,
+            Features.MEDIA_ARTIST,
+            Features.MEDIA_ALBUM,
+            Features.MEDIA_IMAGE_URL,
+            Features.MEDIA_TYPE,
+            Features.HOME,
+            Features.CHANNEL_SWITCHER,
+            Features.DPAD,
+            Features.SELECT_SOURCE,
+            Features.CONTEXT_MENU,
+            Features.MENU,
+            Features.REWIND,
+            Features.FAST_FORWARD,
+            Features.SELECT_SOUND_MODE,
+            Features.SEEK,
+            Features.GUIDE,
         ]
         if ENABLE_REPEAT_FEAT:
-            features.append(media_player.Features.REPEAT)
+            features.append(Features.REPEAT)
         if ENABLE_SHUFFLE_FEAT:
-            features.append(media_player.Features.SHUFFLE)
+            features.append(Features.SHUFFLE)
 
         attributes = filter_attributes(device.attributes, Attributes)
-        options = {Options.SIMPLE_COMMANDS: [x for x in SimpleCommands]}
+        options = {Options.SIMPLE_COMMANDS: list(SimpleCommands)}
         super().__init__(
             entity_id, config_device.name, features, attributes, device_class=DeviceClasses.TV, options=options
         )
+
+    @property
+    def deviceid(self) -> str:
+        """Return the device identifier."""
+        return self._device.identifier
 
     async def _playpause_in_screensaver(self) -> StatusCodes | None:
         """
@@ -157,6 +163,7 @@ class AppleTVMediaPlayer(MediaPlayer):
                           callbacks instead of broadcasts.
         :return: status code of the command request
         """
+        # pylint: disable=R0912,R0915
         _LOG.info("Got %s command request: %s %s", self.id, cmd_id, params if params else "")
 
         # If the entity is OFF (device is in standby), we turn it on regardless of the actual command
@@ -168,7 +175,7 @@ class AppleTVMediaPlayer(MediaPlayer):
 
         # TODO #15 implement proper fix for correct entity OFF state (it may not remain in OFF state if connection is
         #  established) + online check if we think it is in standby mode.
-        if state == media_player.States.OFF and cmd_id != media_player.Commands.OFF:
+        if state == media_player.States.OFF and cmd_id != Commands.OFF:
             _LOG.debug("Device is off, sending turn on command")
             # quick & dirty workaround for #15: the entity state is not always correct!
             res = await self._device.turn_on()
@@ -182,7 +189,7 @@ class AppleTVMediaPlayer(MediaPlayer):
         res = StatusCodes.BAD_REQUEST
 
         match cmd_id:
-            case media_player.Commands.PLAY_PAUSE:
+            case Commands.PLAY_PAUSE:
                 if res := await self._playpause_in_screensaver():
                     return res
                 res = await self._device.play_pause()
@@ -190,61 +197,61 @@ class AppleTVMediaPlayer(MediaPlayer):
                 if res := await self._playpause_in_screensaver():
                     return res
                 res = await self._device.send_hid_key(UsagePage.CONSUMER, ConsumerControlCode.PLAY_PAUSE)
-            case media_player.Commands.STOP:
+            case Commands.STOP:
                 res = await self._device.stop()
-            case media_player.Commands.NEXT:
+            case Commands.NEXT:
                 res = await self._device.next()
-            case media_player.Commands.PREVIOUS:
+            case Commands.PREVIOUS:
                 res = await self._device.previous()
-            case media_player.Commands.VOLUME_UP:
+            case Commands.VOLUME_UP:
                 res = await self._device.volume_up()
-            case media_player.Commands.VOLUME_DOWN:
+            case Commands.VOLUME_DOWN:
                 res = await self._device.volume_down()
-            case media_player.Commands.VOLUME:
+            case Commands.VOLUME:
                 res = await self._device.volume_set(params.get("volume"))
-            case media_player.Commands.MUTE_TOGGLE:
+            case Commands.MUTE_TOGGLE:
                 res = await self._device.send_hid_key(UsagePage.CONSUMER, ConsumerControlCode.MUTE)
-            case media_player.Commands.ON:
+            case Commands.ON:
                 res = await self._device.turn_on()
-            case media_player.Commands.OFF:
+            case Commands.OFF:
                 res = await self._device.turn_off()
-            case media_player.Commands.CURSOR_UP:
+            case Commands.CURSOR_UP:
                 res = await self._device.cursor_up()
-            case media_player.Commands.CURSOR_DOWN:
+            case Commands.CURSOR_DOWN:
                 res = await self._device.cursor_down()
-            case media_player.Commands.CURSOR_LEFT:
+            case Commands.CURSOR_LEFT:
                 res = await self._device.cursor_left()
-            case media_player.Commands.CURSOR_RIGHT:
+            case Commands.CURSOR_RIGHT:
                 res = await self._device.cursor_right()
-            case media_player.Commands.CURSOR_ENTER:
+            case Commands.CURSOR_ENTER:
                 res = await self._device.cursor_select()
-            case media_player.Commands.REWIND:
+            case Commands.REWIND:
                 res = await self._device.rewind()
-            case media_player.Commands.FAST_FORWARD:
+            case Commands.FAST_FORWARD:
                 res = await self._device.fast_forward()
-            case media_player.Commands.REPEAT:
+            case Commands.REPEAT:
                 mode = _get_cmd_param("repeat", params)
                 res = await self._device.set_repeat(mode) if mode else StatusCodes.BAD_REQUEST
-            case media_player.Commands.SHUFFLE:
+            case Commands.SHUFFLE:
                 mode = _get_cmd_param("shuffle", params)
                 res = await self._device.set_shuffle(mode) if isinstance(mode, bool) else StatusCodes.BAD_REQUEST
-            case media_player.Commands.CONTEXT_MENU:
+            case Commands.CONTEXT_MENU:
                 res = await self._device.context_menu()
-            case media_player.Commands.MENU:
+            case Commands.MENU:
                 res = await self._device.control_center()
-            case media_player.Commands.HOME:
+            case Commands.HOME:
                 res = await self._device.home()
                 # Request a defer update because music can play in the background
-                asyncio.create_task(self._device.deferred_update())
-            case media_player.Commands.BACK:
+                asyncio.create_task(self._device.deferred_state_update())
+            case Commands.BACK:
                 res = await self._device.menu()
-            case media_player.Commands.CHANNEL_DOWN:
+            case Commands.CHANNEL_DOWN:
                 res = await self._device.channel_down()
-            case media_player.Commands.CHANNEL_UP:
+            case Commands.CHANNEL_UP:
                 res = await self._device.channel_up()
-            case media_player.Commands.SELECT_SOURCE:
+            case Commands.SELECT_SOURCE:
                 res = await self._device.launch_app(params["source"])
-            case media_player.Commands.GUIDE:
+            case Commands.GUIDE:
                 res = await self._device.toggle_guide()
             # --- simple commands ---
             case SimpleCommands.TOP_MENU:
@@ -261,10 +268,10 @@ class AppleTVMediaPlayer(MediaPlayer):
                 res = await self._device.fast_forward_companion()
             case SimpleCommands.REWIND_BEGIN:
                 res = await self._device.rewind_companion()
-            case media_player.Commands.SELECT_SOUND_MODE:
+            case Commands.SELECT_SOUND_MODE:
                 mode = _get_cmd_param("mode", params)
                 res = await self._device.set_output_device(mode)
-            case media_player.Commands.SEEK:
+            case Commands.SEEK:
                 res = await self._device.set_media_position(params.get("media_position", 0))
             case SimpleCommands.SWIPE_LEFT:
                 res = await self._device.swipe(1000, 500, 50, 500, 200)
