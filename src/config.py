@@ -11,7 +11,7 @@ import json
 import logging
 import os
 from asyncio import Lock
-from dataclasses import dataclass
+from dataclasses import dataclass, field, fields
 from enum import Enum
 from typing import Iterator
 
@@ -40,12 +40,22 @@ class AtvDevice:
     """Friendly name of the device."""
     credentials: list[dict[str, str]]
     """Credentials for different protocols."""
-    address: str | None = None
+    address: str | None = field(default=None)
     """Optional IP address of device. Disables IP discovery by identifier."""
-    mac_address: str | None = None
+    mac_address: str | None = field(default=None)
     """Actual identifier of the device, which can change over time."""
-    global_volume: bool | None = True
+    global_volume: bool | None = field(default=True)
     """Change volume on all connected devices."""
+
+    def __post_init__(self):
+        """Apply default values on missing fields."""
+        for attribute in fields(self):
+            # If there is a default and the value of the field is none we can assign a value
+            if (
+                not isinstance(attribute.default, dataclasses.MISSING.__class__)
+                and getattr(self, attribute.name) is None
+            ):
+                setattr(self, attribute.name, attribute.default)
 
 
 class _EnhancedJSONEncoder(json.JSONEncoder):
@@ -115,10 +125,8 @@ class Devices:
         """Update a configured Apple TV device and persist configuration."""
         for item in self._config:
             if item.identifier == atv.identifier:
-                item.address = atv.address
-                item.name = atv.name
-                item.address = atv.address
-                item.global_volume = atv.global_volume if atv.global_volume else True
+                for f in fields(atv):
+                    setattr(item, f.name, getattr(atv, f.name))
                 return self.store()
         return False
 
@@ -171,15 +179,12 @@ class Devices:
             with open(self._cfg_file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
             for item in data:
-                # not using AtvDevice(**item) to be able to migrate old configuration files with missing attributes
+                # Copy fields and handle default values in case the model has evolved
                 atv = AtvDevice(
-                    item.get("identifier"),
-                    item.get("name", ""),
-                    item.get("credentials"),
-                    item.get("address"),
-                    item.get("mac_address"),
-                    item.get("global_volume", True),
+                    identifier=item.get("identifier"), name=item.get("name"), credentials=item.get("credentials")
                 )
+                for f in fields(item):
+                    setattr(atv, f.name, getattr(atv, f.name))
                 self._config.append(atv)
             return True
         except OSError as err:

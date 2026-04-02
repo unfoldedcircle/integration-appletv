@@ -22,7 +22,7 @@ concurrency:
 
 env:
   INTG_NAME: appletv
-  HASH_FILENAME: uc-intg-appletv.hash
+  HASH_FILENAME: uc-src.hash
   BUILD_CHANGELOG: build-changelog.md
   # Python version to use in the builder image. See https://hub.docker.com/r/unfoldedcircle/r2-pyinstaller for possible versions.
   PYTHON_VER: 3.11.13-0.5.0
@@ -57,7 +57,7 @@ jobs:
       - name: Compile language files
         run: |
           sudo apt-get update && sudo apt-get install -y gettext
-          cd intg-appletv/locales
+          cd src/locales
           make all
 
       - name: Pyinstaller
@@ -74,7 +74,7 @@ jobs:
             bash -c \
             "cd /workspace && \
               python -m pip install -r requirements.txt && \
-              pyinstaller --clean --onedir --name intg-appletv --add-data intg-appletv/locales:locales --collect-all zeroconf intg-appletv/driver.py"
+              pyinstaller --clean --onedir --name intg-appletv --add-data src/locales:locales --collect-all zeroconf src/driver.py"
           echo "Clean up locales"
           cd dist/intg-appletv/_internal/locales
           rm -Rf *.pot Makefile README.md */LC_MESSAGES/*.po

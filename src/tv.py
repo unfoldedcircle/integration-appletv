@@ -10,13 +10,14 @@ Uses the [pyatv](https://github.com/postlund/pyatv) library with concepts borrow
 
 import asyncio
 import base64
+import datetime
 import hashlib
 import itertools
 import logging
 import random
-from asyncio import AbstractEventLoop
+from asyncio import AbstractEventLoop, Task
 from collections import OrderedDict
-from enum import Enum, IntEnum
+from enum import Enum, StrEnum
 from functools import wraps
 from typing import (
     Any,
@@ -44,6 +45,7 @@ from pyatv.const import (
     Protocol,
     RepeatState,
     ShuffleState,
+    MediaType,
 )
 from pyatv.core.facade import FacadeAudio, FacadeRemoteControl, FacadeTouchGestures
 from pyatv.interface import BaseConfig, OutputDevice
@@ -58,6 +60,7 @@ from pyatv.protocols.mrp import (
     messages,
 )
 from pyee.asyncio import AsyncIOEventEmitter
+from ucapi.media_player import Attributes as MediaAttr, States as MediaState, MediaContentType
 
 _LOG = logging.getLogger(__name__)
 
@@ -67,18 +70,19 @@ ARTWORK_WIDTH = 400
 ARTWORK_HEIGHT = 400
 ERROR_OS_WAIT = 0.5
 
+
 # pylint: disable=too-many-lines
 
 
-class EVENTS(IntEnum):
+class EVENTS(StrEnum):
     """Internal driver events."""
 
-    CONNECTING = 0
-    CONNECTED = 1
-    DISCONNECTED = 2
-    PAIRED = 3
-    ERROR = 4
-    UPDATE = 5
+    CONNECTING = "CONNECTING"
+    CONNECTED = "CONNECTED"
+    DISCONNECTED = "DISCONNECTED"
+    PAIRED = "PAIRED"
+    ERROR = "ERROR"
+    UPDATE = "UPDATE"
 
 
 _AppleTvT = TypeVar("_AppleTvT", bound="AppleTv")
@@ -91,6 +95,48 @@ class PlaybackState(Enum):
     NORMAL = 0
     FAST_FORWARD = 1
     REWIND = 2
+
+
+MEDIA_STATE_MAPPING = {
+    DeviceState.Idle: MediaState.STANDBY,
+    DeviceState.Stopped: MediaState.STANDBY,
+    DeviceState.Playing: MediaState.PLAYING,
+    DeviceState.Paused: MediaState.PAUSED,
+    DeviceState.Loading: MediaState.BUFFERING,
+    DeviceState.Seeking: MediaState.PLAYING,
+}
+
+MEDIA_TYPE_MAPPING = {
+    MediaType.Video: MediaContentType.VIDEO,
+    MediaType.Unknown: MediaContentType.VIDEO,
+    MediaType.Music: MediaContentType.MUSIC,
+    MediaType.TV: MediaContentType.TV_SHOW,
+}
+
+
+def debounce(wait: float):
+    """Debounce function."""
+
+    def decorator(func):
+        task: Task | None = None
+
+        @wraps(func)
+        async def debounced(*args, **kwargs):
+            nonlocal task
+
+            async def call_func():
+                """Call wrapped function."""
+                await asyncio.sleep(wait)
+                await func(*args, **kwargs)
+
+            if task and not task.done():
+                task.cancel()
+            task = asyncio.create_task(call_func())
+            return task
+
+        return debounced
+
+    return decorator
 
 
 # Adapted from Home Assistant `asyncLOG_errors` in
@@ -198,6 +244,14 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         self._output_devices_volume: dict[str, float] = {}
         self._volume_level: float = 0.0
         self._apple_tv_conf: pyatv.interface.BaseConfig | None = None
+        self._media_content_type = MediaContentType.VIDEO
+        self._media_image_url: str | None = None
+        self._media_title: str | None = None
+        self._media_album: str | None = None
+        self._media_artist: str | None = None
+        self._media_position: int | None = None
+        self._media_duration: int | None = None
+        self._media_position_updated_at: datetime.datetime | None = None
 
     @property
     def device_config(self) -> AtvDevice:
@@ -239,6 +293,25 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         return self._state
 
     @property
+    def media_state(self) -> MediaState:
+        """Return the device state."""
+        if self._state is None:
+            return MediaState.OFF
+        return MEDIA_STATE_MAPPING.get(self._state)
+
+    @property
+    def media_content_type(self) -> MediaContentType:
+        """Return the media content type."""
+        return self._media_content_type
+
+    @property
+    def media_position_updated_at(self) -> str | None:
+        """Return timestamp of urrent media position."""
+        if self._media_position_updated_at:
+            return self._media_position_updated_at.isoformat()
+        return None
+
+    @property
     def output_devices_combinations(self) -> [str]:
         """Return the list of possible selection (combinations) of output devices."""
         return list(self._output_devices.keys())
@@ -250,6 +323,37 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         for device in self._atv.audio.output_devices:
             device_names.append(device.name)
         return ", ".join(sorted(device_names, key=str.casefold))
+
+    @property
+    def attributes(self) -> dict[str, Any]:
+        """Return device attributes."""
+        app_name = ""
+        if self._atv and self._atv.metadata and self._atv.metadata.app:
+            app_name = self._atv.metadata.app.name
+
+        return {
+            MediaAttr.STATE: self.media_state,
+            # MediaAttr.MUTED: self.is_volume_muted,
+            MediaAttr.VOLUME: self._volume_level,
+            MediaAttr.MEDIA_TYPE: self.media_content_type,
+            MediaAttr.MEDIA_IMAGE_URL: self._media_image_url if self._media_image_url else "",
+            MediaAttr.MEDIA_TITLE: self._media_title if self._media_title else "",
+            MediaAttr.MEDIA_ALBUM: self._media_album if self._media_album else "",
+            MediaAttr.MEDIA_ARTIST: self._media_artist if self._media_artist else "",
+            MediaAttr.MEDIA_POSITION: self._media_position,
+            MediaAttr.MEDIA_DURATION: self._media_duration,
+            MediaAttr.MEDIA_POSITION_UPDATED_AT: (
+                self.media_position_updated_at if self.media_position_updated_at else ""
+            ),
+            MediaAttr.SOURCE_LIST: [app for app in self._app_list.keys()],
+            MediaAttr.SOURCE: app_name,
+            MediaAttr.SOUND_MODE_LIST: list(self._output_devices.keys()),
+            MediaAttr.SOUND_MODE: self.output_devices,
+            # MediaAttr.SHUFFLE: self.shuffle,
+            # MediaAttr.REPEAT: self.repeat,
+            # TODO when UC library udpated
+            # MediaAttr.MEDIA_ID : self._media_id,
+        }
 
     def _backoff(self) -> float:
         if self._connection_attempts * BACKOFF_SEC >= BACKOFF_MAX:
@@ -308,7 +412,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             count = max(1, count)
             volume_level /= count
 
-        update = {"volume": volume_level}
+        update = {MediaAttr.VOLUME: volume_level}
         self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
     def volume_update(self, _old_level: float, new_level: float) -> None:
@@ -332,7 +436,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
     def outputdevices_update(self, old_devices: List[OutputDevice], new_devices: List[OutputDevice]) -> None:
         """Output device change callback handler, for example airplay speaker."""
         _LOG.debug("[%s] Changed output devices to %s", self.log_id, self.output_devices)
-        self.events.emit(EVENTS.UPDATE, self._device.identifier, {"sound_mode": self.output_devices})
+        self.events.emit(EVENTS.UPDATE, self._device.identifier, {MediaAttr.SOUND_MODE: self.output_devices})
 
     async def _find_atv(self) -> pyatv.interface.BaseConfig | None:
         """Find a specific Apple TV on the network by identifier."""
@@ -556,9 +660,9 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         update = {}
         await self._handle_power(update)
         # off state is not included in metadata, don't override it
-        if update["state"] != PowerState.Off:
+        if update[MediaAttr.STATE] != PowerState.Off:
             self._state = data.device_state
-            update["state"] = data.device_state
+            update[MediaAttr.STATE] = data.device_state
         reset_playback_info = self._state not in [
             DeviceState.Playing,
             DeviceState.Paused,
@@ -568,15 +672,15 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
         # image operations are expensive, so we only do it when the hash changed
         if reset_playback_info:
-            update["position"] = ""
-            update["total_time"] = ""
-            update["artwork"] = ""
-            update["title"] = ""
-            update["artist"] = ""
-            update["album"] = ""
-            update["media_type"] = ""
-            update["repeat"] = "OFF"
-            update["shuffle"] = False
+            update[MediaAttr.MEDIA_POSITION] = ""
+            update[MediaAttr.MEDIA_DURATION] = ""
+            update[MediaAttr.MEDIA_IMAGE_URL] = ""
+            update[MediaAttr.MEDIA_TITLE] = ""
+            update[MediaAttr.MEDIA_ARTIST] = ""
+            update[MediaAttr.MEDIA_ALBUM] = ""
+            update[MediaAttr.MEDIA_TYPE] = ""
+            update[MediaAttr.REPEAT] = "OFF"
+            update[MediaAttr.SHUFFLE] = False
             # Send None for data so that artwork is cleared
             await self._process_artwork(update, None)
         else:
@@ -584,28 +688,28 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
             await self._cleanup_data(data, update)
 
-            update["artist"] = data.artist if data.artist else ""
-            update["album"] = data.album if data.album else ""
-            update["position"] = data.position if data.position else ""
-            update["total_time"] = data.total_time if data.total_time else ""
+            update[MediaAttr.MEDIA_ARTIST] = data.artist if data.artist else ""
+            update[MediaAttr.MEDIA_ALBUM] = data.album if data.album else ""
+            update[MediaAttr.MEDIA_POSITION] = data.position if data.position else ""
+            update[MediaAttr.MEDIA_DURATION] = data.total_time if data.total_time else ""
 
             if data.media_type is not None:
-                update["media_type"] = data.media_type
+                update[MediaAttr.MEDIA_TYPE] = data.media_type
 
             if data.repeat is not None:
                 match data.repeat:
                     case RepeatState.Off:
-                        update["repeat"] = "OFF"
+                        update[MediaAttr.REPEAT] = "OFF"
                     case RepeatState.All:
-                        update["repeat"] = "ALL"
+                        update[MediaAttr.REPEAT] = "ALL"
                     case RepeatState.Track:
-                        update["repeat"] = "ONE"
+                        update[MediaAttr.REPEAT] = "ONE"
 
             if data.shuffle is not None:
-                update["shuffle"] = data.shuffle != ShuffleState.Off
+                update[MediaAttr.SHUFFLE] = data.shuffle != ShuffleState.Off
 
         if self._is_feature_available(FeatureName.App) and self._atv.metadata.app.name:
-            update["source"] = self._atv.metadata.app.name
+            update[MediaAttr.SOURCE] = self._atv.metadata.app.name
 
         self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
@@ -618,20 +722,20 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                 title = data.title.removeprefix("(null):").strip()
             else:
                 title = data.title
-            update["title"] = title
+            update[MediaAttr.MEDIA_TITLE] = title
         else:
-            update["title"] = ""
+            update[MediaAttr.MEDIA_TITLE] = ""
 
     async def _update_app_list(self) -> None:
         _LOG.debug("[%s] Updating app list", self.log_id)
         update = {}
 
         try:
-            update["sourceList"] = []
+            update[MediaAttr.SOURCE_LIST] = []
             app_list = sorted(await self._atv.apps.app_list(), key=lambda item: item.name.lower())
             for app in app_list:
                 self._app_list[app.name] = app.identifier
-                update["sourceList"].append(app.name)
+                update[MediaAttr.SOURCE_LIST].append(app.name)
         except pyatv.exceptions.NotSupportedError:
             _LOG.warning("[%s] App list is not supported", self.log_id)
         except pyatv.exceptions.ProtocolError:
@@ -1147,3 +1251,27 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             await self._atv.remote_control.main_instance.protocol.send(messages.send_hid_event(use_page, usage, False))
         else:
             _LOG.warning("[%s] send HID key not supported (%d, %d)", self.log_id, use_page, usage)
+
+    @debounce(1)
+    async def deferred_update(self):
+        attribute_state = self._device.media_state
+        if attribute_state and attribute_state not in [
+            MediaState.PLAYING,
+            MediaState.PAUSED,
+            MediaState.BUFFERING,
+        ]:
+            # if nothing is playing: clear the playing information
+            attributes = {
+                MediaAttr.MEDIA_IMAGE_URL: "",
+                MediaAttr.MEDIA_ALBUM: "",
+                MediaAttr.MEDIA_ARTIST: "",
+                MediaAttr.MEDIA_TITLE: "",
+                MediaAttr.MEDIA_TYPE: "",
+                MediaAttr.SOURCE: "",
+                MediaAttr.MEDIA_DURATION: None,
+                MediaAttr.MEDIA_POSITION: None,
+                MediaAttr.REPEAT: "OFF",
+                MediaAttr.SHUFFLE: False,
+            }
+            # TODO device ID
+            self.events.emit(EVENTS.UPDATE, self.id, attributes)

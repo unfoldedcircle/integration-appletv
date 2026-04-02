@@ -12,7 +12,6 @@ import os
 import re
 import sys
 from datetime import UTC, datetime
-from enum import Enum
 from typing import Any
 
 import config
@@ -28,10 +27,11 @@ import setup_flow
 import tv
 import ucapi
 import ucapi.api as uc
-from hid import UsagePage
-from hid.consumer_control_code import ConsumerControlCode
+
 from i18n import _a
-from ucapi import MediaPlayer, media_player
+from ucapi import media_player
+
+from media_player import AppleTVMediaPlayer
 
 _LOG = logging.getLogger("driver")  # avoid having __main__ in log messages
 if sys.platform == "win32":
@@ -43,43 +43,6 @@ asyncio.set_event_loop(_LOOP)
 # Global variables
 api = uc.IntegrationAPI(_LOOP)
 _configured_atvs: dict[str, tv.AppleTv] = {}
-
-# Experimental features, don't seem to work / supported (yet) with ATV4
-ENABLE_REPEAT_FEAT = False
-ENABLE_SHUFFLE_FEAT = False
-
-
-class SimpleCommands(str, Enum):
-    """Additional simple commands of the Apple TV not covered by media-player features."""
-
-    TOP_MENU = "TOP_MENU"
-    """Go to home screen."""
-    APP_SWITCHER = "APP_SWITCHER"
-    """Show running applications."""
-    SCREENSAVER = "SCREENSAVER"
-    """Run screensaver."""
-    SKIP_FORWARD = "SKIP_FORWARD"
-    """Skip forward a time interval."""
-    SKIP_BACKWARD = "SKIP_BACKWARD"
-    """Skip forward a time interval."""
-    FAST_FORWARD_BEGIN = "FAST_FORWARD_BEGIN"
-    """Fast forward using Companion protocol."""
-    REWIND_BEGIN = "REWIND_BEGIN"
-    """Rewind using Companion protocol."""
-    SWIPE_LEFT = "SWIPE_LEFT"
-    """Swipe left using Companion protocol."""
-    SWIPE_RIGHT = "SWIPE_RIGHT"
-    """Swipe right using Companion protocol."""
-    SWIPE_UP = "SWIPE_UP"
-    """Swipe up using Companion protocol."""
-    SWIPE_DOWN = "SWIPE_DOWN"
-    """Swipe down using Companion protocol."""
-    PLAY = "PLAY"
-    """Send play command. App specific! Some treat it as play_pause."""
-    PAUSE = "PAUSE"
-    """Send pause command. App specific! Some treat it as play_pause."""
-    PLAY_PAUSE_KEY = "PLAY_PAUSE_KEY"
-    """Alternative play/pause command by sending a HID key press."""
 
 
 @api.listens_to(ucapi.Events.CONNECT)
@@ -162,211 +125,6 @@ async def on_unsubscribe_entities(entity_ids: list[str]) -> None:
             _LOG.info("Removed '%s' from configured devices and disconnect", device.name)
             await device.disconnect()
             device.events.remove_all_listeners()
-
-
-# pylint: disable=too-many-statements,too-many-branches
-async def media_player_cmd_handler(
-    entity: MediaPlayer, cmd_id: str, params: dict[str, Any] | None, **_kwargs: Any
-) -> ucapi.StatusCodes:
-    """
-    Media-player entity command handler.
-
-    Called by the integration-API if a command is sent to a configured media-player entity.
-
-    :param entity: media-player entity
-    :param cmd_id: command
-    :param params: optional command parameters
-    :param _kwargs: additional arguments like websocket (not used)
-    :return: status code of the command. StatusCodes.OK if the command succeeded.
-    """
-    _LOG.info("Got %s command request: %s %s", entity.id, cmd_id, params if params else "")
-
-    atv_id = entity.id
-    device = _configured_atvs[atv_id]
-
-    configured_entity = api.configured_entities.get(entity.id)
-
-    if configured_entity is None:
-        _LOG.warning("No device found for entity: %s", entity.id)
-        return ucapi.StatusCodes.SERVICE_UNAVAILABLE
-
-    # If the entity is OFF (device is in standby), we turn it on regardless of the actual command
-    if device.is_on is None or device.is_on is False:
-        _LOG.debug("Device not connected, reconnect")
-        await device.connect()
-
-    state = configured_entity.attributes[media_player.Attributes.STATE]
-
-    # TODO #15 implement proper fix for correct entity OFF state (it may not remain in OFF state if connection is
-    #  established) + online check if we think it is in standby mode.
-    if state == media_player.States.OFF and cmd_id != media_player.Commands.OFF:
-        _LOG.debug("Device is off, sending turn on command")
-        # quick & dirty workaround for #15: the entity state is not always correct!
-        res = await device.turn_on()
-        if res != ucapi.StatusCodes.OK:
-            return res
-
-    # Only proceed if device connection is established
-    if device.is_on is False:
-        return ucapi.StatusCodes.SERVICE_UNAVAILABLE
-
-    res = ucapi.StatusCodes.BAD_REQUEST
-
-    match cmd_id:
-        case media_player.Commands.PLAY_PAUSE:
-            if res := await _playpause_in_screensaver(state, device):
-                return res
-            res = await device.play_pause()
-        case SimpleCommands.PLAY_PAUSE_KEY:
-            if res := await _playpause_in_screensaver(state, device):
-                return res
-            res = await device.send_hid_key(UsagePage.CONSUMER, ConsumerControlCode.PLAY_PAUSE)
-        case media_player.Commands.STOP:
-            res = await device.stop()
-        case media_player.Commands.NEXT:
-            res = await device.next()
-        case media_player.Commands.PREVIOUS:
-            res = await device.previous()
-        case media_player.Commands.VOLUME_UP:
-            res = await device.volume_up()
-        case media_player.Commands.VOLUME_DOWN:
-            res = await device.volume_down()
-        case media_player.Commands.VOLUME:
-            res = await device.volume_set(params.get("volume"))
-        case media_player.Commands.MUTE_TOGGLE:
-            res = await device.send_hid_key(UsagePage.CONSUMER, ConsumerControlCode.MUTE)
-        case media_player.Commands.ON:
-            res = await device.turn_on()
-        case media_player.Commands.OFF:
-            res = await device.turn_off()
-        case media_player.Commands.CURSOR_UP:
-            res = await device.cursor_up()
-        case media_player.Commands.CURSOR_DOWN:
-            res = await device.cursor_down()
-        case media_player.Commands.CURSOR_LEFT:
-            res = await device.cursor_left()
-        case media_player.Commands.CURSOR_RIGHT:
-            res = await device.cursor_right()
-        case media_player.Commands.CURSOR_ENTER:
-            res = await device.cursor_select()
-        case media_player.Commands.REWIND:
-            res = await device.rewind()
-        case media_player.Commands.FAST_FORWARD:
-            res = await device.fast_forward()
-        case media_player.Commands.REPEAT:
-            mode = _get_cmd_param("repeat", params)
-            res = await device.set_repeat(mode) if mode else ucapi.StatusCodes.BAD_REQUEST
-        case media_player.Commands.SHUFFLE:
-            mode = _get_cmd_param("shuffle", params)
-            res = await device.set_shuffle(mode) if isinstance(mode, bool) else ucapi.StatusCodes.BAD_REQUEST
-        case media_player.Commands.CONTEXT_MENU:
-            res = await device.context_menu()
-        case media_player.Commands.MENU:
-            res = await device.control_center()
-        case media_player.Commands.HOME:
-            res = await device.home()
-
-            # we wait a bit to get a push update, because music can play in the background
-            await asyncio.sleep(1)
-            attribute_state = configured_entity.attributes[media_player.Attributes.STATE]
-            if attribute_state and attribute_state not in [
-                media_player.States.PLAYING,
-                media_player.States.PAUSED,
-                media_player.States.BUFFERING,
-            ]:
-                # if nothing is playing: clear the playing information
-                attributes = {
-                    media_player.Attributes.MEDIA_IMAGE_URL: "",
-                    media_player.Attributes.MEDIA_ALBUM: "",
-                    media_player.Attributes.MEDIA_ARTIST: "",
-                    media_player.Attributes.MEDIA_TITLE: "",
-                    media_player.Attributes.MEDIA_TYPE: "",
-                    media_player.Attributes.SOURCE: "",
-                    media_player.Attributes.MEDIA_DURATION: None,
-                    media_player.Attributes.MEDIA_POSITION: None,
-                    media_player.Attributes.REPEAT: "OFF",
-                    media_player.Attributes.SHUFFLE: False,
-                }
-                api.configured_entities.update_attributes(entity.id, attributes)
-        case media_player.Commands.BACK:
-            res = await device.menu()
-        case media_player.Commands.CHANNEL_DOWN:
-            res = await device.channel_down()
-        case media_player.Commands.CHANNEL_UP:
-            res = await device.channel_up()
-        case media_player.Commands.SELECT_SOURCE:
-            res = await device.launch_app(params["source"])
-        case media_player.Commands.GUIDE:
-            res = await device.toggle_guide()
-        # --- simple commands ---
-        case SimpleCommands.TOP_MENU:
-            res = await device.top_menu()
-        case SimpleCommands.APP_SWITCHER:
-            res = await device.app_switcher()
-        case SimpleCommands.SCREENSAVER:
-            res = await device.screensaver()
-        case SimpleCommands.SKIP_FORWARD:
-            res = await device.skip_forward()
-        case SimpleCommands.SKIP_BACKWARD:
-            res = await device.skip_backward()
-        case SimpleCommands.FAST_FORWARD_BEGIN:
-            res = await device.fast_forward_companion()
-        case SimpleCommands.REWIND_BEGIN:
-            res = await device.rewind_companion()
-        case media_player.Commands.SELECT_SOUND_MODE:
-            mode = _get_cmd_param("mode", params)
-            res = await device.set_output_device(mode)
-        case media_player.Commands.SEEK:
-            res = await device.set_media_position(params.get("media_position", 0))
-        case SimpleCommands.SWIPE_LEFT:
-            res = await device.swipe(1000, 500, 50, 500, 200)
-        case SimpleCommands.SWIPE_RIGHT:
-            res = await device.swipe(50, 500, 1000, 500, 200)
-        case SimpleCommands.SWIPE_UP:
-            res = await device.swipe(500, 1000, 500, 50, 200)
-        case SimpleCommands.SWIPE_DOWN:
-            res = await device.swipe(500, 50, 500, 1000, 200)
-        case SimpleCommands.PLAY:
-            res = await device.play()
-        case SimpleCommands.PAUSE:
-            res = await device.pause()
-
-    return res
-
-
-async def _playpause_in_screensaver(state: media_player.States, device: tv.AppleTv) -> ucapi.StatusCodes | None:
-    """
-    Mimic the original ATV remote behaviour (one can also call it a bunch of workarounds).
-
-    Screensaver active: play/pause button exits screensaver. If a playback was paused, resume it.
-
-    :param state: the media-player state
-    :param device: the device
-    :return: None if screensaver was not active, a StatusCode otherwise
-    """
-    # tvOS 18.4 will raise an exception https://github.com/postlund/pyatv/issues/2648
-    # Screensaver state is no longer accessible
-    # pylint: disable=W0718
-    try:
-        if state != media_player.States.PLAYING and await device.screensaver_active():
-            _LOG.debug("Screensaver is running, sending menu command for play_pause to exit")
-            await device.menu()
-            if state == media_player.States.PAUSED:
-                # another awkwardness: the play_pause button doesn't work anymore after exiting the screensaver.
-                # One has to send a dpad select first to start playback. Afterward, play_pause works again...
-                await asyncio.sleep(1)  # delay required, otherwise the second button press is ignored
-                return await device.cursor_select()
-            # Nothing was playing, only the screensaver was active
-            return ucapi.StatusCodes.OK
-    except Exception:
-        pass
-    return None
-
-
-def _get_cmd_param(name: str, params: dict[str, Any] | None) -> str | bool | None:
-    if params is None:
-        return None
-    return params.get(name)
 
 
 async def on_atv_connected(identifier: str) -> None:
@@ -476,8 +234,9 @@ async def on_atv_update(entity_id: str, update: dict[str, Any] | None) -> None:
             attributes[media_player.Attributes.MEDIA_POSITION] = update["position"]
             attributes[media_player.Attributes.MEDIA_POSITION_UPDATED_AT] = datetime.now(tz=UTC).isoformat()
         if (
-            "total_time" in update
-            and target_entity.attributes.get(media_player.Attributes.MEDIA_DURATION, 0) != update["total_time"]
+            media_player.Attributes.MEDIA_DURATION in update
+            and target_entity.attributes.get(media_player.Attributes.MEDIA_DURATION, 0)
+            != update[media_player.Attributes.MEDIA_DURATION]
         ):
             attributes[media_player.Attributes.MEDIA_DURATION] = update["total_time"]
         if "source" in update:
@@ -562,7 +321,6 @@ def _add_configured_atv(device: config.AtvDevice, connect: bool = True) -> None:
         atv.events.on(tv.EVENTS.DISCONNECTED, on_atv_disconnected)
         atv.events.on(tv.EVENTS.ERROR, on_atv_connection_error)
         atv.events.on(tv.EVENTS.UPDATE, on_atv_update)
-
         _configured_atvs[device.identifier] = atv
 
     async def start_connection():
@@ -583,85 +341,10 @@ def _register_available_entities(identifier: str, name: str) -> bool:
     :param name: Friendly name
     :return: True if added, False if the device was already in storage.
     """
-    entity_id = identifier
-    # plain and simple for now: only one media_player per ATV device
-    features = [
-        media_player.Features.ON_OFF,
-        media_player.Features.VOLUME,
-        media_player.Features.VOLUME_UP_DOWN,
-        media_player.Features.MUTE_TOGGLE,
-        media_player.Features.PLAY_PAUSE,
-        media_player.Features.STOP,
-        media_player.Features.NEXT,
-        media_player.Features.PREVIOUS,
-        media_player.Features.MEDIA_DURATION,
-        media_player.Features.MEDIA_POSITION,
-        media_player.Features.MEDIA_TITLE,
-        media_player.Features.MEDIA_ARTIST,
-        media_player.Features.MEDIA_ALBUM,
-        media_player.Features.MEDIA_IMAGE_URL,
-        media_player.Features.MEDIA_TYPE,
-        media_player.Features.HOME,
-        media_player.Features.CHANNEL_SWITCHER,
-        media_player.Features.DPAD,
-        media_player.Features.SELECT_SOURCE,
-        media_player.Features.CONTEXT_MENU,
-        media_player.Features.MENU,
-        media_player.Features.REWIND,
-        media_player.Features.FAST_FORWARD,
-        media_player.Features.SELECT_SOUND_MODE,
-        media_player.Features.SEEK,
-        media_player.Features.GUIDE,
-    ]
-    if ENABLE_REPEAT_FEAT:
-        features.append(media_player.Features.REPEAT)
-    if ENABLE_SHUFFLE_FEAT:
-        features.append(media_player.Features.SHUFFLE)
-
-    entity = MediaPlayer(
-        entity_id,
-        name,
-        features,
-        {
-            media_player.Attributes.STATE: media_player.States.UNAVAILABLE,
-            media_player.Attributes.VOLUME: 0,
-            # TODO(#34) is there a way to find out if the device is muted?
-            # media_player.Attributes.MUTED: False,
-            media_player.Attributes.MEDIA_DURATION: None,
-            media_player.Attributes.MEDIA_POSITION: None,
-            media_player.Attributes.MEDIA_IMAGE_URL: "",
-            media_player.Attributes.MEDIA_TITLE: "",
-            media_player.Attributes.MEDIA_ARTIST: "",
-            media_player.Attributes.MEDIA_ALBUM: "",
-            media_player.Attributes.MEDIA_TYPE: "",
-            media_player.Attributes.SOURCE: "",
-            media_player.Attributes.REPEAT: "OFF",
-            media_player.Attributes.SHUFFLE: False,
-            media_player.Attributes.SOURCE_LIST: [],
-            media_player.Attributes.SOUND_MODE: "",
-            media_player.Attributes.SOUND_MODE_LIST: [],
-        },
-        device_class=media_player.DeviceClasses.TV,
-        options={
-            media_player.Options.SIMPLE_COMMANDS: [
-                SimpleCommands.TOP_MENU.value,
-                SimpleCommands.APP_SWITCHER.value,
-                SimpleCommands.SCREENSAVER.value,
-                SimpleCommands.SKIP_FORWARD.value,
-                SimpleCommands.SKIP_BACKWARD.value,
-                SimpleCommands.FAST_FORWARD_BEGIN.value,
-                SimpleCommands.REWIND_BEGIN.value,
-                SimpleCommands.SWIPE_LEFT.value,
-                SimpleCommands.SWIPE_RIGHT.value,
-                SimpleCommands.SWIPE_UP.value,
-                SimpleCommands.SWIPE_DOWN.value,
-                SimpleCommands.PLAY.value,
-                SimpleCommands.PAUSE.value,
-                SimpleCommands.PLAY_PAUSE_KEY.value,
-            ]
-        },
-        cmd_handler=media_player_cmd_handler,
-    )
+    device = _configured_atvs.get(identifier)
+    if device is None:
+        _LOG.error("Unknown device to register entities %s", identifier)
+    entity = AppleTVMediaPlayer(config_device=device.device_config, device=device)
 
     if api.available_entities.contains(entity.id):
         api.available_entities.remove(entity.id)

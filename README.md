@@ -92,7 +92,7 @@ pip3 install -r requirements.txt
   - Helper Makefile:
   
 ```shell
-cd intg-appletv/locales
+cd src/locales
 make all
 ```
 
@@ -108,7 +108,7 @@ For running a separate integration driver on your network for Remote Two/3, the 
 ### Run
 
 ```shell
-UC_CONFIG_HOME=./ python3 intg-appletv/driver.py
+UC_CONFIG_HOME=./ python3 src/driver.py
 ```
 
 See available [environment variables](https://github.com/unfoldedcircle/integration-python-library#environment-variables)
