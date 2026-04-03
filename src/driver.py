@@ -254,7 +254,6 @@ def _register_available_entities(device_config: config.AtvDevice, device: tv.App
     :param name: Friendly name
     :return: True if added, False if the device was already in storage.
     """
-
     entity = AppleTVMediaPlayer(config_device=device_config, device=device)
     if api.available_entities.contains(entity.id):
         api.available_entities.remove(entity.id)
