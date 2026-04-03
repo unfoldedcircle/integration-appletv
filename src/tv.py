@@ -1295,7 +1295,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
     @debounce(1)
     async def deferred_state_update(self):
-        """Defer state update"""
+        """Defer state update."""
         attribute_state = self.media_state
         if attribute_state and attribute_state not in [
             MediaState.PLAYING,
