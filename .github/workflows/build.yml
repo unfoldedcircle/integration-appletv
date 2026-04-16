@@ -22,7 +22,7 @@ concurrency:
 
 env:
   INTG_NAME: appletv
-  HASH_FILENAME: uc-src.hash
+  HASH_FILENAME: uc-intg-appletv.hash
   BUILD_CHANGELOG: build-changelog.md
   # Python version to use in the builder image. See https://hub.docker.com/r/unfoldedcircle/r2-pyinstaller for possible versions.
   PYTHON_VER: 3.11.13-0.5.0
@@ -57,7 +57,7 @@ jobs:
       - name: Compile language files
         run: |
           sudo apt-get update && sudo apt-get install -y gettext
-          cd src/locales
+          cd intg-appletv/locales
           make all
 
       - name: Pyinstaller
@@ -74,7 +74,7 @@ jobs:
             bash -c \
             "cd /workspace && \
               python -m pip install -r requirements.txt && \
-              pyinstaller --clean --onedir --name intg-appletv --add-data src/locales:locales --collect-all zeroconf src/driver.py"
+              pyinstaller --clean --onedir --name intg-appletv --add-data intg-appletv/locales:locales --collect-all zeroconf intg-appletv/driver.py"
           echo "Clean up locales"
           cd dist/intg-appletv/_internal/locales
           rm -Rf *.pot Makefile README.md */LC_MESSAGES/*.po
@@ -101,7 +101,7 @@ jobs:
           tar czvf ${{ env.ARTIFACT_NAME }}.tar.gz -C ${GITHUB_WORKSPACE}/artifacts .
           ls -lah
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         id: upload_artifact
         with:
           name: ${{ env.ARTIFACT_NAME }}
@@ -131,7 +131,7 @@ jobs:
           cat ${{ env.BUILD_CHANGELOG }}
 
       - name: Upload changelog
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: changelog
           path: ${{ env.BUILD_CHANGELOG }}
@@ -146,7 +146,7 @@ jobs:
 
     steps:
       - name: Download build artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
 
       - name: Extract build archives from downloaded files
         run: |
@@ -189,7 +189,7 @@ jobs:
 
       # Use conventional commit changelog, and append the GitHub generated changelog
       - name: Create Pre-Release
-        uses: softprops/action-gh-release@v2.3.2
+        uses: softprops/action-gh-release@v3
         if: "!contains(github.ref, 'tags/v')"
         with:
           prerelease: true
@@ -207,7 +207,7 @@ jobs:
           for filename in *.tar.gz; do echo "sha256  `sha256sum $filename`" >> ${{ env.HASH_FILENAME }}; done;
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         if: "contains(github.ref, 'tags/v')"
         with:
           prerelease: false

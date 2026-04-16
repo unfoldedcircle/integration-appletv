@@ -14,16 +14,15 @@ import sys
 from enum import Enum
 from typing import Any, Type
 
-import ucapi
-import ucapi.api as uc
-from ucapi import Entity, media_player
-
 import config
 import setup_flow
 import tv
+import ucapi
+import ucapi.api as uc
 from config import AppleTVEntity
 from i18n import _a
 from media_player import AppleTVMediaPlayer
+from ucapi import Entity, media_player
 
 _LOG = logging.getLogger("driver")  # avoid having __main__ in log messages
 if sys.platform == "win32":

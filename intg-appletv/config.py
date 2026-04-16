@@ -15,10 +15,9 @@ from dataclasses import dataclass, field, fields
 from enum import Enum
 from typing import Iterator
 
+import discover
 import pyatv
 from ucapi import Entity
-
-import discover
 
 _LOG = logging.getLogger(__name__)
 

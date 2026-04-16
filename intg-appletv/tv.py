@@ -33,6 +33,7 @@ from typing import (
 
 import pyatv
 import pyatv.const
+from config import AtvDevice, AtvProtocol
 from pyatv import interface
 from pyatv.const import (
     DeviceState,
@@ -62,8 +63,6 @@ from ucapi import StatusCodes
 from ucapi.media_player import Attributes as MediaAttr
 from ucapi.media_player import MediaContentType, RepeatMode
 from ucapi.media_player import States as MediaState
-
-from config import AtvDevice, AtvProtocol
 
 _LOG = logging.getLogger(__name__)
 

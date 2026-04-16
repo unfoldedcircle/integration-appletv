@@ -92,7 +92,7 @@ pip3 install -r requirements.txt
   - Helper Makefile:
   
 ```shell
-cd src/locales
+cd intg-appletv/locales
 make all
 ```
 
@@ -108,7 +108,7 @@ For running a separate integration driver on your network for Remote Two/3, the 
 ### Run
 
 ```shell
-UC_CONFIG_HOME=./ python3 src/driver.py
+UC_CONFIG_HOME=./ python3 intg-appletv/driver.py
 ```
 
 See available [environment variables](https://github.com/unfoldedcircle/integration-python-library#environment-variables)
@@ -150,7 +150,7 @@ docker run --rm --name builder \
     bash -c \
       "python -m pip install -r requirements.txt && \
       pyinstaller --clean --onedir --name intg-appletv \
-        --add-data src/locales:locales --collect-all zeroconf src/driver.py"
+        --add-data intg-appletv/locales:locales --collect-all zeroconf intg-appletv/driver.py"
 ```
 
 ### aarch64 Linux / Mac
@@ -164,7 +164,7 @@ docker run --rm --name builder \
     bash -c \
       "python -m pip install -r requirements.txt && \
       pyinstaller --clean --onedir --name intg-appletv \
-        --add-data src/locales:locales --collect-all zeroconf src/driver.py"
+        --add-data intg-appletv/locales:locales --collect-all zeroconf intg-appletv/driver.py"
 ```
 
 ## Versioning

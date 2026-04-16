@@ -77,7 +77,7 @@ def get_translator(language: Optional[str] = None) -> NullTranslations:
 
     if lang not in _translators:
         try:
-            _translators[lang] = translation("src", localedir=str(LOCALE_DIR), languages=[lang], fallback=True)
+            _translators[lang] = translation("intg-appletv", localedir=str(LOCALE_DIR), languages=[lang], fallback=True)
         except (FileNotFoundError, OSError):
             # Fallback to NullTranslations if the translation file doesn't exist
             _translators[lang] = NullTranslations()
