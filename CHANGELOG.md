@@ -9,11 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Changes in the next release_
 
+---
+
+## v0.20.4 - 2026-02-27
 ### Changed
 - Update PyInstaller build image: PyInstaller 6.20.0 and updated dependencies.
 - Update GitHub actions.
-
----
 
 ## v0.20.3 - 2026-02-21
 ### Changed
