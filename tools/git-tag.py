@@ -144,15 +144,14 @@ def main():
         tmp.write(initial_message.encode("utf-8"))
         tmp_path = tmp.name
 
-    editor = os.environ.get("EDITOR", "vim")
+    editor = os.environ.get("EDITOR", "nano")
     subprocess.call([editor, tmp_path])
 
     with open(tmp_path, "r") as f:
         tag_message = f.read().strip()
 
-    os.unlink(tmp_path)
-
     if not tag_message:
+        os.unlink(tmp_path)
         print("Tag message is empty. Aborting.")
         sys.exit(1)
 
@@ -167,7 +166,7 @@ def main():
             print(f"[DRY-RUN] Would push tag {new_tag} to origin.")
         else:
             # Create annotated tag
-            run_command(f'git tag -a {new_tag} -m "{tag_message}"')
+            run_command(f'git tag -a {new_tag} --file "{tmp_path}"')
             print(f"Tag {new_tag} created locally.")
 
             # Push tag
@@ -175,6 +174,7 @@ def main():
             print(f"Tag {new_tag} pushed to origin.")
     else:
         print("Aborted.")
+    os.unlink(tmp_path)
 
 
 if __name__ == "__main__":
