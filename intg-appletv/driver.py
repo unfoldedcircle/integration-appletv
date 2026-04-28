@@ -716,9 +716,9 @@ class JournaldFormatter(logging.Formatter):
 
 async def patched_pyatv_companion_connect(self):
     """Patch connect method for pyatv Companion protocol."""
+    # pylint: disable=W0212
     if self._protocol:
         return
-
     self._connection = pyatv.protocols.companion.connection.CompanionConnection(
         self.core.loop,
         str(self.core.config.address),
@@ -730,13 +730,11 @@ async def patched_pyatv_companion_connect(self):
     )
     self._protocol.listener = self
     await self._protocol.start()
-
     await self.system_info()
     await self._touch_start()
     await self._session_start()
     await self._send_command("TVRCSessionStart", {"ProtocolVersionKey": "1.2"})
     await self._text_input_start()
-
     await self.subscribe_event("_iMC")
 
 
