@@ -714,6 +714,30 @@ class JournaldFormatter(logging.Formatter):
         return f"{priority}{record.name}: {record.getMessage()}"
 
 
+async def patched_pyatv_companion_connect(self):
+    """Patch connect method for pyatv Companion protocol."""
+    # pylint: disable=W0212
+    if self._protocol:
+        return
+    self._connection = pyatv.protocols.companion.connection.CompanionConnection(
+        self.core.loop,
+        str(self.core.config.address),
+        self.core.service.port,
+        self.core.device_listener,
+    )
+    self._protocol = pyatv.protocols.companion.protocol.CompanionProtocol(
+        self._connection, pyatv.auth.hap_srp.SRPAuthHandler(), self.core.service
+    )
+    self._protocol.listener = self
+    await self._protocol.start()
+    await self.system_info()
+    await self._touch_start()
+    await self._session_start()
+    await self._send_command("TVRCSessionStart", {"ProtocolVersionKey": "1.2"})
+    await self._text_input_start()
+    await self.subscribe_event("_iMC")
+
+
 async def main():
     """Start the Remote Two/3 integration driver."""
     if os.getenv("INVOCATION_ID"):
@@ -736,6 +760,9 @@ async def main():
     logging.getLogger("setup_flow").setLevel(level)
 
     # logging.getLogger("pyatv").setLevel(logging.DEBUG)
+
+    # TODO patch for tvOS 26.5 : to be removed when https://github.com/postlund/pyatv/issues/2845 is fixed
+    pyatv.protocols.companion.api.CompanionAPI.connect = patched_pyatv_companion_connect
 
     # load paired devices
     config.devices = config.Devices(api.config_dir_path, on_device_added, on_device_removed)
