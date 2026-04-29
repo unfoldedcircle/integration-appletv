@@ -7,12 +7,12 @@ Media-player entity functions.
 
 import asyncio
 import logging
-from enum import Enum, StrEnum
-from typing import Any, Type
+from enum import StrEnum
+from typing import Any
 
 import tv
 from config import AppleTVEntity, AtvDevice
-from hid import UsagePage
+from const import filter_attributes
 from hid.consumer_control_code import ConsumerControlCode
 from ucapi import MediaPlayer, StatusCodes, media_player
 from ucapi.media_player import (
@@ -22,6 +22,8 @@ from ucapi.media_player import (
     Features,
     Options,
 )
+
+from hid import UsagePage
 
 _LOG = logging.getLogger(__name__)
 # Experimental features, don't seem to work / supported (yet) with ATV4
@@ -60,12 +62,6 @@ class SimpleCommands(StrEnum):
     """Send pause command. App specific! Some treat it as play_pause."""
     PLAY_PAUSE_KEY = "PLAY_PAUSE_KEY"
     """Alternative play/pause command by sending a HID key press."""
-
-
-def filter_attributes(attributes, attribute_type: Type[Enum]) -> dict[str, Any]:
-    """Filter attributes based on an Enum class."""
-    valid_keys = {e.value for e in attribute_type}
-    return {k: v for k, v in attributes.items() if k in valid_keys}
 
 
 def _get_cmd_param(name: str, params: dict[str, Any] | None) -> str | bool | None:

@@ -34,6 +34,7 @@ from typing import (
 import pyatv
 import pyatv.const
 from config import AtvDevice, AtvProtocol
+from const import AppleTVSelects
 from pyatv import interface
 from pyatv.const import (
     DeviceState,
@@ -63,6 +64,7 @@ from ucapi import StatusCodes
 from ucapi.media_player import Attributes as MediaAttr
 from ucapi.media_player import MediaContentType, RepeatMode
 from ucapi.media_player import States as MediaState
+from ucapi.select import Attributes as SelectAttributes
 
 _LOG = logging.getLogger(__name__)
 
@@ -338,12 +340,21 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         return ", ".join(sorted(device_names, key=str.casefold))
 
     @property
-    def attributes(self) -> dict[str, Any]:
-        """Return device attributes."""
+    def app_name(self) -> str:
+        """Return current app name."""
         app_name = ""
         if self._atv and self._atv.metadata and self._atv.metadata.app:
             app_name = self._atv.metadata.app.name
+        return app_name
 
+    @property
+    def app_names(self) -> list[str]:
+        """Return app names."""
+        return list(self._app_list.keys())
+
+    @property
+    def attributes(self) -> dict[str, Any]:
+        """Return device attributes."""
         return {
             MediaAttr.STATE: self.media_state,
             # MediaAttr.MUTED: self.is_volume_muted,
@@ -358,14 +369,18 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             MediaAttr.MEDIA_POSITION_UPDATED_AT: (
                 self.media_position_updated_at if self.media_position_updated_at else ""
             ),
-            MediaAttr.SOURCE_LIST: list(self._app_list.keys()),
-            MediaAttr.SOURCE: app_name,
+            MediaAttr.SOURCE_LIST: self.app_names,
+            MediaAttr.SOURCE: self.app_name,
             MediaAttr.SOUND_MODE_LIST: list(self._output_devices.keys()),
             MediaAttr.SOUND_MODE: self.output_devices,
             MediaAttr.SHUFFLE: self._shuffle,
             MediaAttr.REPEAT: self._repeat,
             # TODO when UC library udpated
             # MediaAttr.MEDIA_ID : self._media_id,
+            AppleTVSelects.SELECT_APP: {
+                SelectAttributes.CURRENT_OPTION: self.app_name,
+                SelectAttributes.OPTIONS: self.app_names,
+            },
         }
 
     def _backoff(self) -> float:
@@ -751,6 +766,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             if source != self._source:
                 self._source = source
                 update[MediaAttr.SOURCE] = self._source
+                update[AppleTVSelects.SELECT_APP] = {SelectAttributes.CURRENT_OPTION: self.app_name}
 
         self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
@@ -764,6 +780,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             for app in app_list:
                 self._app_list[app.name] = app.identifier
                 update[MediaAttr.SOURCE_LIST].append(app.name)
+            update[AppleTVSelects.SELECT_APP] = {SelectAttributes.OPTIONS: update[MediaAttr.SOURCE_LIST]}
         except pyatv.exceptions.NotSupportedError:
             _LOG.warning("[%s] App list is not supported", self.log_id)
         except pyatv.exceptions.ProtocolError:
@@ -837,6 +854,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
             if self._is_feature_available(FeatureName.App) and self._atv.metadata.app.name:
                 update[MediaAttr.SOURCE] = self._atv.metadata.app.name
+                update[AppleTVSelects.SELECT_APP] = {SelectAttributes.CURRENT_OPTION: self.app_name}
 
             if data := await self._atv.metadata.playing():
                 await self._analyze_updated_data(update, data)
@@ -1281,6 +1299,9 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         attributes[MediaAttr.REPEAT] = RepeatMode.OFF
         attributes[MediaAttr.SHUFFLE] = False
         attributes[MediaAttr.SOURCE] = ""
+        attributes[AppleTVSelects.SELECT_APP] = {
+            SelectAttributes.CURRENT_OPTION: "",
+        }
         self._media_position = None
         self._media_duration = None
         self._media_image_url = None
