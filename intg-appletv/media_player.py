@@ -13,7 +13,6 @@ from typing import Any
 import tv
 from config import AppleTVEntity, AtvDevice
 from const import filter_attributes
-from hid.consumer_control_code import ConsumerControlCode
 from ucapi import MediaPlayer, StatusCodes, media_player
 from ucapi.media_player import (
     Attributes,
@@ -24,6 +23,7 @@ from ucapi.media_player import (
 )
 
 from hid import UsagePage
+from hid.consumer_control_code import ConsumerControlCode
 
 _LOG = logging.getLogger(__name__)
 # Experimental features, don't seem to work / supported (yet) with ATV4
