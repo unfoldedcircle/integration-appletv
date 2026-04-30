@@ -17,6 +17,7 @@ from typing import Iterator
 
 import discover
 import pyatv
+from ucapi import Entity
 
 _LOG = logging.getLogger(__name__)
 
@@ -28,6 +29,15 @@ class AtvProtocol(str, Enum):
 
     AIRPLAY = "airplay"
     COMPANION = "companion"
+
+
+class AppleTVEntity(Entity):
+    """Global AppleTV entity."""
+
+    @property
+    def deviceid(self) -> str:
+        """Return the device identifier."""
+        raise NotImplementedError()
 
 
 @dataclass
