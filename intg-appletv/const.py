@@ -13,12 +13,14 @@ class AppleTVSelects(StrEnum):
     """Apple TV select values."""
 
     SELECT_APP = "select_app"
+    SELECT_AUDIO_OUTPUT = "select_audio_output"
 
 
 class AppleTVSensors(StrEnum):
     """Apple TV sensor values."""
 
     SENSOR_APP = "sensor_app"
+    SENSOR_AUDIO_OUTPUT = "sensor_audio_output"
 
 
 def filter_attributes(attributes, attribute_type: Type[Enum]) -> dict[str, Any]:

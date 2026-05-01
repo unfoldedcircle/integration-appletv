@@ -27,12 +27,12 @@ class AppleTVSelect(AppleTVEntity, Select):
 
     # pylint: disable=R0917
     def __init__(
-        self,
-        entity_id: str,
-        name: str | dict[str, str],
-        config_device: AtvDevice,
-        device: tv.AppleTv,
-        select_handler: CommandHandler,
+            self,
+            entity_id: str,
+            name: str | dict[str, str],
+            config_device: AtvDevice,
+            device: tv.AppleTv,
+            select_handler: CommandHandler,
     ):
         """Initialize the class."""
         # pylint: disable = R0801
@@ -124,7 +124,7 @@ class AppleTVSelect(AppleTVEntity, Select):
         return StatusCodes.BAD_REQUEST
 
 
-class AppleTVAppSelect(AppleTVSelect):
+class AppSelect(AppleTVSelect):
     """Current audio stream selector entity."""
 
     ENTITY_NAME = "app"
@@ -138,7 +138,6 @@ class AppleTVAppSelect(AppleTVSelect):
             entity_id,
             {
                 "en": f"{config_device.name} App",
-                "fr": f"{config_device.name} App",
             },
             config_device,
             device,
@@ -154,3 +153,34 @@ class AppleTVAppSelect(AppleTVSelect):
     def select_options(self) -> list[str]:
         """Return selection list."""
         return self._device.app_names
+
+
+class AudioOutputSelect(AppleTVSelect):
+    """Audio output selector entity."""
+
+    ENTITY_NAME = "audio_output"
+    SELECT_NAME = AppleTVSelects.SELECT_AUDIO_OUTPUT
+
+    def __init__(self, config_device: AtvDevice, device: tv.AppleTv):
+        """Initialize the class."""
+        # pylint: disable=W1405,R0801
+        entity_id = f"{create_entity_id(config_device.identifier, EntityTypes.SELECT)}.{self.ENTITY_NAME}"
+        super().__init__(
+            entity_id,
+            {
+                "en": f"{config_device.name} Audio output",
+            },
+            config_device,
+            device,
+            device.set_output_device,
+        )
+
+    @property
+    def current_option(self) -> str:
+        """Return selector value."""
+        return self._device.output_devices
+
+    @property
+    def select_options(self) -> list[str]:
+        """Return selection list."""
+        return self._device.output_devices_combinations

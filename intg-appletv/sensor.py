@@ -37,13 +37,13 @@ class AppleTVSensor(AppleTVEntity, Sensor):
     SENSOR_NAME: AppleTVSensors
 
     def __init__(
-        self,
-        entity_id: str,
-        name: str | dict[str, str],
-        config_device: AtvDevice,
-        device: tv.AppleTv,
-        options: dict[Options, Any] | None = None,
-        device_class: DeviceClasses = DeviceClasses.CUSTOM,
+            self,
+            entity_id: str,
+            name: str | dict[str, str],
+            config_device: AtvDevice,
+            device: tv.AppleTv,
+            options: dict[Options, Any] | None = None,
+            device_class: DeviceClasses = DeviceClasses.CUSTOM,
     ):
         """Initialize the class."""
         self._device: tv.AppleTv = device
@@ -91,21 +91,19 @@ class AppleTVSensor(AppleTVEntity, Sensor):
         return self.all_attributes
 
 
-class AppleTVAppSensor(AppleTVSensor):
+class AppSensor(AppleTVSensor):
     """Current audio stream sensor entity."""
 
-    ENTITY_NAME = "sensor_app"
+    ENTITY_NAME = "app"
     SENSOR_NAME = AppleTVSensors.SENSOR_APP
 
     def __init__(self, config_device: AtvDevice, device: tv.AppleTv):
         """Initialize the class."""
         entity_id = f"{create_entity_id(config_device.identifier, EntityTypes.SENSOR)}.{self.ENTITY_NAME}"
-        # TODO : dict instead of name to report language names
         super().__init__(
             entity_id,
             {
                 "en": f"{config_device.name} App",
-                "fr": f"{config_device.name} App",
             },
             config_device,
             device,
@@ -115,3 +113,27 @@ class AppleTVAppSensor(AppleTVSensor):
     def sensor_value(self) -> str:
         """Return sensor value."""
         return self._device.app_name
+
+
+class AudioOutputSensor(AppleTVSensor):
+    """Current audio output sensor entity."""
+
+    ENTITY_NAME = "audio_output"
+    SENSOR_NAME = AppleTVSensors.SENSOR_AUDIO_OUTPUT
+
+    def __init__(self, config_device: AtvDevice, device: tv.AppleTv):
+        """Initialize the class."""
+        entity_id = f"{create_entity_id(config_device.identifier, EntityTypes.SENSOR)}.{self.ENTITY_NAME}"
+        super().__init__(
+            entity_id,
+            {
+                "en": f"{config_device.name} Audio output",
+            },
+            config_device,
+            device,
+        )
+
+    @property
+    def sensor_value(self) -> str:
+        """Return sensor value."""
+        return self._device.output_devices

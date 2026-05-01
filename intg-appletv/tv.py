@@ -34,7 +34,7 @@ from typing import (
 import pyatv
 import pyatv.const
 from config import AtvDevice, AtvProtocol
-from const import AppleTVSelects
+from const import AppleTVSelects, AppleTVSensors
 from pyatv import interface
 from pyatv.const import (
     DeviceState,
@@ -371,7 +371,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             ),
             MediaAttr.SOURCE_LIST: self.app_names,
             MediaAttr.SOURCE: self.app_name,
-            MediaAttr.SOUND_MODE_LIST: list(self._output_devices.keys()),
+            MediaAttr.SOUND_MODE_LIST: self.output_devices_combinations,
             MediaAttr.SOUND_MODE: self.output_devices,
             MediaAttr.SHUFFLE: self._shuffle,
             MediaAttr.REPEAT: self._repeat,
@@ -381,6 +381,12 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                 SelectAttributes.CURRENT_OPTION: self.app_name,
                 SelectAttributes.OPTIONS: self.app_names,
             },
+            AppleTVSelects.SELECT_AUDIO_OUTPUT: {
+                SelectAttributes.CURRENT_OPTION: self.output_devices,
+                SelectAttributes.OPTIONS: self.output_devices_combinations,
+            },
+            AppleTVSensors.SENSOR_APP: self.app_name,
+            AppleTVSensors.SENSOR_AUDIO_OUTPUT: self.output_devices
         }
 
     def _backoff(self) -> float:
@@ -767,8 +773,9 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                 self._source = source
                 update[MediaAttr.SOURCE] = self._source
                 update[AppleTVSelects.SELECT_APP] = {SelectAttributes.CURRENT_OPTION: self.app_name}
+                update[AppleTVSensors.SENSOR_APP] = self.app_name
 
-        self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
+            self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
     async def _update_app_list(self) -> None:
         _LOG.debug("[%s] Updating app list", self.log_id)
@@ -817,10 +824,17 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             self._output_devices = OrderedDict()
             self._output_devices[self._device.name] = []
             self._build_output_devices_list(atvs, device_ids)
-            update[MediaAttr.SOUND_MODE_LIST] = list(self._output_devices.keys())
+            update[MediaAttr.SOUND_MODE_LIST] = self.output_devices_combinations
+            update[AppleTVSelects.SELECT_AUDIO_OUTPUT] = {
+                SelectAttributes.CURRENT_OPTION: self.output_devices,
+                SelectAttributes.OPTIONS: self.output_devices_combinations
+            }
 
         if current_output_device != self.output_devices:
             update[MediaAttr.SOUND_MODE] = self.output_devices
+            update[AppleTVSensors.SENSOR_AUDIO_OUTPUT] = self.output_devices
+            update.setdefault(AppleTVSelects.SELECT_AUDIO_OUTPUT, {})
+            update[AppleTVSelects.SELECT_AUDIO_OUTPUT][SelectAttributes.CURRENT_OPTION] = self.output_devices
 
         _LOG.debug("Updated sound mode list : %s", update)
 
@@ -855,6 +869,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             if self._is_feature_available(FeatureName.App) and self._atv.metadata.app.name:
                 update[MediaAttr.SOURCE] = self._atv.metadata.app.name
                 update[AppleTVSelects.SELECT_APP] = {SelectAttributes.CURRENT_OPTION: self.app_name}
+                update[AppleTVSensors.SENSOR_APP] = self.app_name
 
             if data := await self._atv.metadata.playing():
                 await self._analyze_updated_data(update, data)
@@ -1302,6 +1317,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         attributes[AppleTVSelects.SELECT_APP] = {
             SelectAttributes.CURRENT_OPTION: "",
         }
+        attributes[AppleTVSensors.SENSOR_APP] = ""
         self._media_position = None
         self._media_duration = None
         self._media_image_url = None

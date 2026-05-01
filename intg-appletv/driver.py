@@ -267,9 +267,11 @@ def _register_available_entities(device_config: config.AtvDevice, device: tv.App
     :return: True if added, False if the device was already in storage.
     """
     entities: list[AppleTVEntity] = [
-        AppleTVMediaPlayer(config_device=device_config, device=device),
-        selector.AppleTVAppSelect(config_device=device_config, device=device),
-        sensor.AppleTVAppSensor(config_device=device_config, device=device),
+        AppleTVMediaPlayer(device_config, device),
+        selector.AppSelect(device_config, device),
+        sensor.AppSensor(device_config, device),
+        selector.AudioOutputSelect(device_config, device),
+        sensor.AudioOutputSensor(device_config, device),
     ]
 
     result = False
