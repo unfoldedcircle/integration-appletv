@@ -80,6 +80,8 @@ class SimpleCommands(str, Enum):
     """Send pause command. App specific! Some treat it as play_pause."""
     PLAY_PAUSE_KEY = "PLAY_PAUSE_KEY"
     """Alternative play/pause command by sending a HID key press."""
+    MENU_PICK = "MENU_PICK"
+    """Menu pick command by sending a HID key press (exits screensaver/play/OK)."""
 
 
 @api.listens_to(ucapi.Events.CONNECT)
@@ -330,6 +332,8 @@ async def media_player_cmd_handler(
             res = await device.play()
         case SimpleCommands.PAUSE:
             res = await device.pause()
+        case SimpleCommands.MENU_PICK:
+            res = await device.send_hid_key(UsagePage.CONSUMER, 0x41)
 
     return res
 
@@ -658,6 +662,7 @@ def _register_available_entities(identifier: str, name: str) -> bool:
                 SimpleCommands.PLAY.value,
                 SimpleCommands.PAUSE.value,
                 SimpleCommands.PLAY_PAUSE_KEY.value,
+                SimpleCommands.MENU_PICK.value,
             ]
         },
         cmd_handler=media_player_cmd_handler,
