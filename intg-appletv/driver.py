@@ -15,6 +15,7 @@ from enum import Enum
 from typing import Any, Type
 
 import config
+import pyatv
 import setup_flow
 import tv
 import ucapi

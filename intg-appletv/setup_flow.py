@@ -46,11 +46,11 @@ class SetupSteps(IntEnum):
 
 
 _setup_step = SetupSteps.INIT
-_cfg_add_device: bool = False
-_manual_address: bool = False
-_discovered_atvs: list[pyatv.interface.BaseConfig] | None = None
-_pairing_apple_tv: tv.AppleTv | None = None
-_reconfigured_device: AtvDevice | None = None
+_cfg_add_device: bool = False  # No idea why pylint is complaining this is a constant! pylint: disable=C0103
+_manual_address: bool = False  # pylint: disable=C0103
+_discovered_atvs: list[pyatv.interface.BaseConfig] | None = None  # pylint: disable=C0103
+_pairing_apple_tv: tv.AppleTv | None = None  # pylint: disable=C0103
+_reconfigured_device: AtvDevice | None = None  # pylint: disable=C0103
 
 
 def setup_data_schema():
