@@ -217,7 +217,6 @@ async def on_atv_update(device_id: str, update: dict[str, Any] | None) -> None:
         update = device.attributes
     else:
         _LOG.info("[%s] Device update: %s", device_id, update)
-    attributes = {}
 
     # FIXME temporary workaround until ucapi has been refactored:
     #       there's shouldn't be separate lists for available and configured entities
@@ -225,11 +224,13 @@ async def on_atv_update(device_id: str, update: dict[str, Any] | None) -> None:
 
     for configured_entity in _get_entities(device_id):
         if isinstance(configured_entity, AppleTVRemote):
-            attributes = configured_entity.filter_changed_attributes(update)
+            api.configured_entities.update_attributes(
+                configured_entity.id, configured_entity.filter_changed_attributes(update)
+            )
         elif isinstance(configured_entity, media_player.MediaPlayer):
-            attributes = filter_attributes(update, ucapi.media_player.Attributes)
-        if attributes:
-            api.configured_entities.update_attributes(configured_entity.id, attributes)
+            api.configured_entities.update_attributes(
+                configured_entity.id, filter_attributes(update, ucapi.media_player.Attributes)
+            )
 
 
 def _replace_bad_chars(value: str) -> str:
