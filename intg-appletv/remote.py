@@ -165,12 +165,6 @@ class AppleTVRemote(AppleTVEntity, Remote):
             _key_update(Attributes.STATE, state, attributes, self.attributes)
         return attributes
 
-    @staticmethod
-    def filter_attributes(attributes: dict[str, Any], attribute_type: Type[Attributes]) -> dict[str, Any]:
-        """Filter attributes for the remote entity."""
-        valid_keys = {e.value for e in attribute_type}
-        return {k: v for k, v in attributes.items() if k in valid_keys}
-
     async def command(self, cmd_id: str, params: dict[str, Any] | None = None, *, websocket: Any = None) -> StatusCodes:
         """Remote entity command handler."""
         # pylint: disable=R0911,R0912,W0613
