@@ -223,7 +223,7 @@ class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
                 res = await self._device.turn_off()
             case Commands.TOGGLE:
                 # pylint: disable=W0212
-                if self._device._atv.power.power_state == PowerState.On:
+                if self._device.is_on:
                     res = await self._device.turn_off()
                 else:
                     res = await self._device.turn_on()
