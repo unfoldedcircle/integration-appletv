@@ -14,7 +14,6 @@ import tv
 from config import AppleTVEntity, AtvDevice
 from hid import UsagePage
 from hid.consumer_control_code import ConsumerControlCode
-from pyatv.const import PowerState
 from ucapi import MediaPlayer, StatusCodes, media_player
 from ucapi.media_player import (
     Attributes,

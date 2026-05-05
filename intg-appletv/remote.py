@@ -6,7 +6,7 @@ Remote entity functions.
 """
 
 import logging
-from typing import Any, Type
+from typing import Any
 
 import tv
 import ucapi.remote
