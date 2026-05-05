@@ -91,6 +91,7 @@ def _state_from_media_player_state(state: media_player.States) -> ucapi.remote.S
             | media_player.States.BUFFERING
             | media_player.States.PAUSED
             | media_player.States.PLAYING
+            | media_player.States.STANDBY
         ):
             return ucapi.remote.States.ON
         case media_player.States.OFF:
