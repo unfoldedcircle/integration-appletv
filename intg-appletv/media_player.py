@@ -86,6 +86,7 @@ class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
         entity_id = config_device.identifier
         features = [
             Features.ON_OFF,
+            Features.TOGGLE,
             Features.VOLUME,
             Features.VOLUME_UP_DOWN,
             Features.MUTE_TOGGLE,
