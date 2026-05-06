@@ -63,7 +63,7 @@ def _main_ui_page() -> dict[str, Any]:
                 "type": "text",
             },
             {
-                "command": {"cmd_id": media_player.Commands.CONTEXT_MENU},
+                "command": {"cmd_id": media_player.Commands.CONTEXT_MENU.upper()},
                 "location": {"x": 0, "y": 2},
                 "size": {"height": 1, "width": 1},
                 "text": "Context Menu",
@@ -77,7 +77,7 @@ def _main_ui_page() -> dict[str, Any]:
                 "type": "text",
             },
             {
-                "command": {"cmd_id": media_player.Commands.GUIDE},
+                "command": {"cmd_id": media_player.Commands.GUIDE.upper()},
                 "location": {"x": 0, "y": 4},
                 "size": {"height": 1, "width": 1},
                 "text": "Guide",
@@ -144,6 +144,7 @@ class AppleTVRemote(AppleTVEntity, Remote):
             MediaPlayerCommands.MENU.upper(),
             MediaPlayerCommands.STOP.upper(),
             MediaPlayerCommands.GUIDE.upper(),
+            MediaPlayerCommands.CONTEXT_MENU.upper(),
             *self._media_player_simple_commands,
         ]
         super().__init__(
