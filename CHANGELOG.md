@@ -11,9 +11,56 @@ _Changes in the next release_
 
 ---
 
+## v0.20.4 - 2026-02-27
+### Changed
+- Update PyInstaller build image: PyInstaller 6.20.0 and updated dependencies.
+- Update GitHub actions.
+
+## v0.20.3 - 2026-02-21
+### Changed
+- Sort the available apps by name by @henrikwidlund ([#101](https://github.com/unfoldedcircle/integration-appletv/pull/101)).
+- Removed patched functions for disconnection and global volume by @albaintor ([#97](https://github.com/unfoldedcircle/integration-appletv/pull/97)).
+- Update Docker build image ([#102](https://github.com/unfoldedcircle/integration-appletv/pull/102)).
+- Update ucapi to 0.5.2 ([#98](https://github.com/unfoldedcircle/integration-appletv/pull/98)).
+- Update pyatv to 0.17.0 ([#95](https://github.com/unfoldedcircle/integration-appletv/pull/95)).
+- Update pyee to 13.0.1  ([#100](https://github.com/unfoldedcircle/integration-appletv/pull/100)).
+
+## v0.20.2 - 2026-01-15
+### Changed
+- Adapt journald log levels until the Remote supports native debug levels ([#94](https://github.com/unfoldedcircle/integration-appletv/pull/94)).
+
+## v0.20.1 - 2025-12-24
+### Changed
+- Use journald log levels if running as a systemd service ([#89](https://github.com/unfoldedcircle/integration-appletv/pull/89)).
+
+## v0.20.0 - 2025-12-23
+### Changed
+- Added connection retry when network is not ready. Contributed by @albaintor, thanks! ([#80](https://github.com/unfoldedcircle/integration-appletv/pull/80)).
+- Update ucapi to 0.5.1 ([#88](https://github.com/unfoldedcircle/integration-appletv/pull/88)).
+
+## v0.19.3 - 2025-11-27
+### Fixed
+- Artwork not being updated ([#79](https://github.com/unfoldedcircle/integration-appletv/pull/79)).
+### Changed
+- If a client disconnects, the connections to the ATV devices are no longer closed ([#78](https://github.com/unfoldedcircle/integration-appletv/pull/78)).
+
+## v0.19.2 - 2025-11-21
+### Fixed
+- Missing state information and state info not clearing in some cases. Contributed by @henrikwidlund, thanks! ([#66](https://github.com/unfoldedcircle/integration-appletv/pull/66)).
+
+### Changed
+- Cleanup of characters that can't be rendered ([#75](https://github.com/unfoldedcircle/integration-appletv/pull/75)).
+- Update ucapi library to 0.3.2 ([#68](https://github.com/unfoldedcircle/integration-appletv/pull/68)).
+- Pylint fixes to satisfy repository lint rules.
+- CI: bump GitHub Actions versions
+  - actions/setup-node from 5 to 6 ([#70](https://github.com/unfoldedcircle/integration-appletv/pull/70)).
+  - actions/download-artifact from 5 to 6 ([#73](https://github.com/unfoldedcircle/integration-appletv/pull/73)).
+  - actions/upload-artifact from 4 to 5 ([#74](https://github.com/unfoldedcircle/integration-appletv/pull/74)).
+  - actions/checkout from 5 to 6 ([#77](https://github.com/unfoldedcircle/integration-appletv/pull/77)).
+
 ## v0.19.1 - 2025-09-17
 ### Fixed
-- Clear playback info when not playing. Contributed by @henrikwidlund, thanks! ([#8](https://github.com/unfoldedcircle/integration-appletv/issues/8).
+- Clear playback info when not playing. Contributed by @henrikwidlund, thanks! ([#8](https://github.com/unfoldedcircle/integration-appletv/issues/8)).
 ### Changed
 - Update embedded Python runtime to 3.11.13 and pyinstaller to 6.16.0.
 
@@ -22,7 +69,7 @@ _Changes in the next release_
 - Setup flow fails when using manual IP address ([#48](https://github.com/unfoldedcircle/integration-appletv/issues/48)).
 
 ### Changed
-- Externalize language strings for translations with Crowdin ([#12](https://github.com/unfoldedcircle/integration-appletv/issues/12))).
+- Externalize language strings for translations with Crowdin ([#12](https://github.com/unfoldedcircle/integration-appletv/issues/12)).
   - Add Dutch, Spanish and Swedish translations.
 - Update pyatv library to 0.16.1 that should fix connection issues with tvOS 18.4+ ([#53](https://github.com/unfoldedcircle/integration-appletv/pull/53)).
 
