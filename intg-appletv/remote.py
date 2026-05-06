@@ -124,27 +124,27 @@ class AppleTVRemote(AppleTVEntity, Remote):
         self._device = device
         self._media_player = mp_entity
         entity_id = create_entity_id(config_device.identifier, EntityTypes.REMOTE)
+        self._media_player_simple_commands = [c.value for c in SimpleCommands]
         simple_commands = [
-            MediaPlayerCommands.BACK,
-            MediaPlayerCommands.HOME,
-            MediaPlayerCommands.VOLUME_UP,
-            MediaPlayerCommands.VOLUME_DOWN,
-            MediaPlayerCommands.MUTE,
-            MediaPlayerCommands.CURSOR_UP,
-            MediaPlayerCommands.CURSOR_DOWN,
-            MediaPlayerCommands.CURSOR_LEFT,
-            MediaPlayerCommands.CURSOR_RIGHT,
-            MediaPlayerCommands.CURSOR_ENTER,
-            MediaPlayerCommands.CHANNEL_UP,
-            MediaPlayerCommands.CHANNEL_DOWN,
-            MediaPlayerCommands.PREVIOUS,
-            MediaPlayerCommands.PLAY_PAUSE,
-            MediaPlayerCommands.NEXT,
-            MediaPlayerCommands.TOGGLE,
-            MediaPlayerCommands.MENU,
-            MediaPlayerCommands.STOP,
-            MediaPlayerCommands.GUIDE,
-            *[c.value for c in SimpleCommands],
+            MediaPlayerCommands.BACK.upper(),
+            MediaPlayerCommands.HOME.upper(),
+            MediaPlayerCommands.VOLUME_UP.upper(),
+            MediaPlayerCommands.VOLUME_DOWN.upper(),
+            MediaPlayerCommands.MUTE.upper(),
+            MediaPlayerCommands.CURSOR_UP.upper(),
+            MediaPlayerCommands.CURSOR_DOWN.upper(),
+            MediaPlayerCommands.CURSOR_LEFT.upper(),
+            MediaPlayerCommands.CURSOR_RIGHT.upper(),
+            MediaPlayerCommands.CURSOR_ENTER.upper(),
+            MediaPlayerCommands.CHANNEL_UP.upper(),
+            MediaPlayerCommands.CHANNEL_DOWN.upper(),
+            MediaPlayerCommands.PREVIOUS.upper(),
+            MediaPlayerCommands.PLAY_PAUSE.upper(),
+            MediaPlayerCommands.NEXT.upper(),
+            MediaPlayerCommands.MENU.upper(),
+            MediaPlayerCommands.STOP.upper(),
+            MediaPlayerCommands.GUIDE.upper(),
+            *self._media_player_simple_commands,
         ]
         super().__init__(
             entity_id,
@@ -195,7 +195,8 @@ class AppleTVRemote(AppleTVEntity, Remote):
                 return inner
             success = True
             for _ in range(repeat):
-                if await self._media_player.command(inner, params) != StatusCodes.OK:
+                properly_cased_command = inner if inner in self._media_player_simple_commands else inner.lower()
+                if await self._media_player.command(properly_cased_command, params) != StatusCodes.OK:
                     success = False
             return StatusCodes.OK if success else StatusCodes.BAD_REQUEST
 

@@ -223,14 +223,14 @@ async def on_atv_update(device_id: str, update: dict[str, Any] | None) -> None:
     _LOG.debug("Updating attributes for device %s : %s", device_id, update)
 
     for configured_entity in _get_entities(device_id):
+        attributes = {}
         if isinstance(configured_entity, AppleTVRemote):
-            api.configured_entities.update_attributes(
-                configured_entity.id, configured_entity.filter_changed_attributes(update)
-            )
+            attributes = configured_entity.filter_changed_attributes(update)
         elif isinstance(configured_entity, media_player.MediaPlayer):
-            api.configured_entities.update_attributes(
-                configured_entity.id, filter_attributes(update, ucapi.media_player.Attributes)
-            )
+            attributes = filter_attributes(update, ucapi.media_player.Attributes)
+
+        if attributes:
+            api.configured_entities.update_attributes(configured_entity.id, attributes)
 
 
 def _replace_bad_chars(value: str) -> str:
