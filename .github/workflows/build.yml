@@ -91,7 +91,12 @@ jobs:
           mv dist/intg-appletv artifacts/
           mv artifacts/intg-appletv artifacts/bin
           mv artifacts/bin/intg-appletv artifacts/bin/driver
-          cp driver.json artifacts/
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            cp driver.json artifacts/
+          else
+            # patch metadata to not conflict with pre-installed driver
+            jq '.driver_id = "appletv_custom" | .name.en = "Apple TV custom"' driver.json > artifacts/driver.json
+          fi
           cp LICENSE artifacts/
           echo "ARTIFACT_NAME=uc-intg-${{ env.INTG_NAME }}-${{ env.VERSION }}-aarch64" >> $GITHUB_ENV
 
