@@ -373,7 +373,7 @@ async def main():
     for device_config in config.devices.all():
         _add_configured_atv(device_config, connect=True)
 
-    await api.init("driver.json", setup_flow.driver_setup_handler)
+    await api.init(os.path.join(os.path.dirname(__file__), "..", "driver.json"), setup_flow.driver_setup_handler)
     # temporary hack to change driver.json language texts until supported by the wrapper lib
     api._driver_info["description"] = _a("Control your Apple TV with Remote Two/3.")  # pylint: disable=W0212
     api._driver_info["setup_data_schema"] = setup_flow.setup_data_schema()  # pylint: disable=W0212
