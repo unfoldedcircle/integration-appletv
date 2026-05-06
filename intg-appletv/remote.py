@@ -13,6 +13,7 @@ import ucapi.remote
 from config import AppleTVEntity, AtvDevice, create_entity_id
 from media_player import AppleTVMediaPlayer, SimpleCommands
 from ucapi import EntityTypes, Remote, StatusCodes, media_player
+from ucapi.media_player import Commands as MediaPlayerCommands
 from ucapi.remote import Attributes, Commands, Features
 from ucapi.ui import Buttons
 
@@ -33,8 +34,11 @@ REMOTE_BUTTONS_MAPPING: list[dict[str, Any]] = [
     {"button": Buttons.PREV, "short_press": {"cmd_id": media_player.Commands.PREVIOUS}},
     {"button": Buttons.PLAY, "short_press": {"cmd_id": media_player.Commands.PLAY_PAUSE}},
     {"button": Buttons.NEXT, "short_press": {"cmd_id": media_player.Commands.NEXT}},
-    {"button": "STOP", "short_press": {"cmd_id": media_player.Commands.STOP}},
-    {"button": "MENU", "short_press": {"cmd_id": media_player.Commands.CONTEXT_MENU}},
+    {"button": Buttons.STOP, "short_press": {"cmd_id": media_player.Commands.STOP}},
+    {"button": Buttons.MENU, "short_press": {"cmd_id": media_player.Commands.CONTEXT_MENU}},
+    {"button": Buttons.CHANNEL_UP, "short_press": {"cmd_id": media_player.Commands.CHANNEL_UP}},
+    {"button": Buttons.CHANNEL_DOWN, "short_press": {"cmd_id": media_player.Commands.CHANNEL_DOWN}},
+    {"button": Buttons.HOME, "short_press": {"cmd_id": media_player.Commands.HOME}},
 ]
 
 
@@ -121,25 +125,25 @@ class AppleTVRemote(AppleTVEntity, Remote):
         self._media_player = mp_entity
         entity_id = create_entity_id(config_device.identifier, EntityTypes.REMOTE)
         simple_commands = [
-            Buttons.BACK,
-            Buttons.HOME,
-            Buttons.VOLUME_UP,
-            Buttons.VOLUME_DOWN,
-            Buttons.MUTE,
-            Buttons.DPAD_UP,
-            Buttons.DPAD_DOWN,
-            Buttons.DPAD_LEFT,
-            Buttons.DPAD_RIGHT,
-            Buttons.DPAD_MIDDLE,
-            Buttons.CHANNEL_UP,
-            Buttons.CHANNEL_DOWN,
-            Buttons.PREV,
-            Buttons.PLAY,
-            Buttons.NEXT,
-            Buttons.POWER,
-            "MENU",
-            "STOP",
-            "GUIDE",
+            MediaPlayerCommands.BACK,
+            MediaPlayerCommands.HOME,
+            MediaPlayerCommands.VOLUME_UP,
+            MediaPlayerCommands.VOLUME_DOWN,
+            MediaPlayerCommands.MUTE,
+            MediaPlayerCommands.CURSOR_UP,
+            MediaPlayerCommands.CURSOR_DOWN,
+            MediaPlayerCommands.CURSOR_LEFT,
+            MediaPlayerCommands.CURSOR_RIGHT,
+            MediaPlayerCommands.CURSOR_ENTER,
+            MediaPlayerCommands.CHANNEL_UP,
+            MediaPlayerCommands.CHANNEL_DOWN,
+            MediaPlayerCommands.PREVIOUS,
+            MediaPlayerCommands.PLAY_PAUSE,
+            MediaPlayerCommands.NEXT,
+            MediaPlayerCommands.TOGGLE,
+            MediaPlayerCommands.MENU,
+            MediaPlayerCommands.STOP,
+            MediaPlayerCommands.GUIDE,
             *[c.value for c in SimpleCommands],
         ]
         super().__init__(
