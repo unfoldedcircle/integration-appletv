@@ -87,6 +87,7 @@ class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
         entity_id = config_device.identifier
         features = [
             Features.ON_OFF,
+            Features.TOGGLE,
             Features.VOLUME,
             Features.VOLUME_UP_DOWN,
             Features.MUTE_TOGGLE,
@@ -157,7 +158,7 @@ class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
             pass
         return None
 
-    async def command(self, cmd_id: str, params: dict[str, Any] | None = None, *, websocket: Any) -> StatusCodes:
+    async def command(self, cmd_id: str, params: dict[str, Any] | None = None, *, websocket: Any = None) -> StatusCodes:
         """
         Media-player entity command handler.
 
@@ -181,7 +182,7 @@ class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
 
         # TODO #15 implement proper fix for correct entity OFF state (it may not remain in OFF state if connection is
         #  established) + online check if we think it is in standby mode.
-        if state == media_player.States.OFF and cmd_id != Commands.OFF:
+        if state == media_player.States.OFF and cmd_id not in (Commands.OFF, Commands.TOGGLE):
             _LOG.debug("Device is off, sending turn on command")
             # quick & dirty workaround for #15: the entity state is not always correct!
             res = await self._device.turn_on()
@@ -221,6 +222,12 @@ class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
                 res = await self._device.turn_on()
             case Commands.OFF:
                 res = await self._device.turn_off()
+            case Commands.TOGGLE:
+                # pylint: disable=W0212
+                if self._device.is_on:
+                    res = await self._device.turn_off()
+                else:
+                    res = await self._device.turn_on()
             case Commands.CURSOR_UP:
                 res = await self._device.cursor_up()
             case Commands.CURSOR_DOWN:

@@ -292,6 +292,10 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         """Whether the Apple TV is on or off. Returns None if not connected."""
         if self._atv is None:
             return None
+
+        if self._atv.power.power_state == PowerState.On and self._is_on is False:
+            self._is_on = True
+
         return self._is_on
 
     @property

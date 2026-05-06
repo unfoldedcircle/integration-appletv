@@ -23,7 +23,9 @@ import ucapi.api as uc
 from config import AppleTVEntity
 from i18n import _a
 from media_player import AppleTVMediaPlayer
+from remote import AppleTVRemote
 from ucapi import Entity, media_player
+from ucapi import remote as ucapi_remote
 
 _LOG = logging.getLogger("driver")  # avoid having __main__ in log messages
 if sys.platform == "win32":
@@ -96,7 +98,11 @@ async def on_subscribe_entities(entity_ids: list[str]) -> None:
         device_id = entity.deviceid
         if device_id in _configured_atvs:
             device = _configured_atvs[device_id]
-            if isinstance(entity, media_player.MediaPlayer):
+            if isinstance(entity, AppleTVRemote):
+                api.configured_entities.update_attributes(
+                    entity_id, entity.filter_changed_attributes(device.attributes)
+                )
+            elif isinstance(entity, media_player.MediaPlayer):
                 api.configured_entities.update_attributes(
                     entity_id, filter_attributes(device.attributes, ucapi.media_player.Attributes)
                 )
@@ -114,8 +120,11 @@ async def on_unsubscribe_entities(entity_ids: list[str]) -> None:
     """On unsubscribe, we disconnect the objects and remove listeners for events."""
     _LOG.debug("Unsubscribe entities event: %s", entity_ids)
     for entity_id in entity_ids:
-        if entity_id in _configured_atvs:
-            device = _configured_atvs.pop(entity_id)
+        entity: AppleTVEntity | None = api.configured_entities.get(entity_id)
+        device_id = entity.deviceid if entity else config.base_entity_id_from_entity_id(entity_id)
+        # only unsubscribe the device once all its entities are gone
+        if device_id in _configured_atvs and not _get_entities(device_id):
+            device = _configured_atvs.pop(device_id)
             _LOG.info("Removed '%s' from configured devices and disconnect", device.name)
             await device.disconnect()
             device.events.remove_all_listeners()
@@ -142,6 +151,10 @@ async def on_atv_disconnected(identifier: str) -> None:
             api.configured_entities.update_attributes(
                 configured_entity.id, {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.UNAVAILABLE}
             )
+        elif configured_entity.entity_type == ucapi.EntityTypes.REMOTE:
+            api.configured_entities.update_attributes(
+                configured_entity.id, {ucapi_remote.Attributes.STATE: ucapi_remote.States.UNAVAILABLE}
+            )
 
 
 async def on_atv_connection_error(identifier: str, message) -> None:
@@ -151,6 +164,10 @@ async def on_atv_connection_error(identifier: str, message) -> None:
         if configured_entity.entity_type == ucapi.EntityTypes.MEDIA_PLAYER:
             api.configured_entities.update_attributes(
                 configured_entity.id, {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.UNAVAILABLE}
+            )
+        elif configured_entity.entity_type == ucapi.EntityTypes.REMOTE:
+            api.configured_entities.update_attributes(
+                configured_entity.id, {ucapi_remote.Attributes.STATE: ucapi_remote.States.UNAVAILABLE}
             )
     await api.set_device_state(ucapi.DeviceStates.ERROR)
 
@@ -200,15 +217,18 @@ async def on_atv_update(device_id: str, update: dict[str, Any] | None) -> None:
         update = device.attributes
     else:
         _LOG.info("[%s] Device update: %s", device_id, update)
-    attributes = {}
 
     # FIXME temporary workaround until ucapi has been refactored:
     #       there's shouldn't be separate lists for available and configured entities
     _LOG.debug("Updating attributes for device %s : %s", device_id, update)
 
     for configured_entity in _get_entities(device_id):
-        if isinstance(configured_entity, media_player.MediaPlayer):
+        attributes = {}
+        if isinstance(configured_entity, AppleTVRemote):
+            attributes = configured_entity.filter_changed_attributes(update)
+        elif isinstance(configured_entity, media_player.MediaPlayer):
             attributes = filter_attributes(update, ucapi.media_player.Attributes)
+
         if attributes:
             api.configured_entities.update_attributes(configured_entity.id, attributes)
 
@@ -257,10 +277,14 @@ def _register_available_entities(device_config: config.AtvDevice, device: tv.App
     :param name: Friendly name
     :return: True if added, False if the device was already in storage.
     """
-    entity = AppleTVMediaPlayer(config_device=device_config, device=device)
-    if api.available_entities.contains(entity.id):
-        api.available_entities.remove(entity.id)
-    return api.available_entities.add(entity)
+    media_player_entity = AppleTVMediaPlayer(config_device=device_config, device=device)
+    remote_entity = AppleTVRemote(config_device=device_config, device=device, mp_entity=media_player_entity)
+    added = False
+    for entity in (media_player_entity, remote_entity):
+        if api.available_entities.contains(entity.id):
+            api.available_entities.remove(entity.id)
+        added |= api.available_entities.add(entity)
+    return added
 
 
 def on_device_added(device: config.AtvDevice) -> None:
@@ -285,9 +309,12 @@ def on_device_removed(device: config.AtvDevice | None) -> None:
             atv = _configured_atvs.pop(device.identifier)
             _LOOP.create_task(atv.disconnect())
             atv.events.remove_all_listeners()
-            entity_id = atv.identifier
-            api.configured_entities.remove(entity_id)
-            api.available_entities.remove(entity_id)
+            for entity_id in (
+                config.create_entity_id(atv.identifier, ucapi.EntityTypes.MEDIA_PLAYER),
+                config.create_entity_id(atv.identifier, ucapi.EntityTypes.REMOTE),
+            ):
+                api.configured_entities.remove(entity_id)
+                api.available_entities.remove(entity_id)
 
 
 class JournaldFormatter(logging.Formatter):
@@ -354,6 +381,7 @@ async def main():
     logging.getLogger("discover").setLevel(level)
     logging.getLogger("setup_flow").setLevel(level)
     logging.getLogger("media_player").setLevel(level)
+    logging.getLogger("remote").setLevel(level)
 
     # logging.getLogger("pyatv").setLevel(logging.DEBUG)
 
