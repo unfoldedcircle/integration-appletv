@@ -63,17 +63,17 @@ def _main_ui_page() -> dict[str, Any]:
                 "type": "text",
             },
             {
-                "command": {"cmd_id": media_player.Commands.CONTEXT_MENU.upper()},
+                "command": {"cmd_id": SimpleCommands.SCREENSAVER},
                 "location": {"x": 0, "y": 2},
                 "size": {"height": 1, "width": 1},
-                "text": "Context Menu",
+                "text": "Screensaver",
                 "type": "text",
             },
             {
-                "command": {"cmd_id": SimpleCommands.SCREENSAVER},
+                "command": {"cmd_id": media_player.Commands.MENU.upper()},
                 "location": {"x": 0, "y": 3},
                 "size": {"height": 1, "width": 1},
-                "text": "Screensaver",
+                "text": "Control Center",
                 "type": "text",
             },
             {
