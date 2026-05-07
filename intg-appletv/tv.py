@@ -307,11 +307,6 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         return self._is_enabled
 
     @property
-    def state(self) -> DeviceState | None:
-        """Return the device state."""
-        return self._state
-
-    @property
     def media_state(self) -> MediaState:
         """Return the media-player state."""
         if self._state is None:
