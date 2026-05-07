@@ -120,7 +120,6 @@ MEDIA_TYPE_MAPPING = {
 REPEAT_MAPPING = {RepeatState.Off: RepeatMode.OFF, RepeatState.All: RepeatMode.ALL, RepeatState.Track: RepeatMode.ONE}
 
 
-# TODO rename confusing function name: nothing to do with debouncing, this is a deferred function call
 def debounce(wait: float):
     """Debounce function with delay in seconds."""
 
@@ -350,10 +349,14 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
     @property
     def app_name(self) -> str:
-        """Return current app name."""
+        """Return the current app name."""
         app_name = ""
-        if self._atv and self._atv.metadata and self._atv.metadata.app:
-            app_name = self._atv.metadata.app.name
+        if self._atv and self._is_feature_available(FeatureName.App) and self._atv.metadata:
+            app = self._atv.metadata.app
+            if app:
+                app_name = app.name
+                if app_name is None:
+                    app_name = ""
         return app_name
 
     @property
@@ -865,24 +868,26 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         while self._atv is not None:
             update = {}
 
-            if self._is_feature_available(FeatureName.App) and self._atv.metadata.app.name:
-                update[MediaAttr.SOURCE] = self._atv.metadata.app.name
-                update[AppleTVSelects.SELECT_APP] = {SelectAttributes.CURRENT_OPTION: self.app_name}
-                update[AppleTVSensors.SENSOR_APP] = self.app_name
+            app_name = self.app_name
+            if app_name:
+                update[MediaAttr.SOURCE] = app_name
+                update[AppleTVSelects.SELECT_APP] = {SelectAttributes.CURRENT_OPTION: app_name}
+                update[AppleTVSensors.SENSOR_APP] = app_name
 
-            if data := await self._atv.metadata.playing():
-                await self._analyze_updated_data(update, data)
-                self._state = data.device_state
-            else:
-                # No playback data available, clear the artwork
-                await self._process_artwork(update, None)
+            try:
+                if data := await self._atv.metadata.playing():
+                    await self._analyze_updated_data(update, data)
+                    self._state = data.device_state
+                else:
+                    # No playback data available, clear the artwork
+                    await self._process_artwork(update, None)
+            except pyatv.exceptions.NotSupportedError:
+                pass
 
-            # TODO(#117) current state logic was broken. Always set state for a quick fix.
-            #            We might have to store the last state since it can't be accurately recalculated!
+            # #117: Keep it simple: we can't reliably determine the old state.
+            #       The on_atv_update event receiver will filter out unchanged entity attributes
             update[MediaAttr.STATE] = self.media_state
-
-            if update:
-                self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
+            self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
             await asyncio.sleep(self._poll_interval)
 
