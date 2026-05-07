@@ -189,6 +189,12 @@ class AppleTVRemote(AppleTVEntity, Remote):
             return StatusCodes.BAD_REQUEST
 
         repeat = self._get_int_param("repeat", params, 1)
+        # TODO temporary hack for hold-down buttons sending a repeat count.
+        #      This will be addressed with the upcoming press-and-hold feature.
+        if repeat < 1 or repeat == 4:
+            repeat = 1
+        elif repeat > 20:
+            repeat = 20
 
         if cmd_id == Commands.SEND_CMD:
             inner = self._validate_inner_command(cmd_id, params.get("command", ""))
