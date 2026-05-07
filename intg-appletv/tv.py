@@ -290,28 +290,16 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         """Return the optional device address."""
         return self._device.address
 
-    # TODO(#117) verify if this method is used correctly. It's a confusing connected vs "powered on" logic!
-    #      The device can be connected, but in standby!
     @property
-    def is_on(self) -> bool | None:
-        """Whether the Apple TV is on or off. Returns None if not connected."""
-        if self._atv is None:
-            return None
-
-        # Unfortunately, we can't trust the power API; there are random connect issues:
-        # https://github.com/postlund/pyatv/issues/2823
-        power_state = self._get_power_state()
-        if power_state != PowerState.Unknown:
-            return power_state == PowerState.On
-
+    def is_enabled(self):
+        """Return whether the device is enabled."""
         return self._is_enabled
 
     @property
     def media_state(self) -> MediaState:
         """Return the media-player state."""
         # DeviceState does not contain an OFF state: check power state first
-        power_state = self._get_power_state()
-        if power_state == PowerState.Off:
+        if self.power_state == PowerState.Off:
             return MediaState.OFF
 
         # Starting up, set to unavailable
@@ -891,7 +879,8 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
             await asyncio.sleep(self._poll_interval)
 
-    def _get_power_state(self) -> PowerState:
+    @property
+    def power_state(self) -> PowerState:
         """
         Get the current power state of the device.
 

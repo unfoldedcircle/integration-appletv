@@ -166,24 +166,21 @@ class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
         # pylint: disable=R0912,R0915
         _LOG.info("Got %s command request: %s %s", self.id, cmd_id, params if params else "")
 
-        # If the entity is OFF (device is in standby), we turn it on regardless of the actual command
-        if self._device.is_on is None or self._device.is_on is False:
-            _LOG.debug("Device not connected, reconnect")
+        # #117: If the device is not connected, but we get a command: try to connect.
+        if not self._device.is_enabled:
+            _LOG.warning("Received a command, but device is not active: reconnect")
             await self._device.connect()
 
+        # TODO(#117) verify state check
         state = self._device.media_state
-
-        # TODO #15 implement proper fix for correct entity OFF state (it may not remain in OFF state if connection is
-        #  established) + online check if we think it is in standby mode.
         if state == media_player.States.OFF and cmd_id not in (Commands.OFF, Commands.TOGGLE):
             _LOG.debug("Device is off, sending turn on command")
-            # quick & dirty workaround for #15: the entity state is not always correct!
             res = await self._device.turn_on()
             if res != StatusCodes.OK:
                 return res
 
-        # Only proceed if self._device connection is established
-        if self._device.is_on is False:
+        # Only proceed if device connection is enabled
+        if not self._device.is_enabled:
             return StatusCodes.SERVICE_UNAVAILABLE
 
         res = StatusCodes.BAD_REQUEST
@@ -216,11 +213,11 @@ class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
             case Commands.OFF:
                 res = await self._device.turn_off()
             case Commands.TOGGLE:
-                # pylint: disable=W0212
-                if self._device.is_on:
-                    res = await self._device.turn_off()
-                else:
+                # TODO(#117) check power state. If power state is not available use local assumed state
+                if state == media_player.States.OFF:
                     res = await self._device.turn_on()
+                else:
+                    res = await self._device.turn_off()
             case Commands.CURSOR_UP:
                 res = await self._device.cursor_up()
             case Commands.CURSOR_DOWN:
