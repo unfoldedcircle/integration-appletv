@@ -102,6 +102,7 @@ ENV/
 .DS_Store
 
 config.json
+driver_custom.json
 env
 licenses.json
 tools/licenses.md

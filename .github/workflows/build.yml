@@ -74,6 +74,7 @@ jobs:
             bash -c \
             "cd /workspace && \
               python -m pip install -r requirements.txt && \
+              python intg-appletv/custom_driver.py && \
               pyinstaller --clean --onedir --name intg-appletv --add-data intg-appletv/locales:locales --collect-all zeroconf intg-appletv/driver.py"
           echo "Clean up locales"
           cd dist/intg-appletv/_internal/locales
@@ -91,8 +92,8 @@ jobs:
           mv dist/intg-appletv artifacts/
           mv artifacts/intg-appletv artifacts/bin
           mv artifacts/bin/intg-appletv artifacts/bin/driver
-          # patch metadata to not conflict with pre-installed driver
-          jq '.driver_id = "appletv_custom" | .name.en = "Apple TV custom"' driver.json > artifacts/driver.json
+          # use patched driver.json from the intg-appletv/custom_driver.py script above to not conflict with pre-installed driver
+          mv driver_custom.json artifacts/driver.json
           cp LICENSE artifacts/
           echo "ARTIFACT_NAME=uc-intg-${{ env.INTG_NAME }}-${{ env.VERSION }}-aarch64" >> $GITHUB_ENV
 

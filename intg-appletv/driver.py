@@ -403,6 +403,7 @@ async def main():
 
     await api.init("driver.json", setup_flow.driver_setup_handler)
     # temporary hack to change driver.json language texts until supported by the wrapper lib
+    # Attention: keep in sync with `custom_config.py`!
     api._driver_info["description"] = _a("Control your Apple TV with Remote Two/3.")  # pylint: disable=W0212
     api._driver_info["setup_data_schema"] = setup_flow.setup_data_schema()  # pylint: disable=W0212
 
