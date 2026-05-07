@@ -231,7 +231,8 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         """Create instance."""
         self._loop: AbstractEventLoop = loop or asyncio.get_running_loop()
         self.events = AsyncIOEventEmitter(self._loop)
-        self._is_on: bool = False
+        self._is_enabled: bool = False
+        """Keep the ATV connection alive."""
         self._atv: pyatv.interface.AppleTV | None = None
         if device.credentials is None:
             device.credentials = []
@@ -289,16 +290,19 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         """Return the optional device address."""
         return self._device.address
 
+    # TODO(#117) verify if this method is used correctly. It's a confusing connected vs "powered on" logic!
+    #      The device can be connected, but in standby!
     @property
     def is_on(self) -> bool | None:
         """Whether the Apple TV is on or off. Returns None if not connected."""
         if self._atv is None:
             return None
 
-        if self._atv.power.power_state == PowerState.On and self._is_on is False:
-            self._is_on = True
+        # Unfortunately, we can't trust the power API; there are random connect issues: https://github.com/postlund/pyatv/issues/2823
+        if self._atv.power.power_state != PowerState.Unknown:
+            return self._atv.power.power_state == PowerState.On
 
-        return self._is_on
+        return self._is_enabled
 
     @property
     def state(self) -> DeviceState | None:
@@ -539,26 +543,26 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
     async def connect(self) -> None:
         """Establish connection to ATV."""
-        if self._is_on is True:
+        if self._is_enabled:
             return
-        self._is_on = True
+        self._is_enabled = True
         self._start_connect_loop()
 
     def _start_connect_loop(self) -> None:
-        if not self._connect_task and self._atv is None and self._is_on:
+        if not self._connect_task and self._atv is None and self._is_enabled:
             self.events.emit(EVENTS.CONNECTING, self._device.identifier)
             self._connect_task = asyncio.create_task(self._connect_loop())
         else:
             _LOG.debug(
-                "[%s] Not starting connect loop (ATv: %s, isOn: %s)",
+                "[%s] Not starting connect loop (ATV: %s, enabled: %s)",
                 self.log_id,
                 self._atv is None,
-                self._is_on,
+                self._is_enabled,
             )
 
     async def _connect_loop(self) -> None:
         _LOG.debug("[%s] Starting connect loop", self.log_id)
-        while self._is_on and self._atv is None:
+        while self._is_enabled and self._atv is None:
             await self._connect_once()
             if self._atv is not None:
                 break
@@ -661,7 +665,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
     async def disconnect(self) -> None:
         """Disconnect from ATV."""
         _LOG.debug("[%s] Disconnecting from device", self.log_id)
-        self._is_on = False
+        self._is_enabled = False
         await self._stop_polling()
 
         try:
