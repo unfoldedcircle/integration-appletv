@@ -301,21 +301,24 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
         # Unfortunately, we can't trust the power API; there are random connect issues:
         # https://github.com/postlund/pyatv/issues/2823
-        if self._atv.power.power_state != PowerState.Unknown:
-            return self._atv.power.power_state == PowerState.On
+        power_state = self._get_power_state()
+        if power_state != PowerState.Unknown:
+            return power_state == PowerState.On
 
         return self._is_enabled
 
     @property
     def media_state(self) -> MediaState:
         """Return the media-player state."""
-        if self._state is None:
+        # DeviceState does not contain an OFF state: check power state first
+        power_state = self._get_power_state()
+        if power_state == PowerState.Off:
             return MediaState.OFF
-        # FIXME(#117) mixed up state handling: rewrite
-        # if isinstance(self._state, PowerState):
-        #     if self._state == PowerState.Off:
-        #         return MediaState.OFF
-        #     return MediaState.ON
+
+        # Starting up, set to unavailable
+        if self._state is None:
+            return MediaState.UNAVAILABLE
+
         return MEDIA_STATE_MAPPING.get(self._state, MediaState.UNKNOWN)
 
     @property
@@ -749,20 +752,10 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
     async def _process_update(self, data: pyatv.interface.Playing) -> None:  # pylint: disable=too-many-branches
         _LOG.debug("[%s] Process update", self.log_id)
 
-        update = {}
-        power_state = await self._get_power_state()
-        # off state is not included in metadata, don't override it
-        current_state = self.media_state
-        # FIXME(#117) _state is NOT PowerState: rewrite!
-        # if power_state and power_state == PowerState.Off:
-        #     self._state = PowerState.Off
-        # else:
-        #     self._state = data.device_state
-        if power_state != PowerState.Off:
-            self._state = data.device_state
+        # store current state: used in `media_state` property
+        self._state = data.device_state
 
-        if current_state != self.media_state:
-            update[MediaAttr.STATE] = self.media_state
+        update = {MediaAttr.STATE: self.media_state}
 
         reset_playback_info = self._state not in [
             DeviceState.Playing,
@@ -871,11 +864,6 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         await asyncio.sleep(2)
         while self._atv is not None:
             update = {}
-            current_state = self.media_state
-            power_state = await self._get_power_state()
-            # FIXME(#117) _state is NOT PowerState: rewrite!
-            # if power_state and power_state == PowerState.Off:
-            #     self._state = PowerState.Off
 
             if self._is_feature_available(FeatureName.App) and self._atv.metadata.app.name:
                 update[MediaAttr.SOURCE] = self._atv.metadata.app.name
@@ -884,29 +872,31 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
             if data := await self._atv.metadata.playing():
                 await self._analyze_updated_data(update, data)
-
-                # off state is not included in metadata, don't override it
-                if power_state and power_state != PowerState.Off:
-                    self._state = data.device_state
+                self._state = data.device_state
             else:
                 # No playback data available, clear the artwork
                 await self._process_artwork(update, None)
 
-            if current_state != self.media_state:
-                update[MediaAttr.STATE] = self.media_state
+            # TODO(#117) current state logic was broken. Always set state for a quick fix.
+            #            We might have to store the last state since it can't be accurately recalculated!
+            update[MediaAttr.STATE] = self.media_state
 
             if update:
                 self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
             await asyncio.sleep(self._poll_interval)
 
-    async def _get_power_state(self) -> PowerState | None:
-        # Push updates are not reliable for power events, and if the device is in standby it reports state idle!
-        if self._is_feature_available(FeatureName.PowerState):
-            # Off isn't sent with push updates with the current pyatv library
-            # Care must be taken to not override certain states like playing and paused
+    def _get_power_state(self) -> PowerState:
+        """
+        Get the current power state of the device.
+
+        :return: The power state or PowerState.Unknown if not available.
+        """
+        # Take special care accessing power state: it might not be available depending on protocol,
+        # or if the device is not connected
+        if self._atv and self._is_feature_available(FeatureName.PowerState):
             return self._atv.power.power_state
-        return None
+        return PowerState.Unknown
 
     async def _process_artwork(self, update: dict[Any, Any], data: pyatv.interface.Playing | None):
         current_media_image_url = self._media_image_url
