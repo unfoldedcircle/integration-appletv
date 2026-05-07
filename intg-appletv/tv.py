@@ -120,6 +120,7 @@ MEDIA_TYPE_MAPPING = {
 REPEAT_MAPPING = {RepeatState.Off: RepeatMode.OFF, RepeatState.All: RepeatMode.ALL, RepeatState.Track: RepeatMode.ONE}
 
 
+# TODO rename confusing function name: nothing to do with debouncing, this is a deferred function call
 def debounce(wait: float):
     """Debounce function with delay in seconds."""
 
@@ -243,7 +244,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         self._pairing_process: pyatv.interface.PairingHandler | None = None
         self._polling = None
         self._poll_interval: int = 10
-        self._state: DeviceState | PowerState | None = None
+        self._state: DeviceState | None = None
         self._app_list: dict[str, str] = {}
         self._available_output_devices: dict[str, str] = {}
         self._output_devices: OrderedDict[str, list[str]] = OrderedDict[str, list[str]]()
@@ -298,7 +299,8 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         if self._atv is None:
             return None
 
-        # Unfortunately, we can't trust the power API; there are random connect issues: https://github.com/postlund/pyatv/issues/2823
+        # Unfortunately, we can't trust the power API; there are random connect issues:
+        # https://github.com/postlund/pyatv/issues/2823
         if self._atv.power.power_state != PowerState.Unknown:
             return self._atv.power.power_state == PowerState.On
 
@@ -311,13 +313,14 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
     @property
     def media_state(self) -> MediaState:
-        """Return the device state."""
+        """Return the media-player state."""
         if self._state is None:
             return MediaState.OFF
-        if isinstance(self._state, PowerState):
-            if self._state == PowerState.Off:
-                return MediaState.OFF
-            return MediaState.ON
+        # FIXME(#117) mixed up state handling: rewrite
+        # if isinstance(self._state, PowerState):
+        #     if self._state == PowerState.Off:
+        #         return MediaState.OFF
+        #     return MediaState.ON
         return MEDIA_STATE_MAPPING.get(self._state, MediaState.UNKNOWN)
 
     @property
@@ -701,7 +704,8 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         await self._process_artwork(update, data)
 
         if data.title is not None:
-            # TODO filter out non-printable characters, for example all emojis
+            # TODO this should be a generic function and not just for the title.
+            #      There's already `_replace_bad_chars` in driver.py which could be made a generic utility function.
             # workaround for Plex DVR
             if data.title.startswith("(null):"):
                 title = data.title.removeprefix("(null):").strip()
@@ -754,9 +758,12 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         power_state = await self._get_power_state()
         # off state is not included in metadata, don't override it
         current_state = self.media_state
-        if power_state and power_state == PowerState.Off:
-            self._state = PowerState.Off
-        else:
+        # FIXME(#117) _state is NOT PowerState: rewrite!
+        # if power_state and power_state == PowerState.Off:
+        #     self._state = PowerState.Off
+        # else:
+        #     self._state = data.device_state
+        if power_state != PowerState.Off:
             self._state = data.device_state
 
         if current_state != self.media_state:
@@ -871,8 +878,9 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             update = {}
             current_state = self.media_state
             power_state = await self._get_power_state()
-            if power_state and power_state == PowerState.Off:
-                self._state = PowerState.Off
+            # FIXME(#117) _state is NOT PowerState: rewrite!
+            # if power_state and power_state == PowerState.Off:
+            #     self._state = PowerState.Off
 
             if self._is_feature_available(FeatureName.App) and self._atv.metadata.app.name:
                 update[MediaAttr.SOURCE] = self._atv.metadata.app.name
