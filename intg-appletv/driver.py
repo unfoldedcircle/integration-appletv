@@ -223,11 +223,7 @@ async def on_atv_update(device_id: str, update: dict[str, Any] | None) -> None:
             return
         device = _configured_atvs[device_id]
         update = device.attributes
-    else:
-        _LOG.info("[%s] Device update: %s", device_id, truncate_dict(update))
 
-    # FIXME temporary workaround until ucapi has been refactored:
-    #       there's shouldn't be separate lists for available and configured entities
     for configured_entity in _get_entities(device_id):
         attributes = {}
         if isinstance(configured_entity, media_player.MediaPlayer):
