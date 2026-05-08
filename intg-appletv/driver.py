@@ -239,7 +239,7 @@ async def on_atv_update(device_id: str, update: dict[str, Any] | None) -> None:
         elif isinstance(configured_entity, AppleTVRemote):
             attributes = configured_entity.filter_changed_attributes(update)
 
-        # TODO(#117) filter out unchanged properties to limit entity_change events. See Denon AVR implementation.
+        # TODO(#118) filter out unchanged properties to limit entity_change events. See Denon AVR implementation.
         #            Otherwise there will be events every 10s triggered from the poller.
         if attributes:
             _LOG.debug("Updating attributes for entity %s : %s", configured_entity.id, truncate_dict(attributes))

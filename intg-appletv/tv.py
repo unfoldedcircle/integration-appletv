@@ -15,6 +15,7 @@ import hashlib
 import itertools
 import logging
 import random
+import re
 from asyncio import AbstractEventLoop, Task
 from collections import OrderedDict
 from enum import Enum, StrEnum
@@ -404,16 +405,16 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         return self._connection_attempts * BACKOFF_SEC
 
     def playstatus_update(self, _updater, playstatus: pyatv.interface.Playing) -> None:
-        """Play status push update callback handler."""
-        _LOG.debug("[%s] Push update: %s", self.log_id, str(playstatus))
+        """Play status push update callback handler (push_updater.listener)."""
+        if _LOG.isEnabledFor(logging.DEBUG):
+            _LOG.debug("[%s] Push update: %s", self.log_id, re.sub(r"\n\s*", ", ", str(playstatus)))
         _ = asyncio.ensure_future(self._process_update(playstatus))
 
     def playstatus_error(self, _updater, exception: Exception) -> None:
-        """Play status push update error callback handler."""
+        """Play status push update error callback handler (push_updater.listener)."""
         _LOG.warning("[%s] A %s error occurred: %s", self.log_id, exception.__class__, exception)
         data = pyatv.interface.Playing()
         _ = asyncio.ensure_future(self._process_update(data))
-        # TODO restart push updates?
 
     def connection_lost(self, exception) -> None:
         """
@@ -433,7 +434,8 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         self._handle_disconnect()
 
     def _handle_disconnect(self):
-        """Handle that the device disconnected and restart connect loop."""
+        """Handle that the device disconnected and restart the connection loop."""
+        self.events.emit(EVENTS.DISCONNECTED, self._device.identifier)
         _ = asyncio.ensure_future(self._stop_polling())
         if self._atv:
             self._atv.close()
@@ -749,8 +751,6 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             update[MediaAttr.SHUFFLE] = self._shuffle
 
     async def _process_update(self, data: pyatv.interface.Playing) -> None:  # pylint: disable=too-many-branches
-        _LOG.debug("[%s] Process update", self.log_id)
-
         # store current state: used in `media_state` property
         self._state = data.device_state
 
