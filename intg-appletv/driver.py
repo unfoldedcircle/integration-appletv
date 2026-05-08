@@ -139,16 +139,15 @@ async def on_unsubscribe_entities(entity_ids: list[str]) -> None:
 async def on_atv_connected(identifier: str) -> None:
     """Handle ATV connection."""
     _LOG.debug("Apple TV connected: %s", identifier)
-    state = media_player.States.UNKNOWN
-    if identifier in _configured_atvs:
-        await on_atv_update(
-            identifier, None
-        )  # TODO(#117) this will trigger entity_change events using the OLD entity attributes! What about entity state?
-        await api.set_device_state(ucapi.DeviceStates.CONNECTED)  # just to make sure the device state is set
-        return  # TODO(#117) why return? Introduced in PR #107
-
-    api.configured_entities.update_attributes(identifier, {media_player.Attributes.STATE: state})
     await api.set_device_state(ucapi.DeviceStates.CONNECTED)  # just to make sure the device state is set
+
+    if identifier in _configured_atvs:
+        atv = _configured_atvs[identifier]
+        state = atv.media_state
+        # make sure to not send an outdated state, not sure if media_state is immediately available
+        if state == tv.MediaState.UNAVAILABLE:
+            state = media_player.States.UNKNOWN
+        await on_atv_update(identifier, {media_player.Attributes.STATE: state})
 
 
 async def on_atv_disconnected(identifier: str) -> None:
@@ -286,9 +285,9 @@ def _register_available_entities(device_config: config.AtvDevice, device: tv.App
     """
     Add a new ATV device to the available entities.
 
-    :param identifier: ATV identifier
-    :param name: Friendly name
-    :return: True if added, False if the device was already in storage.
+    :param device_config: ATV device configuration
+    :param device: ATV device instance
+    :return: True if at least one device entity was added, False if all entities were already in storage.
     """
     media_player_entity = AppleTVMediaPlayer(device_config, device)
     entities: list[AppleTVEntity] = [
