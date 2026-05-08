@@ -26,7 +26,6 @@ from i18n import _a
 from media_player import AppleTVMediaPlayer
 from remote import AppleTVRemote
 from ucapi import Entity, media_player
-from ucapi import remote as ucapi_remote
 from utils import filter_attributes, truncate_dict
 
 _LOG = logging.getLogger("driver")  # avoid having __main__ in log messages
@@ -150,41 +149,24 @@ async def on_atv_connected(identifier: str) -> None:
         await on_atv_update(identifier, {media_player.Attributes.STATE: state})
 
 
-async def on_atv_disconnected(identifier: str) -> None:
+def on_atv_disconnected(identifier: str) -> None:
     """Handle ATV disconnection."""
-    _LOG.debug("Apple TV disconnected: %s", identifier)
-    # TODO(#117) duplicated code with `on_atv_connection_error`
-    for configured_entity in _get_entities(identifier):
-        if configured_entity.entity_type == ucapi.EntityTypes.MEDIA_PLAYER:
-            api.configured_entities.update_attributes(
-                configured_entity.id, {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.UNAVAILABLE}
-            )
-        elif configured_entity.entity_type == ucapi.EntityTypes.SENSOR:
-            api.configured_entities.update_attributes(
-                configured_entity.id, {ucapi.sensor.Attributes.STATE: ucapi.sensor.States.UNAVAILABLE}
-            )
-        elif configured_entity.entity_type == ucapi.EntityTypes.REMOTE:
-            api.configured_entities.update_attributes(
-                configured_entity.id, {ucapi_remote.Attributes.STATE: ucapi_remote.States.UNAVAILABLE}
-            )
+    _LOG.debug("[%s] Apple TV disconnected", identifier)
+    # The STATE attribute is common for all entities, just use the media player state value :-)
+    _set_all_entity_states(identifier, ucapi.media_player.States.UNAVAILABLE.value)
 
 
-async def on_atv_connection_error(identifier: str, message) -> None:
+def on_atv_connection_error(identifier: str, message) -> None:
     """Set entities of ATV to state UNAVAILABLE if ATV connection error occurred."""
-    _LOG.error(message)
+    _LOG.error("[%s] Apple TV connection error: %s", identifier, message)
+    _set_all_entity_states(identifier, ucapi.media_player.States.UNAVAILABLE.value)
+
+
+def _set_all_entity_states(identifier: str, state: str) -> None:
+    """Set the state of all entities of a device."""
     for configured_entity in _get_entities(identifier):
-        if configured_entity.entity_type == ucapi.EntityTypes.MEDIA_PLAYER:
-            api.configured_entities.update_attributes(
-                configured_entity.id, {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.UNAVAILABLE}
-            )
-        elif configured_entity.entity_type == ucapi.EntityTypes.SENSOR:
-            api.configured_entities.update_attributes(
-                configured_entity.id, {ucapi.sensor.Attributes.STATE: ucapi.sensor.States.UNAVAILABLE}
-            )
-        elif configured_entity.entity_type == ucapi.EntityTypes.REMOTE:
-            api.configured_entities.update_attributes(
-                configured_entity.id, {ucapi_remote.Attributes.STATE: ucapi_remote.States.UNAVAILABLE}
-            )
+        # The STATE attribute is common for all entities, just use the media player state key :-)
+        api.configured_entities.update_attributes(configured_entity.id, {ucapi.media_player.Attributes.STATE: state})
 
 
 def _get_entities(device_id: str, include_all=False) -> list[Entity]:
