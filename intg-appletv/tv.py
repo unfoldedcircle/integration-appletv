@@ -154,7 +154,8 @@ def async_handle_atvlib_errors(
     Handle errors when calling commands in the AppleTv class.
 
     Decorator for the AppleTv class:
-    - Check if device is connected.
+
+    - Check if device is connected (``self._atv`` is set).
     - Log errors occurred when calling an Apple TV library function.
     - Translate errors into UC status codes to return to the Remote.
 
@@ -339,13 +340,16 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
     def app_name(self) -> str:
         """Return the current app name."""
         app_name = ""
-        if self._atv and self._is_feature_available(FeatureName.App) and self._atv.metadata:
+        if self._atv is None:
+            return app_name
+        try:
             app = self._atv.metadata.app
             if app:
                 app_name = app.name
-                if app_name is None:
-                    app_name = ""
-        return app_name
+        except Exception:  # pylint: disable=broad-exception-caught
+            # Most common exception is pyatv.exceptions.NotSupportedError, but there might be others
+            _LOG.exception("[%s] Error getting app name", self.log_id)
+        return app_name if app_name else ""
 
     @property
     def app_names(self) -> list[str]:
