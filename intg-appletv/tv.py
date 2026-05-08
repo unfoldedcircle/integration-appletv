@@ -687,8 +687,8 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             self.events.emit(EVENTS.ERROR, self._device.identifier, "Polling not started, AppleTv object is None")
             return
 
+        _LOG.debug("[%s] Starting polling task", self.log_id)
         self._polling = self._loop.create_task(self._poll_worker())
-        _LOG.debug("[%s] Polling started", self.log_id)
 
     async def _stop_polling(self) -> None:
         if self._polling:
@@ -861,6 +861,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
     async def _poll_worker(self) -> None:
         await asyncio.sleep(2)
+        _LOG.debug("[%s] Polling started with interval %ds", self.log_id, self._poll_interval)
         while self._atv is not None:
             update = {}
 
@@ -879,6 +880,8 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                     await self._process_artwork(update, None)
             except pyatv.exceptions.NotSupportedError:
                 pass
+            except Exception as ex:  # pylint: disable=broad-except
+                _LOG.error("[%s] Polling error: %s", self.log_id, ex)
 
             # #117: Keep it simple: we can't reliably determine the old state.
             #       The on_atv_update event receiver will filter out unchanged entity attributes
@@ -886,6 +889,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
             await asyncio.sleep(self._poll_interval)
+        _LOG.debug("[%s] Polling task stopped", self.log_id)
 
     @property
     def power_state(self) -> PowerState:
