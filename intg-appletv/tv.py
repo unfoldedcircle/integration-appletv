@@ -81,12 +81,16 @@ ERROR_OS_WAIT = 0.5
 class EVENTS(StrEnum):
     """Internal driver events."""
 
-    CONNECTING = "CONNECTING"
+    CONNECTING = "CONNECTING"  # TODO emitted, but no handler
+    """Device connecting event. Parameter: device identifier."""
     CONNECTED = "CONNECTED"
+    """Device connected event. Parameter: device identifier."""
     DISCONNECTED = "DISCONNECTED"
-    PAIRED = "PAIRED"
+    """Device disconnected event. Parameter: device identifier."""
     ERROR = "ERROR"
+    """Device error event. Parameters: device identifier, error message."""
     UPDATE = "UPDATE"
+    """Device update event. Parameters: device identifier, update data dict."""
 
 
 _AppleTvT = TypeVar("_AppleTvT", bound="AppleTv")
@@ -411,13 +415,13 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         _ = asyncio.ensure_future(self._process_update(data))
         # TODO restart push updates?
 
-    def connection_lost(self, _exception) -> None:
+    def connection_lost(self, exception) -> None:
         """
         Device was unexpectedly disconnected.
 
         This is a callback function from pyatv.interface.DeviceListener.
         """
-        _LOG.exception("[%s] Lost connection %s", self.log_id, _exception)
+        _LOG.warning("[%s] Lost connection: %s", self.log_id, exception)
         self._handle_disconnect()
 
     def connection_closed(self) -> None:
@@ -678,7 +682,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
     async def _start_polling(self) -> None:
         if self._atv is None:
             _LOG.warning("[%s] Polling not started, AppleTv object is None", self.log_id)
-            self.events.emit(EVENTS.ERROR, "Polling not started, AppleTv object is None")
+            self.events.emit(EVENTS.ERROR, self._device.identifier, "Polling not started, AppleTv object is None")
             return
 
         self._polling = self._loop.create_task(self._poll_worker())
