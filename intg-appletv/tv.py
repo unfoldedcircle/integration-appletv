@@ -238,7 +238,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         self._loop: AbstractEventLoop = loop or asyncio.get_running_loop()
         self.events = AsyncIOEventEmitter(self._loop)
         self._is_enabled: bool = False
-        """Keep the ATV connection alive."""
+        """Determine if the ATV connection should be kept alive."""
         self._atv: pyatv.interface.AppleTV | None = None
         if device.credentials is None:
             device.credentials = []
@@ -249,7 +249,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         self._pairing_process: pyatv.interface.PairingHandler | None = None
         self._polling = None
         self._poll_interval: int = 10
-        self._state: DeviceState | None = None
+        self._device_state: DeviceState | None = None
         self._app_list: dict[str, str] = {}
         self._available_output_devices: dict[str, str] = {}
         self._output_devices: OrderedDict[str, list[str]] = OrderedDict[str, list[str]]()
@@ -309,10 +309,10 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             return MediaState.OFF
 
         # Starting up, set to unavailable
-        if self._state is None:
+        if self._device_state is None:
             return MediaState.UNAVAILABLE
 
-        return MEDIA_STATE_MAPPING.get(self._state, MediaState.UNKNOWN)
+        return MEDIA_STATE_MAPPING.get(self._device_state, MediaState.UNKNOWN)
 
     @property
     def media_content_type(self) -> MediaContentType:
@@ -752,11 +752,11 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
     async def _process_update(self, data: pyatv.interface.Playing) -> None:  # pylint: disable=too-many-branches
         # store current state: used in `media_state` property
-        self._state = data.device_state
+        self._device_state = data.device_state
 
         update = {MediaAttr.STATE: self.media_state}
 
-        reset_playback_info = self._state not in [
+        reset_playback_info = self._device_state not in [
             DeviceState.Playing,
             DeviceState.Paused,
             DeviceState.Loading,
@@ -874,7 +874,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             try:
                 if data := await self._atv.metadata.playing():
                     await self._analyze_updated_data(update, data)
-                    self._state = data.device_state
+                    self._device_state = data.device_state
                 else:
                     # No playback data available, clear the artwork
                     await self._process_artwork(update, None)
@@ -906,7 +906,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
     async def _process_artwork(self, update: dict[Any, Any], data: pyatv.interface.Playing | None):
         current_media_image_url = self._media_image_url
-        if self._state not in [DeviceState.Idle, DeviceState.Stopped]:
+        if self._device_state not in [DeviceState.Idle, DeviceState.Stopped]:
             try:
                 if data:
                     playback_hash = hash((data.title, data.artist, data.album))
@@ -1252,7 +1252,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         """Set output device selection."""
         if device_name is None:
             return StatusCodes.BAD_REQUEST
-        device_entry = self._output_devices.get(device_name)
+        device_entry = self._output_devices.get(device_name, None)
         if device_entry is None:
             _LOG.warning(
                 "Output device not found in the list %s (list : %s)", device_name, self.output_devices_combinations

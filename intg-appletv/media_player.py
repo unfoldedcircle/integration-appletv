@@ -73,13 +73,12 @@ def _get_cmd_param(name: str, params: dict[str, Any] | None) -> str | bool | Non
 class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
     """Representation of a AppleTV Media Player entity."""
 
-    _assumed_state: media_player.States = media_player.States.OFF
-    """Fallback state if device power state is not available."""
-
     def __init__(self, config_device: AtvDevice, device: tv.AppleTv):
         """Initialize the class."""
         # pylint: disable = R0801
         self._device = device
+        self._assumed_state: media_player.States = media_player.States.OFF
+        """Fallback state if device power state is not available."""
         # entity_id = create_entity_id(config_device.name, EntityTypes.MEDIA_PLAYER)
         entity_id = config_device.identifier
         features = [
@@ -185,10 +184,6 @@ class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
             res = await self._device.turn_on()
             if res != StatusCodes.OK:
                 return res
-
-        # Only proceed if device connection is enabled
-        if not self._device.is_enabled:
-            return StatusCodes.SERVICE_UNAVAILABLE
 
         res = StatusCodes.BAD_REQUEST
 
