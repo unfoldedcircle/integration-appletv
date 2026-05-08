@@ -435,11 +435,12 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
     def _handle_disconnect(self):
         """Handle that the device disconnected and restart the connection loop."""
-        self.events.emit(EVENTS.DISCONNECTED, self._device.identifier)
         _ = asyncio.ensure_future(self._stop_polling())
         if self._atv:
             self._atv.close()
             self._atv = None
+        # make sure the DISCONNECTED listener is sync to avoid any race conditions!
+        self.events.emit(EVENTS.DISCONNECTED, self._device.identifier)
         self._start_connect_loop()
 
     def _volume_notify(self):
