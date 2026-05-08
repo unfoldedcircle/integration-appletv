@@ -14,6 +14,7 @@ import tv
 from config import AppleTVEntity, AtvDevice
 from hid import UsagePage
 from hid.consumer_control_code import ConsumerControlCode
+from pyatv.const import PowerState
 from ucapi import MediaPlayer, StatusCodes, media_player
 from ucapi.media_player import (
     Attributes,
@@ -71,6 +72,9 @@ def _get_cmd_param(name: str, params: dict[str, Any] | None) -> str | bool | Non
 
 class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
     """Representation of a AppleTV Media Player entity."""
+
+    _assumed_state: media_player.States = media_player.States.OFF
+    """Fallback state if device power state is not available."""
 
     def __init__(self, config_device: AtvDevice, device: tv.AppleTv):
         """Initialize the class."""
@@ -171,7 +175,7 @@ class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
             _LOG.warning("Received a command, but device is not active: reconnect")
             await self._device.connect()
 
-        # TODO(#117) verify state check
+        # TODO(#117) verify state check: bail out on media_player.States.UNAVAILABLE or best effort?
         state = self._device.media_state
         if state == media_player.States.OFF and cmd_id not in (Commands.OFF, Commands.TOGGLE):
             _LOG.debug("Device is off, sending turn on command")
@@ -213,7 +217,18 @@ class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
             case Commands.OFF:
                 res = await self._device.turn_off()
             case Commands.TOGGLE:
-                # TODO(#117) check power state. If power state is not available use local assumed state
+                # #117 If power state is not available use local assumed state (random pyatv bug)
+                if self._device.power_state == PowerState.Unknown:
+                    _LOG.warning(
+                        "Power state is not available for toggle, using assumed state: %s", self._assumed_state
+                    )
+                    state = self._assumed_state
+                    self._assumed_state = (
+                        media_player.States.OFF
+                        if self._assumed_state == media_player.States.ON
+                        else media_player.States.ON
+                    )
+
                 if state == media_player.States.OFF:
                     res = await self._device.turn_on()
                 else:
