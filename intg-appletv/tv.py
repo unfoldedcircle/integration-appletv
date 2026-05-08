@@ -1252,7 +1252,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         """Set output device selection."""
         if device_name is None:
             return StatusCodes.BAD_REQUEST
-        device_entry = self._output_devices.get(device_name, [])
+        device_entry = self._output_devices.get(device_name)
         if device_entry is None:
             _LOG.warning(
                 "Output device not found in the list %s (list : %s)", device_name, self.output_devices_combinations
