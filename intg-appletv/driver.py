@@ -141,9 +141,11 @@ async def on_atv_connected(identifier: str) -> None:
     _LOG.debug("Apple TV connected: %s", identifier)
     state = media_player.States.UNKNOWN
     if identifier in _configured_atvs:
-        await on_atv_update(identifier, None)
+        await on_atv_update(
+            identifier, None
+        )  # TODO(#117) this will trigger entity_change events using the OLD entity attributes! What about entity state?
         await api.set_device_state(ucapi.DeviceStates.CONNECTED)  # just to make sure the device state is set
-        return
+        return  # TODO(#117) why return? Introduced in PR #107
 
     api.configured_entities.update_attributes(identifier, {media_player.Attributes.STATE: state})
     await api.set_device_state(ucapi.DeviceStates.CONNECTED)  # just to make sure the device state is set
@@ -152,6 +154,7 @@ async def on_atv_connected(identifier: str) -> None:
 async def on_atv_disconnected(identifier: str) -> None:
     """Handle ATV disconnection."""
     _LOG.debug("Apple TV disconnected: %s", identifier)
+    # TODO(#117) duplicated code with `on_atv_connection_error`
     for configured_entity in _get_entities(identifier):
         if configured_entity.entity_type == ucapi.EntityTypes.MEDIA_PLAYER:
             api.configured_entities.update_attributes(
@@ -213,10 +216,11 @@ def _get_entities(device_id: str, include_all=False) -> list[Entity]:
 # pylint: disable=too-many-branches,too-many-statements
 async def on_atv_update(device_id: str, update: dict[str, Any] | None) -> None:
     """
-    Update attributes of configured media-player entity if ATV properties changed.
+    Update attributes of all configured entities if ATV properties changed.
 
     :param device_id: ATV media-player entity identifier
-    :param update: dictionary containing the updated properties or None
+    :param update: dictionary containing the updated properties.
+                  ``None`` indicates that the last known entity attributes should be sent to the Remote.
     """
     if update is None:
         if device_id not in _configured_atvs:
@@ -235,6 +239,8 @@ async def on_atv_update(device_id: str, update: dict[str, Any] | None) -> None:
         elif isinstance(configured_entity, AppleTVRemote):
             attributes = configured_entity.filter_changed_attributes(update)
 
+        # TODO(#117) filter out unchanged properties to limit entity_change events. See Denon AVR implementation.
+        #            Otherwise there will be events every 10s triggered from the poller.
         if attributes:
             _LOG.debug("Updating attributes for entity %s : %s", configured_entity.id, truncate_dict(attributes))
             api.configured_entities.update_attributes(configured_entity.id, attributes)
