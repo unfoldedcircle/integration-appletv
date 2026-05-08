@@ -185,7 +185,6 @@ async def on_atv_connection_error(identifier: str, message) -> None:
             api.configured_entities.update_attributes(
                 configured_entity.id, {ucapi_remote.Attributes.STATE: ucapi_remote.States.UNAVAILABLE}
             )
-    await api.set_device_state(ucapi.DeviceStates.ERROR)
 
 
 def _get_entities(device_id: str, include_all=False) -> list[Entity]:
