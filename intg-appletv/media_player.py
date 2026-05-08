@@ -170,12 +170,15 @@ class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
         # pylint: disable=R0912,R0915
         _LOG.info("Got %s command request: %s %s", self.id, cmd_id, params if params else "")
 
-        # #117: If the device is not connected, but we get a command: try to connect.
+        # #117: If the device is not connected, but we get a command: try to connect. Should not happen...
+        # Note: we don't check on entity state `UNAVAILABLE`:
+        # - the remote _should not_ send a command if the entity is unavailable
+        # - if something is out of sync: best effort mode. If ATV is not reachable: 503 is returned
         if not self._device.is_enabled:
             _LOG.warning("Received a command, but device is not active: reconnect")
             await self._device.connect()
 
-        # TODO(#117) verify state check: bail out on media_player.States.UNAVAILABLE or best effort?
+        # Automatically wake ATV from standby if a command is received
         state = self._device.media_state
         if state == media_player.States.OFF and cmd_id not in (Commands.OFF, Commands.TOGGLE):
             _LOG.debug("Device is off, sending turn on command")
@@ -249,7 +252,7 @@ class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
                 res = await self._device.fast_forward()
             case Commands.REPEAT:
                 mode = _get_cmd_param("repeat", params)
-                res = await self._device.set_repeat(mode) if mode else StatusCodes.BAD_REQUEST
+                res = await self._device.set_repeat(mode) if isinstance(mode, str) else StatusCodes.BAD_REQUEST
             case Commands.SHUFFLE:
                 mode = _get_cmd_param("shuffle", params)
                 res = await self._device.set_shuffle(mode) if isinstance(mode, bool) else StatusCodes.BAD_REQUEST
@@ -288,7 +291,7 @@ class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
                 res = await self._device.rewind_companion()
             case Commands.SELECT_SOUND_MODE:
                 mode = _get_cmd_param("mode", params)
-                res = await self._device.set_output_device(mode)
+                res = await self._device.set_output_device(mode) if isinstance(mode, str) else StatusCodes.BAD_REQUEST
             case Commands.SEEK:
                 res = await self._device.set_media_position(params.get("media_position", 0))
             case SimpleCommands.SWIPE_LEFT:
@@ -304,4 +307,4 @@ class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
             case SimpleCommands.PAUSE:
                 res = await self._device.pause()
 
-        return res
+        return res if res is not None else StatusCodes.SERVER_ERROR
