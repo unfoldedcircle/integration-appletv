@@ -385,7 +385,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             MediaAttr.SOUND_MODE: self.output_devices,
             MediaAttr.SHUFFLE: self._shuffle,
             MediaAttr.REPEAT: self._repeat,
-            # TODO when UC library udpated
+            # TODO when UC library updated
             # MediaAttr.MEDIA_ID : self._media_id,
             AppleTVSelects.SELECT_APP: {
                 SelectAttributes.CURRENT_OPTION: self.app_name,
@@ -885,8 +885,6 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             except Exception as ex:  # pylint: disable=broad-except
                 _LOG.error("[%s] Polling error: %s", self.log_id, ex)
 
-            # #117: Keep it simple: we can't reliably determine the old state.
-            #       The on_atv_update event receiver will filter out unchanged entity attributes
             update[MediaAttr.STATE] = self.media_state
             self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 

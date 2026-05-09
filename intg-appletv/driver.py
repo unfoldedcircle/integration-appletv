@@ -21,7 +21,7 @@ import setup_flow
 import tv
 import ucapi
 import ucapi.api as uc
-from config import AppleTVEntity
+from entities import AppleTVEntity
 from i18n import _a
 from media_player import AppleTVMediaPlayer
 from remote import AppleTVRemote
@@ -89,7 +89,7 @@ async def on_subscribe_entities(entity_ids: list[str]) -> None:
     :param entity_ids: entity identifiers.
     """
     _LOG.debug("Subscribe entities event: %s", entity_ids)
-
+    # force an entity change event with the current state for all subscribed entities
     for entity_id in entity_ids:
         configured_entity: Entity | None = api.configured_entities.get(entity_id)
         if configured_entity is None or not isinstance(configured_entity, AppleTVEntity):
@@ -97,8 +97,9 @@ async def on_subscribe_entities(entity_ids: list[str]) -> None:
         device_id = configured_entity.atv_id
         if device_id in _configured_atvs:
             device = _configured_atvs[device_id]
-            # trigger a full attributes update
-            configured_entity.update_attributes(device.attributes, force=True)
+            state = device.media_state
+            # It doesn't matter if we use the media_player.Attributes enum. It's called the same for all entities
+            configured_entity.update_attributes({media_player.Attributes.STATE: state}, force=True)
             continue
 
         device = config.devices.get(device_id) if config.devices else None
@@ -127,38 +128,38 @@ async def on_unsubscribe_entities(entity_ids: list[str]) -> None:
             device.events.remove_all_listeners()
 
 
-async def on_atv_connected(identifier: str) -> None:
+async def on_atv_connected(device_id: str) -> None:
     """Handle ATV connection."""
-    _LOG.debug("Apple TV connected: %s", identifier)
+    _LOG.debug("Apple TV connected: %s", device_id)
     await api.set_device_state(ucapi.DeviceStates.CONNECTED)  # just to make sure the device state is set
 
-    if identifier in _configured_atvs:
-        atv = _configured_atvs[identifier]
+    if device_id in _configured_atvs:
+        atv = _configured_atvs[device_id]
         state = atv.media_state
         # make sure to not send an outdated state, not sure if media_state is immediately available
         if state == tv.MediaState.UNAVAILABLE:
             state = media_player.States.UNKNOWN
-        await on_atv_update(identifier, {media_player.Attributes.STATE: state})
+        on_atv_update(device_id, {media_player.Attributes.STATE: state})
 
 
-def on_atv_disconnected(identifier: str) -> None:
+def on_atv_disconnected(device_id: str) -> None:
     """Handle ATV disconnection. Set all entities to the UNAVAILABLE state."""
-    _LOG.debug("[%s] Apple TV disconnected", identifier)
-    _set_all_entities_to_unavailable(identifier)
+    _LOG.debug("[%s] Apple TV disconnected", device_id)
+    _mark_entities_unavailable(device_id, force=True)
 
 
-def on_atv_connection_error(identifier: str, message) -> None:
+def on_atv_connection_error(device_id: str, message) -> None:
     """Set entities of ATV to state UNAVAILABLE if ATV connection error occurred."""
-    _LOG.error("[%s] Apple TV connection error: %s", identifier, message)
-    _set_all_entities_to_unavailable(identifier)
+    _LOG.error("[%s] Apple TV connection error: %s", device_id, message)
+    _mark_entities_unavailable(device_id, force=False)
 
 
-def _set_all_entities_to_unavailable(identifier: str) -> None:
+def _mark_entities_unavailable(device_id: str, *, force: bool) -> None:
     """Set all entities of a device to state UNAVAILABLE."""
-    for configured_entity in _get_entities(identifier):
+    for configured_entity in _get_entities(device_id):
         # The STATE attribute is common for all entities, just use the media player state :-)
-        api.configured_entities.update_attributes(
-            configured_entity.id, {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.UNAVAILABLE.value}
+        configured_entity.update_attributes(
+            {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.UNAVAILABLE.value}, force=force
         )
 
 
@@ -186,7 +187,7 @@ def _get_entities(device_id: str, include_all=False) -> list[AppleTVEntity]:
     return entities
 
 
-async def on_atv_update(device_id: str, update: dict[str, Any] | None) -> None:
+def on_atv_update(device_id: str, update: dict[str, Any]) -> None:
     """
     Update attributes of all configured entities if ATV properties changed.
 

@@ -10,7 +10,8 @@ import logging
 from enum import Enum, StrEnum
 from typing import Any, Type
 
-from config import AppleTVEntity, AtvDevice
+from config import AtvDevice
+from entities import AppleTVEntity
 from hid import UsagePage
 from hid.consumer_control_code import ConsumerControlCode
 from pyatv.const import PowerState

@@ -6,12 +6,14 @@ Sensor entity functions.
 """
 
 import logging
+from abc import abstractmethod
 from enum import Enum
 from typing import Any, Type
 
 import tv
 import ucapi.media_player
-from config import AppleTVEntity, AtvDevice, create_entity_id
+from config import AtvDevice, create_entity_id
+from entities import AppleTVEntity
 from ucapi import EntityTypes, IntegrationAPI, Sensor
 from ucapi.media_player import States as MediaStates
 from ucapi.sensor import Attributes, DeviceClasses, Options, States
@@ -74,9 +76,9 @@ class AppleTVSensor(Sensor, AppleTVEntity):
         return self._state
 
     @property
+    @abstractmethod
     def sensor_value(self) -> str:
         """Return sensor value."""
-        raise NotImplementedError()
 
     @property
     def all_attributes(self) -> dict[str, Any]:
@@ -89,17 +91,14 @@ class AppleTVSensor(Sensor, AppleTVEntity):
     def filter_changed_attributes(self, update: dict[str, Any]) -> dict[str, Any]:
         """Return only the changed attributes."""
         attributes: dict[str, Any] = {}
-        # TODO(#118) probably needs to be refactored
-        if update:
-            if ucapi.media_player.Attributes.STATE in update:
-                new_state = SENSOR_STATE_MAPPING.get(update[ucapi.media_player.Attributes.STATE], States.UNKNOWN)
-                if new_state != self._state:
-                    self._state = new_state
-                    attributes[Attributes.STATE] = self._state
-            if self.SENSOR_NAME in update:
-                attributes[Attributes.VALUE] = update[self.SENSOR_NAME]
-            return attributes
-        return self.all_attributes
+        if ucapi.media_player.Attributes.STATE in update:
+            new_state = SENSOR_STATE_MAPPING.get(update[ucapi.media_player.Attributes.STATE], States.UNKNOWN)
+            if new_state != self._state:
+                self._state = new_state
+                attributes[Attributes.STATE] = self._state
+        if self.SENSOR_NAME in update:
+            attributes[Attributes.VALUE] = update[self.SENSOR_NAME]
+        return attributes
 
 
 class AppSensor(AppleTVSensor):

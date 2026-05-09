@@ -6,12 +6,14 @@ Select entity functions.
 """
 
 import logging
+from abc import abstractmethod
 from enum import Enum
 from typing import Any, Type
 
 import tv
 import ucapi
-from config import AppleTVEntity, AtvDevice, create_entity_id
+from config import AtvDevice, create_entity_id
+from entities import AppleTVEntity
 from ucapi import EntityTypes, IntegrationAPI, Select, StatusCodes
 from ucapi.api_definitions import CommandHandler
 from ucapi.media_player import States as MediaStates
@@ -69,14 +71,14 @@ class AppleTVSelect(Select, AppleTVEntity):
         return Attributes
 
     @property
+    @abstractmethod
     def current_option(self) -> str:
         """Return select value."""
-        raise NotImplementedError()
 
     @property
+    @abstractmethod
     def select_options(self) -> list[str]:
         """Return selection list."""
-        raise NotImplementedError()
 
     @property
     def all_attributes(self) -> dict[str, Any]:
@@ -89,18 +91,15 @@ class AppleTVSelect(Select, AppleTVEntity):
 
     def filter_changed_attributes(self, update: dict[str, Any]) -> dict[str, Any]:
         """Return only the changed attributes."""
-        # TODO(#118) probably needs to be refactored
-        if update:
-            attributes: dict[str, Any] = {}
-            if ucapi.media_player.Attributes.STATE in update:
-                new_state = SELECTOR_STATE_MAPPING.get(update[ucapi.media_player.Attributes.STATE], States.UNKNOWN)
-                if new_state != self._state:
-                    self._state = new_state
-                    attributes[Attributes.STATE] = self._state
-            if self.SELECT_NAME in update:
-                attributes |= update[self.SELECT_NAME]
-            return attributes
-        return self.all_attributes
+        attributes: dict[str, Any] = {}
+        if ucapi.media_player.Attributes.STATE in update:
+            new_state = SELECTOR_STATE_MAPPING.get(update[ucapi.media_player.Attributes.STATE], States.UNKNOWN)
+            if new_state != self._state:
+                self._state = new_state
+                attributes[Attributes.STATE] = self._state
+        if self.SELECT_NAME in update:
+            attributes |= update[self.SELECT_NAME]
+        return attributes
 
     async def command(self, cmd_id: str, params: dict[str, Any] | None = None, *, websocket: Any) -> StatusCodes:
         """Process selector command."""

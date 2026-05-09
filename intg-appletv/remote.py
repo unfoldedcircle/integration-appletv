@@ -11,7 +11,8 @@ from typing import Any, Type
 
 import tv
 import ucapi.remote
-from config import AppleTVEntity, AtvDevice, create_entity_id
+from config import AtvDevice, create_entity_id
+from entities import AppleTVEntity
 from media_player import AppleTVMediaPlayer, SimpleCommands
 from ucapi import EntityTypes, IntegrationAPI, Remote, StatusCodes, media_player
 from ucapi.media_player import Commands as MediaPlayerCommands
