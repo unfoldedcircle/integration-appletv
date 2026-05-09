@@ -13,6 +13,7 @@ import base64
 import datetime
 import hashlib
 import itertools
+import json
 import logging
 import random
 import re
@@ -840,7 +841,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             update.setdefault(AppleTVSelects.SELECT_AUDIO_OUTPUT, {})
             update[AppleTVSelects.SELECT_AUDIO_OUTPUT][SelectAttributes.CURRENT_OPTION] = self.output_devices
 
-        _LOG.debug("[%s] Updated sound mode list: %s", self.log_id, update)
+        _LOG.debug("[%s] Updated sound mode list: %s", self.log_id, json.dumps(update))
 
         if update:
             self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
