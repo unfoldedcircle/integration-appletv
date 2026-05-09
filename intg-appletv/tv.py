@@ -172,7 +172,7 @@ def async_handle_atvlib_errors(
     async def wrapper(self: _AppleTvT, *args: _P.args, **kwargs: _P.kwargs) -> StatusCodes:
         # pylint: disable=protected-access
         if self._atv is None:
-            _LOG.debug("Command wrapper : not connected try reconnect")
+            _LOG.debug("[%s] Command wrapper: not connected try reconnect", self.log_id)
             await self.connect()
             if self._atv is None:
                 return StatusCodes.SERVICE_UNAVAILABLE
@@ -840,7 +840,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             update.setdefault(AppleTVSelects.SELECT_AUDIO_OUTPUT, {})
             update[AppleTVSelects.SELECT_AUDIO_OUTPUT][SelectAttributes.CURRENT_OPTION] = self.output_devices
 
-        _LOG.debug("Updated sound mode list : %s", update)
+        _LOG.debug("[%s] Updated sound mode list: %s", self.log_id, update)
 
         if update:
             self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
@@ -1295,7 +1295,10 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         device_entry = self._output_devices.get(device_name, None)
         if device_entry is None:
             _LOG.warning(
-                "Output device not found in the list %s (list : %s)", device_name, self.output_devices_combinations
+                "[%s] Output device not found in the list %s (list : %s)",
+                self.log_id,
+                device_name,
+                self.output_devices_combinations,
             )
             return StatusCodes.BAD_REQUEST
         output_devices = self._atv.audio.output_devices
@@ -1305,7 +1308,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         for device in output_devices:
             device_ids.append(device.identifier)
 
-        _LOG.debug("Removing output devices %s", device_ids)
+        _LOG.debug("[%s] Removing output devices: %s", self.log_id, device_ids)
         await self._atv.audio.remove_output_devices(*device_ids)
         if len(device_entry) == 0:
             return StatusCodes.OK
@@ -1318,7 +1321,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         if len(found_current_device) == 0:
             new_output_devices.append(self._atv.device_info.output_device_id)
 
-        _LOG.debug("Setting output devices %s", new_output_devices)
+        _LOG.debug("[%s] Setting output devices: %s", self.log_id, new_output_devices)
         await self._atv.audio.set_output_devices(*new_output_devices)
         return StatusCodes.OK
 
