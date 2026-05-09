@@ -14,6 +14,7 @@ import tv
 from config import AppleTVEntity, AtvDevice
 from hid import UsagePage
 from hid.consumer_control_code import ConsumerControlCode
+from pyatv.const import PowerState
 from ucapi import MediaPlayer, StatusCodes, media_player
 from ucapi.media_player import (
     Attributes,
@@ -76,6 +77,8 @@ class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
         """Initialize the class."""
         # pylint: disable = R0801
         self._device = device
+        self._assumed_state: media_player.States = media_player.States.OFF
+        """Fallback state if device power state is not available."""
         # entity_id = create_entity_id(config_device.name, EntityTypes.MEDIA_PLAYER)
         entity_id = config_device.identifier
         features = [
@@ -166,25 +169,21 @@ class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
         # pylint: disable=R0912,R0915
         _LOG.info("Got %s command request: %s %s", self.id, cmd_id, params if params else "")
 
-        # If the entity is OFF (device is in standby), we turn it on regardless of the actual command
-        if self._device.is_on is None or self._device.is_on is False:
-            _LOG.debug("Device not connected, reconnect")
+        # #117: If the device is not connected, but we get a command: try to connect. Should not happen...
+        # Note: we don't check on entity state `UNAVAILABLE`:
+        # - the remote _should not_ send a command if the entity is unavailable
+        # - if something is out of sync: best effort mode. If ATV is not reachable: 503 is returned
+        if not self._device.is_enabled:
+            _LOG.warning("Received a command, but device is not active: reconnect")
             await self._device.connect()
 
+        # Automatically wake ATV from standby if a command is received
         state = self._device.media_state
-
-        # TODO #15 implement proper fix for correct entity OFF state (it may not remain in OFF state if connection is
-        #  established) + online check if we think it is in standby mode.
         if state == media_player.States.OFF and cmd_id not in (Commands.OFF, Commands.TOGGLE):
             _LOG.debug("Device is off, sending turn on command")
-            # quick & dirty workaround for #15: the entity state is not always correct!
             res = await self._device.turn_on()
             if res != StatusCodes.OK:
                 return res
-
-        # Only proceed if self._device connection is established
-        if self._device.is_on is False:
-            return StatusCodes.SERVICE_UNAVAILABLE
 
         res = StatusCodes.BAD_REQUEST
 
@@ -216,11 +215,22 @@ class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
             case Commands.OFF:
                 res = await self._device.turn_off()
             case Commands.TOGGLE:
-                # pylint: disable=W0212
-                if self._device.is_on:
-                    res = await self._device.turn_off()
-                else:
+                # #117 If power state is not available use local assumed state (random pyatv bug)
+                if self._device.power_state == PowerState.Unknown:
+                    _LOG.warning(
+                        "Power state is not available for toggle, using assumed state: %s", self._assumed_state
+                    )
+                    state = self._assumed_state
+                    self._assumed_state = (
+                        media_player.States.OFF
+                        if self._assumed_state == media_player.States.ON
+                        else media_player.States.ON
+                    )
+
+                if state == media_player.States.OFF:
                     res = await self._device.turn_on()
+                else:
+                    res = await self._device.turn_off()
             case Commands.CURSOR_UP:
                 res = await self._device.cursor_up()
             case Commands.CURSOR_DOWN:
@@ -237,7 +247,7 @@ class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
                 res = await self._device.fast_forward()
             case Commands.REPEAT:
                 mode = _get_cmd_param("repeat", params)
-                res = await self._device.set_repeat(mode) if mode else StatusCodes.BAD_REQUEST
+                res = await self._device.set_repeat(mode) if isinstance(mode, str) else StatusCodes.BAD_REQUEST
             case Commands.SHUFFLE:
                 mode = _get_cmd_param("shuffle", params)
                 res = await self._device.set_shuffle(mode) if isinstance(mode, bool) else StatusCodes.BAD_REQUEST
@@ -276,7 +286,7 @@ class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
                 res = await self._device.rewind_companion()
             case Commands.SELECT_SOUND_MODE:
                 mode = _get_cmd_param("mode", params)
-                res = await self._device.set_output_device(mode)
+                res = await self._device.set_output_device(mode) if isinstance(mode, str) else StatusCodes.BAD_REQUEST
             case Commands.SEEK:
                 res = await self._device.set_media_position(params.get("media_position", 0))
             case SimpleCommands.SWIPE_LEFT:
@@ -292,4 +302,4 @@ class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
             case SimpleCommands.PAUSE:
                 res = await self._device.pause()
 
-        return res
+        return res if res is not None else StatusCodes.SERVER_ERROR

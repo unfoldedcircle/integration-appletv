@@ -15,6 +15,7 @@ import hashlib
 import itertools
 import logging
 import random
+import re
 from asyncio import AbstractEventLoop, Task
 from collections import OrderedDict
 from enum import Enum, StrEnum
@@ -81,12 +82,16 @@ ERROR_OS_WAIT = 0.5
 class EVENTS(StrEnum):
     """Internal driver events."""
 
-    CONNECTING = "CONNECTING"
+    CONNECTING = "CONNECTING"  # TODO emitted, but no handler
+    """Device connecting event. Parameter: device identifier."""
     CONNECTED = "CONNECTED"
+    """Device connected event. Parameter: device identifier."""
     DISCONNECTED = "DISCONNECTED"
-    PAIRED = "PAIRED"
+    """Device disconnected event. Parameter: device identifier."""
     ERROR = "ERROR"
+    """Device error event. Parameters: device identifier, error message."""
     UPDATE = "UPDATE"
+    """Device update event. Parameters: device identifier, update data dict."""
 
 
 _AppleTvT = TypeVar("_AppleTvT", bound="AppleTv")
@@ -154,7 +159,8 @@ def async_handle_atvlib_errors(
     Handle errors when calling commands in the AppleTv class.
 
     Decorator for the AppleTv class:
-    - Check if device is connected.
+
+    - Check if device is connected (``self._atv`` is set).
     - Log errors occurred when calling an Apple TV library function.
     - Translate errors into UC status codes to return to the Remote.
 
@@ -231,7 +237,8 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         """Create instance."""
         self._loop: AbstractEventLoop = loop or asyncio.get_running_loop()
         self.events = AsyncIOEventEmitter(self._loop)
-        self._is_on: bool = False
+        self._is_enabled: bool = False
+        """Determine if the ATV connection should be kept alive."""
         self._atv: pyatv.interface.AppleTV | None = None
         if device.credentials is None:
             device.credentials = []
@@ -242,7 +249,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         self._pairing_process: pyatv.interface.PairingHandler | None = None
         self._polling = None
         self._poll_interval: int = 10
-        self._state: DeviceState | PowerState | None = None
+        self._device_state: DeviceState | None = None
         self._app_list: dict[str, str] = {}
         self._available_output_devices: dict[str, str] = {}
         self._output_devices: OrderedDict[str, list[str]] = OrderedDict[str, list[str]]()
@@ -290,31 +297,22 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         return self._device.address
 
     @property
-    def is_on(self) -> bool | None:
-        """Whether the Apple TV is on or off. Returns None if not connected."""
-        if self._atv is None:
-            return None
-
-        if self._atv.power.power_state == PowerState.On and self._is_on is False:
-            self._is_on = True
-
-        return self._is_on
-
-    @property
-    def state(self) -> DeviceState | None:
-        """Return the device state."""
-        return self._state
+    def is_enabled(self):
+        """Return whether the device is enabled."""
+        return self._is_enabled
 
     @property
     def media_state(self) -> MediaState:
-        """Return the device state."""
-        if self._state is None:
+        """Return the media-player state."""
+        # DeviceState does not contain an OFF state: check power state first
+        if self.power_state == PowerState.Off:
             return MediaState.OFF
-        if isinstance(self._state, PowerState):
-            if self._state == PowerState.Off:
-                return MediaState.OFF
-            return MediaState.ON
-        return MEDIA_STATE_MAPPING.get(self._state, MediaState.UNKNOWN)
+
+        # Starting up, set to unavailable
+        if self._device_state is None:
+            return MediaState.UNAVAILABLE
+
+        return MEDIA_STATE_MAPPING.get(self._device_state, MediaState.UNKNOWN)
 
     @property
     def media_content_type(self) -> MediaContentType:
@@ -345,11 +343,18 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
     @property
     def app_name(self) -> str:
-        """Return current app name."""
+        """Return the current app name."""
         app_name = ""
-        if self._atv and self._atv.metadata and self._atv.metadata.app:
-            app_name = self._atv.metadata.app.name
-        return app_name
+        if self._atv is None:
+            return app_name
+        try:
+            app = self._atv.metadata.app
+            if app:
+                app_name = app.name
+        except Exception:  # pylint: disable=broad-exception-caught
+            # Most common exception is pyatv.exceptions.NotSupportedError, but there might be others
+            _LOG.exception("[%s] Error getting app name", self.log_id)
+        return app_name if app_name else ""
 
     @property
     def app_names(self) -> list[str]:
@@ -400,24 +405,24 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         return self._connection_attempts * BACKOFF_SEC
 
     def playstatus_update(self, _updater, playstatus: pyatv.interface.Playing) -> None:
-        """Play status push update callback handler."""
-        _LOG.debug("[%s] Push update: %s", self.log_id, str(playstatus))
+        """Play status push update callback handler (push_updater.listener)."""
+        if _LOG.isEnabledFor(logging.DEBUG):
+            _LOG.debug("[%s] Push update: %s", self.log_id, re.sub(r"\n\s*", ", ", str(playstatus)))
         _ = asyncio.ensure_future(self._process_update(playstatus))
 
     def playstatus_error(self, _updater, exception: Exception) -> None:
-        """Play status push update error callback handler."""
+        """Play status push update error callback handler (push_updater.listener)."""
         _LOG.warning("[%s] A %s error occurred: %s", self.log_id, exception.__class__, exception)
         data = pyatv.interface.Playing()
         _ = asyncio.ensure_future(self._process_update(data))
-        # TODO restart push updates?
 
-    def connection_lost(self, _exception) -> None:
+    def connection_lost(self, exception) -> None:
         """
         Device was unexpectedly disconnected.
 
         This is a callback function from pyatv.interface.DeviceListener.
         """
-        _LOG.exception("[%s] Lost connection %s", self.log_id, _exception)
+        _LOG.warning("[%s] Lost connection: %s", self.log_id, exception)
         self._handle_disconnect()
 
     def connection_closed(self) -> None:
@@ -429,11 +434,13 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         self._handle_disconnect()
 
     def _handle_disconnect(self):
-        """Handle that the device disconnected and restart connect loop."""
+        """Handle that the device disconnected and restart the connection loop."""
         _ = asyncio.ensure_future(self._stop_polling())
         if self._atv:
             self._atv.close()
             self._atv = None
+        # make sure the DISCONNECTED listener is sync to avoid any race conditions!
+        self.events.emit(EVENTS.DISCONNECTED, self._device.identifier)
         self._start_connect_loop()
 
     def _volume_notify(self):
@@ -539,26 +546,26 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
     async def connect(self) -> None:
         """Establish connection to ATV."""
-        if self._is_on is True:
+        if self._is_enabled:
             return
-        self._is_on = True
+        self._is_enabled = True
         self._start_connect_loop()
 
     def _start_connect_loop(self) -> None:
-        if not self._connect_task and self._atv is None and self._is_on:
+        if not self._connect_task and self._atv is None and self._is_enabled:
             self.events.emit(EVENTS.CONNECTING, self._device.identifier)
             self._connect_task = asyncio.create_task(self._connect_loop())
         else:
             _LOG.debug(
-                "[%s] Not starting connect loop (ATv: %s, isOn: %s)",
+                "[%s] Not starting connect loop (ATV: %s, enabled: %s)",
                 self.log_id,
                 self._atv is None,
-                self._is_on,
+                self._is_enabled,
             )
 
     async def _connect_loop(self) -> None:
         _LOG.debug("[%s] Starting connect loop", self.log_id)
-        while self._is_on and self._atv is None:
+        while self._is_enabled and self._atv is None:
             await self._connect_once()
             if self._atv is not None:
                 break
@@ -661,7 +668,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
     async def disconnect(self) -> None:
         """Disconnect from ATV."""
         _LOG.debug("[%s] Disconnecting from device", self.log_id)
-        self._is_on = False
+        self._is_enabled = False
         await self._stop_polling()
 
         try:
@@ -678,11 +685,11 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
     async def _start_polling(self) -> None:
         if self._atv is None:
             _LOG.warning("[%s] Polling not started, AppleTv object is None", self.log_id)
-            self.events.emit(EVENTS.ERROR, "Polling not started, AppleTv object is None")
+            self.events.emit(EVENTS.ERROR, self._device.identifier, "Polling not started, AppleTv object is None")
             return
 
+        _LOG.debug("[%s] Starting polling task", self.log_id)
         self._polling = self._loop.create_task(self._poll_worker())
-        _LOG.debug("[%s] Polling started", self.log_id)
 
     async def _stop_polling(self) -> None:
         if self._polling:
@@ -697,7 +704,8 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         await self._process_artwork(update, data)
 
         if data.title is not None:
-            # TODO filter out non-printable characters, for example all emojis
+            # TODO this should be a generic function and not just for the title.
+            #      There's already `_replace_bad_chars` in driver.py which could be made a generic utility function.
             # workaround for Plex DVR
             if data.title.startswith("(null):"):
                 title = data.title.removeprefix("(null):").strip()
@@ -744,21 +752,12 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             update[MediaAttr.SHUFFLE] = self._shuffle
 
     async def _process_update(self, data: pyatv.interface.Playing) -> None:  # pylint: disable=too-many-branches
-        _LOG.debug("[%s] Process update", self.log_id)
+        # store current state: used in `media_state` property
+        self._device_state = data.device_state
 
-        update = {}
-        power_state = await self._get_power_state()
-        # off state is not included in metadata, don't override it
-        current_state = self.media_state
-        if power_state and power_state == PowerState.Off:
-            self._state = PowerState.Off
-        else:
-            self._state = data.device_state
+        update = {MediaAttr.STATE: self.media_state}
 
-        if current_state != self.media_state:
-            update[MediaAttr.STATE] = self.media_state
-
-        reset_playback_info = self._state not in [
+        reset_playback_info = self._device_state not in [
             DeviceState.Playing,
             DeviceState.Paused,
             DeviceState.Loading,
@@ -863,47 +862,52 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
     async def _poll_worker(self) -> None:
         await asyncio.sleep(2)
+        _LOG.debug("[%s] Polling started with interval %ds", self.log_id, self._poll_interval)
         while self._atv is not None:
             update = {}
-            current_state = self.media_state
-            power_state = await self._get_power_state()
-            if power_state and power_state == PowerState.Off:
-                self._state = PowerState.Off
 
-            if self._is_feature_available(FeatureName.App) and self._atv.metadata.app.name:
-                update[MediaAttr.SOURCE] = self._atv.metadata.app.name
-                update[AppleTVSelects.SELECT_APP] = {SelectAttributes.CURRENT_OPTION: self.app_name}
-                update[AppleTVSensors.SENSOR_APP] = self.app_name
+            app_name = self.app_name
+            if app_name:
+                update[MediaAttr.SOURCE] = app_name
+                update[AppleTVSelects.SELECT_APP] = {SelectAttributes.CURRENT_OPTION: app_name}
+                update[AppleTVSensors.SENSOR_APP] = app_name
 
-            if data := await self._atv.metadata.playing():
-                await self._analyze_updated_data(update, data)
+            try:
+                if data := await self._atv.metadata.playing():
+                    await self._analyze_updated_data(update, data)
+                    self._device_state = data.device_state
+                else:
+                    # No playback data available, clear the artwork
+                    await self._process_artwork(update, None)
+            except pyatv.exceptions.NotSupportedError:
+                pass
+            except Exception as ex:  # pylint: disable=broad-except
+                _LOG.error("[%s] Polling error: %s", self.log_id, ex)
 
-                # off state is not included in metadata, don't override it
-                if power_state and power_state != PowerState.Off:
-                    self._state = data.device_state
-            else:
-                # No playback data available, clear the artwork
-                await self._process_artwork(update, None)
-
-            if current_state != self.media_state:
-                update[MediaAttr.STATE] = self.media_state
-
-            if update:
-                self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
+            # #117: Keep it simple: we can't reliably determine the old state.
+            #       The on_atv_update event receiver will filter out unchanged entity attributes
+            update[MediaAttr.STATE] = self.media_state
+            self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
             await asyncio.sleep(self._poll_interval)
+        _LOG.debug("[%s] Polling task stopped", self.log_id)
 
-    async def _get_power_state(self) -> PowerState | None:
-        # Push updates are not reliable for power events, and if the device is in standby it reports state idle!
-        if self._is_feature_available(FeatureName.PowerState):
-            # Off isn't sent with push updates with the current pyatv library
-            # Care must be taken to not override certain states like playing and paused
+    @property
+    def power_state(self) -> PowerState:
+        """
+        Get the current power state of the device.
+
+        :return: The power state or PowerState.Unknown if not available.
+        """
+        # Take special care accessing power state: it might not be available depending on protocol,
+        # or if the device is not connected
+        if self._atv and self._is_feature_available(FeatureName.PowerState):
             return self._atv.power.power_state
-        return None
+        return PowerState.Unknown
 
     async def _process_artwork(self, update: dict[Any, Any], data: pyatv.interface.Playing | None):
         current_media_image_url = self._media_image_url
-        if self._state not in [DeviceState.Idle, DeviceState.Stopped]:
+        if self._device_state not in [DeviceState.Idle, DeviceState.Stopped]:
             try:
                 if data:
                     playback_hash = hash((data.title, data.artist, data.album))
@@ -1249,7 +1253,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         """Set output device selection."""
         if device_name is None:
             return StatusCodes.BAD_REQUEST
-        device_entry = self._output_devices.get(device_name, [])
+        device_entry = self._output_devices.get(device_name, None)
         if device_entry is None:
             _LOG.warning(
                 "Output device not found in the list %s (list : %s)", device_name, self.output_devices_combinations

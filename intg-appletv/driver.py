@@ -26,7 +26,6 @@ from i18n import _a
 from media_player import AppleTVMediaPlayer
 from remote import AppleTVRemote
 from ucapi import Entity, media_player
-from ucapi import remote as ucapi_remote
 from utils import filter_attributes, truncate_dict
 
 _LOG = logging.getLogger("driver")  # avoid having __main__ in log messages
@@ -139,51 +138,36 @@ async def on_unsubscribe_entities(entity_ids: list[str]) -> None:
 async def on_atv_connected(identifier: str) -> None:
     """Handle ATV connection."""
     _LOG.debug("Apple TV connected: %s", identifier)
-    state = media_player.States.UNKNOWN
-    if identifier in _configured_atvs:
-        await on_atv_update(identifier, None)
-        await api.set_device_state(ucapi.DeviceStates.CONNECTED)  # just to make sure the device state is set
-        return
-
-    api.configured_entities.update_attributes(identifier, {media_player.Attributes.STATE: state})
     await api.set_device_state(ucapi.DeviceStates.CONNECTED)  # just to make sure the device state is set
 
-
-async def on_atv_disconnected(identifier: str) -> None:
-    """Handle ATV disconnection."""
-    _LOG.debug("Apple TV disconnected: %s", identifier)
-    for configured_entity in _get_entities(identifier):
-        if configured_entity.entity_type == ucapi.EntityTypes.MEDIA_PLAYER:
-            api.configured_entities.update_attributes(
-                configured_entity.id, {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.UNAVAILABLE}
-            )
-        elif configured_entity.entity_type == ucapi.EntityTypes.SENSOR:
-            api.configured_entities.update_attributes(
-                configured_entity.id, {ucapi.sensor.Attributes.STATE: ucapi.sensor.States.UNAVAILABLE}
-            )
-        elif configured_entity.entity_type == ucapi.EntityTypes.REMOTE:
-            api.configured_entities.update_attributes(
-                configured_entity.id, {ucapi_remote.Attributes.STATE: ucapi_remote.States.UNAVAILABLE}
-            )
+    if identifier in _configured_atvs:
+        atv = _configured_atvs[identifier]
+        state = atv.media_state
+        # make sure to not send an outdated state, not sure if media_state is immediately available
+        if state == tv.MediaState.UNAVAILABLE:
+            state = media_player.States.UNKNOWN
+        await on_atv_update(identifier, {media_player.Attributes.STATE: state})
 
 
-async def on_atv_connection_error(identifier: str, message) -> None:
+def on_atv_disconnected(identifier: str) -> None:
+    """Handle ATV disconnection. Set all entities to the UNAVAILABLE state."""
+    _LOG.debug("[%s] Apple TV disconnected", identifier)
+    _set_all_entities_to_unavailable(identifier)
+
+
+def on_atv_connection_error(identifier: str, message) -> None:
     """Set entities of ATV to state UNAVAILABLE if ATV connection error occurred."""
-    _LOG.error(message)
+    _LOG.error("[%s] Apple TV connection error: %s", identifier, message)
+    _set_all_entities_to_unavailable(identifier)
+
+
+def _set_all_entities_to_unavailable(identifier: str) -> None:
+    """Set all entities of a device to state UNAVAILABLE."""
     for configured_entity in _get_entities(identifier):
-        if configured_entity.entity_type == ucapi.EntityTypes.MEDIA_PLAYER:
-            api.configured_entities.update_attributes(
-                configured_entity.id, {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.UNAVAILABLE}
-            )
-        elif configured_entity.entity_type == ucapi.EntityTypes.SENSOR:
-            api.configured_entities.update_attributes(
-                configured_entity.id, {ucapi.sensor.Attributes.STATE: ucapi.sensor.States.UNAVAILABLE}
-            )
-        elif configured_entity.entity_type == ucapi.EntityTypes.REMOTE:
-            api.configured_entities.update_attributes(
-                configured_entity.id, {ucapi_remote.Attributes.STATE: ucapi_remote.States.UNAVAILABLE}
-            )
-    await api.set_device_state(ucapi.DeviceStates.ERROR)
+        # The STATE attribute is common for all entities, just use the media player state :-)
+        api.configured_entities.update_attributes(
+            configured_entity.id, {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.UNAVAILABLE.value}
+        )
 
 
 def _get_entities(device_id: str, include_all=False) -> list[Entity]:
@@ -213,21 +197,18 @@ def _get_entities(device_id: str, include_all=False) -> list[Entity]:
 # pylint: disable=too-many-branches,too-many-statements
 async def on_atv_update(device_id: str, update: dict[str, Any] | None) -> None:
     """
-    Update attributes of configured media-player entity if ATV properties changed.
+    Update attributes of all configured entities if ATV properties changed.
 
     :param device_id: ATV media-player entity identifier
-    :param update: dictionary containing the updated properties or None
+    :param update: dictionary containing the updated properties.
+                  ``None`` indicates that the last known entity attributes should be sent to the Remote.
     """
     if update is None:
         if device_id not in _configured_atvs:
             return
         device = _configured_atvs[device_id]
         update = device.attributes
-    else:
-        _LOG.info("[%s] Device update: %s", device_id, truncate_dict(update))
 
-    # FIXME temporary workaround until ucapi has been refactored:
-    #       there's shouldn't be separate lists for available and configured entities
     for configured_entity in _get_entities(device_id):
         attributes = {}
         if isinstance(configured_entity, media_player.MediaPlayer):
@@ -239,6 +220,8 @@ async def on_atv_update(device_id: str, update: dict[str, Any] | None) -> None:
         elif isinstance(configured_entity, AppleTVRemote):
             attributes = configured_entity.filter_changed_attributes(update)
 
+        # TODO(#118) filter out unchanged properties to limit entity_change events. See Denon AVR implementation.
+        #            Otherwise there will be events every 10s triggered from the poller.
         if attributes:
             _LOG.debug("Updating attributes for entity %s : %s", configured_entity.id, truncate_dict(attributes))
             api.configured_entities.update_attributes(configured_entity.id, attributes)
@@ -284,9 +267,9 @@ def _register_available_entities(device_config: config.AtvDevice, device: tv.App
     """
     Add a new ATV device to the available entities.
 
-    :param identifier: ATV identifier
-    :param name: Friendly name
-    :return: True if added, False if the device was already in storage.
+    :param device_config: ATV device configuration
+    :param device: ATV device instance
+    :return: True if at least one device entity was added, False if all entities were already in storage.
     """
     media_player_entity = AppleTVMediaPlayer(device_config, device)
     entities: list[AppleTVEntity] = [
