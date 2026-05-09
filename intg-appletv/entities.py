@@ -5,12 +5,13 @@ Common entity interface for Apple TV integration.
 :license: Mozilla Public License Version 2.0, see LICENSE for more details.
 """
 
+import json
 import logging
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, Type
 
-from ucapi import IntegrationAPI
+from ucapi import IntegrationAPI, media_player
 from utils import filter_attributes, truncate_dict
 
 _LOG = logging.getLogger(__name__)
@@ -33,6 +34,10 @@ class AppleTVEntity(ABC):
     def attribute_enum(self) -> Type[Enum]:
         """Return the attribute enum of the concrete entity."""
 
+    @abstractmethod
+    def state_from_media_player_state(self, state: media_player.States) -> Type[Enum]:
+        """Map media-player state to target entity state."""
+
     def update_attributes(self, update: dict[str, Any], *, force: bool = False) -> None:
         """
         Update the configured entity attributes from the given ATV update.
@@ -50,14 +55,18 @@ class AppleTVEntity(ABC):
         :param force: if True, update attributes even if they haven't changed.
         """
         if force:
+            if media_player.Attributes.STATE in update:
+                state = self.state_from_media_player_state(update[media_player.Attributes.STATE])
+                update[media_player.Attributes.STATE] = state
             attributes = filter_attributes(update, self.attribute_enum)
+
         else:
             attributes = self.filter_changed_attributes(update)
 
         if attributes:
             if _LOG.isEnabledFor(logging.DEBUG):
                 # pylint: disable=E1101
-                _LOG.debug("Updating attributes for entity %s : %s", self.id, truncate_dict(attributes))
+                _LOG.debug("Updating attributes for entity %s : %s", self.id, json.dumps(truncate_dict(attributes)))
             # pylint: disable=E1101
             self._api.configured_entities.update_attributes(self.id, attributes)
 

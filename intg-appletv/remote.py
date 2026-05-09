@@ -90,25 +90,6 @@ def _main_ui_page() -> dict[str, Any]:
     }
 
 
-def _state_from_media_player_state(state: media_player.States) -> ucapi.remote.States:
-    """Map media-player state to remote state."""
-    match state:
-        case (
-            media_player.States.ON
-            | media_player.States.BUFFERING
-            | media_player.States.PAUSED
-            | media_player.States.PLAYING
-            | media_player.States.STANDBY
-        ):
-            return ucapi.remote.States.ON
-        case media_player.States.OFF:
-            return ucapi.remote.States.OFF
-        case media_player.States.UNAVAILABLE:
-            return ucapi.remote.States.UNAVAILABLE
-        case _:
-            return ucapi.remote.States.UNKNOWN
-
-
 # pylint: disable=R0903
 class AppleTVRemote(Remote, AppleTVEntity):
     """Representation of an Apple TV Remote entity."""
@@ -148,7 +129,7 @@ class AppleTVRemote(Remote, AppleTVEntity):
             entity_id,
             f"{config_device.name} Remote",
             [Features.SEND_CMD, Features.ON_OFF, Features.TOGGLE],
-            attributes={Attributes.STATE: _state_from_media_player_state(device.media_state)},
+            attributes={Attributes.STATE: self.state_from_media_player_state(device.media_state)},
             simple_commands=simple_commands,
             button_mapping=REMOTE_BUTTONS_MAPPING,
             ui_pages=[_main_ui_page()],
@@ -165,11 +146,29 @@ class AppleTVRemote(Remote, AppleTVEntity):
         """Return the remote-entity attribute enum."""
         return Attributes
 
+    def state_from_media_player_state(self, state: media_player.States) -> ucapi.remote.States:
+        """Map media-player state to remote state."""
+        match state:
+            case (
+                media_player.States.ON
+                | media_player.States.BUFFERING
+                | media_player.States.PAUSED
+                | media_player.States.PLAYING
+                | media_player.States.STANDBY
+            ):
+                return ucapi.remote.States.ON
+            case media_player.States.OFF:
+                return ucapi.remote.States.OFF
+            case media_player.States.UNAVAILABLE:
+                return ucapi.remote.States.UNAVAILABLE
+            case _:
+                return ucapi.remote.States.UNKNOWN
+
     def filter_changed_attributes(self, update: dict[str, Any]) -> dict[str, Any]:
         """Return only the changed attributes (state mapped to remote state)."""
         attributes: dict[str, Any] = {}
         if media_player.Attributes.STATE in update:
-            state = _state_from_media_player_state(update[media_player.Attributes.STATE])
+            state = self.state_from_media_player_state(update[media_player.Attributes.STATE])
             key_update_helper(Attributes.STATE, state, attributes, self.attributes)
         return attributes
 

@@ -139,6 +139,10 @@ class AppleTVMediaPlayer(MediaPlayer, AppleTVEntity):
         """Return the media-player attribute enum."""
         return Attributes
 
+    def state_from_media_player_state(self, state: States) -> States:
+        """Map media-player state. Pass through state."""
+        return state
+
     async def _playpause_in_screensaver(self) -> StatusCodes | None:
         """
         Mimic the original ATV remote behaviour (one can also call it a bunch of workarounds).

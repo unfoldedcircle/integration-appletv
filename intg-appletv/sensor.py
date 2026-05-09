@@ -88,11 +88,15 @@ class AppleTVSensor(Sensor, AppleTVEntity):
             Attributes.STATE: SENSOR_STATE_MAPPING.get(self._device.media_state),
         }
 
+    def state_from_media_player_state(self, state: States) -> States:
+        """Map media-player state to sensor state."""
+        return SENSOR_STATE_MAPPING.get(state, States.UNKNOWN)
+
     def filter_changed_attributes(self, update: dict[str, Any]) -> dict[str, Any]:
         """Return only the changed attributes."""
         attributes: dict[str, Any] = {}
         if ucapi.media_player.Attributes.STATE in update:
-            new_state = SENSOR_STATE_MAPPING.get(update[ucapi.media_player.Attributes.STATE], States.UNKNOWN)
+            new_state = self.state_from_media_player_state(update[ucapi.media_player.Attributes.STATE])
             if new_state != self._state:
                 self._state = new_state
                 attributes[Attributes.STATE] = self._state
