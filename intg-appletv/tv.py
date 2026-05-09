@@ -153,14 +153,15 @@ def debounce(wait: float):
 # Adapted from Home Assistant `asyncLOG_errors` in
 # https://github.com/home-assistant/core/blob/fd1f0b0efeb5231d3ee23d1cb2a10cdeff7c23f1/homeassistant/components/denonavr/media_player.py
 def async_handle_atvlib_errors(
-    func: Callable[Concatenate[_AppleTvT, _P], Awaitable[StatusCodes | None]],
-) -> Callable[Concatenate[_AppleTvT, _P], Coroutine[Any, Any, StatusCodes | None]]:
+    func: Callable[Concatenate[_AppleTvT, _P], Awaitable[StatusCodes]],
+) -> Callable[Concatenate[_AppleTvT, _P], Coroutine[Any, Any, StatusCodes]]:
     """
     Handle errors when calling commands in the AppleTv class.
 
     Decorator for the AppleTv class:
 
-    - Check if device is connected (``self._atv`` is set).
+    - Check if device is connected (``self._atv`` is set) with auto-reconnect if connection is not enabled.
+    - Ensures that a ``StatusCodes`` is returned.
     - Log errors occurred when calling an Apple TV library function.
     - Translate errors into UC status codes to return to the Remote.
 
@@ -178,8 +179,8 @@ def async_handle_atvlib_errors(
 
         result = StatusCodes.SERVER_ERROR
         try:
-            await func(self, *args, **kwargs)
-            return StatusCodes.OK
+            res = await func(self, *args, **kwargs)
+            return res if res else StatusCodes.OK
         except (TimeoutError, pyatv.exceptions.OperationTimeoutError):
             result = StatusCodes.TIMEOUT
             _LOG.warning(
@@ -973,47 +974,55 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
     async def turn_on(self) -> StatusCodes:
         """Turn device on."""
         await self._atv.power.turn_on()
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def turn_off(self) -> StatusCodes:
         """Turn device off."""
         await self._atv.power.turn_off()
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def play_pause(self) -> StatusCodes:
         """Toggle between play and pause."""
         await self.stop_fast_forward_rewind()
         await self._atv.remote_control.play_pause()
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def play(self) -> StatusCodes:
         """Start playback."""
         await self.stop_fast_forward_rewind()
         await self._atv.remote_control.play()
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def pause(self) -> StatusCodes:
         """Pause playback."""
         await self.stop_fast_forward_rewind()
         await self._atv.remote_control.pause()
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def stop(self) -> StatusCodes:
         """Stop playback."""
         await self.stop_fast_forward_rewind()
         await self._atv.remote_control.stop()
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def fast_forward(self) -> StatusCodes:
         """Long press key right for fast-forward."""
         await self.stop_fast_forward_rewind()
         await self._atv.remote_control.right(InputAction.Hold)
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def rewind(self) -> StatusCodes:
         """Long press key left for rewind."""
         await self.stop_fast_forward_rewind()
         await self._atv.remote_control.left(InputAction.Hold)
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def fast_forward_companion(self) -> StatusCodes:
@@ -1026,6 +1035,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             self._playback_state = PlaybackState.FAST_FORWARD
         else:
             await self._atv.remote_control.right(InputAction.Hold)
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def rewind_companion(self) -> StatusCodes:
@@ -1038,6 +1048,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             self._playback_state = PlaybackState.REWIND
         else:
             await self._atv.remote_control.left(InputAction.Hold)
+        return StatusCodes.OK
 
     async def fast_forward_companion_end(self):
         """Fast-forward using companion protocol."""
@@ -1069,6 +1080,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         await self.stop_fast_forward_rewind()
         if self._is_feature_available(FeatureName.Next):  # to prevent timeout errors
             await self._atv.remote_control.next()
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def previous(self) -> StatusCodes:
@@ -1076,6 +1088,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         await self.stop_fast_forward_rewind()
         if self._is_feature_available(FeatureName.Previous):
             await self._atv.remote_control.previous()
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def skip_forward(self) -> StatusCodes:
@@ -1086,6 +1099,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         await self.stop_fast_forward_rewind()
         if self._is_feature_available(FeatureName.SkipForward):
             await self._atv.remote_control.skip_forward()
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def skip_backward(self) -> StatusCodes:
@@ -1096,6 +1110,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         await self.stop_fast_forward_rewind()
         if self._is_feature_available(FeatureName.SkipBackward):
             await self._atv.remote_control.skip_backward()
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def set_repeat(self, mode: str) -> StatusCodes:
@@ -1111,24 +1126,28 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                 case _:
                     return StatusCodes.BAD_REQUEST
             await self._atv.remote_control.set_repeat(repeat)
-        else:
-            return StatusCodes.BAD_REQUEST
+            return StatusCodes.OK
+        return StatusCodes.BAD_REQUEST
 
     @async_handle_atvlib_errors
     async def set_shuffle(self, mode: bool) -> StatusCodes:
         """Change shuffle mode to on or off."""
         if self._is_feature_available(FeatureName.Shuffle):
             await self._atv.remote_control.set_shuffle(ShuffleState.Albums if mode else ShuffleState.Off)
+            return StatusCodes.OK
+        return StatusCodes.SERVICE_UNAVAILABLE
 
     @async_handle_atvlib_errors
     async def volume_up(self) -> StatusCodes:
         """Press key volume up."""
         await self._atv.audio.volume_up()
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def volume_down(self) -> StatusCodes:
         """Press key volume down."""
         await self._atv.audio.volume_down()
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def volume_set(self, volume_level: float | None) -> StatusCodes:
@@ -1149,68 +1168,84 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                     tasks.append(audio.protocol.send(messages.set_volume(device_id, volume_level / 100.0)))
             async with asyncio.timeout(5):
                 await asyncio.gather(*tasks)
+            return StatusCodes.OK
+        return StatusCodes.SERVICE_UNAVAILABLE
 
     @async_handle_atvlib_errors
     async def cursor_up(self) -> StatusCodes:
         """Press key up."""
         await self._atv.remote_control.up()
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def cursor_down(self) -> StatusCodes:
         """Press key down."""
         await self._atv.remote_control.down()
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def cursor_left(self) -> StatusCodes:
         """Press key left."""
         await self._atv.remote_control.left()
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def cursor_right(self) -> StatusCodes:
         """Press key right."""
         await self._atv.remote_control.right()
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def cursor_select(self) -> StatusCodes:
         """Press key select."""
         await self._atv.remote_control.select()
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def context_menu(self) -> StatusCodes:
         """Press and hold select key for one second to bring up context menu in most apps."""
         await self._atv.remote_control.select(InputAction.Hold)
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def home(self) -> StatusCodes:
         """Press key home."""
         await self._atv.remote_control.home()
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def control_center(self) -> StatusCodes:
         """Show control center: press and hold home key for one second."""
         await self._atv.remote_control.control_center()
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def menu(self) -> StatusCodes:
         """Press key menu."""
         await self._atv.remote_control.menu()
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def top_menu(self) -> StatusCodes:
         """Go to top menu: press and hold menu key for one second."""
         await self._atv.remote_control.menu(InputAction.Hold)
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def channel_up(self) -> StatusCodes:
         """Select next channel."""
         if self._is_feature_available(FeatureName.ChannelUp):
             await self._atv.remote_control.channel_up()
+            return StatusCodes.OK
+        return StatusCodes.SERVICE_UNAVAILABLE
 
     @async_handle_atvlib_errors
     async def channel_down(self) -> StatusCodes:
         """Select previous channel."""
         if self._is_feature_available(FeatureName.ChannelDown):
             await self._atv.remote_control.channel_down()
+            return StatusCodes.OK
+        return StatusCodes.SERVICE_UNAVAILABLE
 
     @async_handle_atvlib_errors
     async def screensaver(self) -> StatusCodes:
@@ -1222,6 +1257,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             # workaround: command succeeds and screensaver is started, but always returns
             # ProtocolError: Command _hidC failed
             pass
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def launch_app(self, app_name: str) -> StatusCodes:
@@ -1229,24 +1265,29 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         try:
             # Launch app by name
             await self._atv.apps.launch_app(self._app_list[app_name])
+            return StatusCodes.OK
         except KeyError:
             # If app_name is not an app name handle it as app deep link url
             try:
                 await self._atv.apps.launch_app(app_name)
+                return StatusCodes.OK
             except pyatv.exceptions.NotSupportedError:
                 _LOG.warning("[%s] Launch app is not supported", self.log_id)
             except pyatv.exceptions.ProtocolError:
                 _LOG.warning("[%s] Launch app: protocol error", self.log_id)
+            return StatusCodes.SERVICE_UNAVAILABLE
 
     @async_handle_atvlib_errors
     async def app_switcher(self) -> StatusCodes:
         """Press the TV/Control Center button two times to open the App Switcher."""
         await self._atv.remote_control.home(InputAction.DoubleTap)
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def toggle_guide(self) -> StatusCodes:
         """Toggle the EPG."""
         await self._atv.remote_control.guide()
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def set_output_device(self, device_name: str) -> StatusCodes:
@@ -1281,11 +1322,13 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
         _LOG.debug("Setting output devices %s", new_output_devices)
         await self._atv.audio.set_output_devices(*new_output_devices)
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def set_media_position(self, media_position: int) -> StatusCodes:
         """Set media position."""
         await self._atv.remote_control.set_position(media_position)
+        return StatusCodes.OK
 
     @async_handle_atvlib_errors
     # pylint: disable=too-many-positional-arguments
@@ -1294,8 +1337,8 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         touch_facade: FacadeTouchGestures = cast(FacadeTouchGestures, self._atv.touch)
         if touch_facade.get(Protocol.Companion):
             await touch_facade.swipe(start_x, start_y, end_x, end_y, duration_ms)
-        else:
-            raise pyatv.exceptions.CommandError("Touch gestures not supported")
+            return StatusCodes.OK
+        raise pyatv.exceptions.CommandError("Touch gestures not supported")
 
     @async_handle_atvlib_errors
     async def send_hid_key(self, use_page: int, usage: int) -> StatusCodes:
@@ -1307,8 +1350,9 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         if self._atv and isinstance(self._atv.remote_control.main_instance, MrpRemoteControl):
             await self._atv.remote_control.main_instance.protocol.send(messages.send_hid_event(use_page, usage, True))
             await self._atv.remote_control.main_instance.protocol.send(messages.send_hid_event(use_page, usage, False))
-        else:
-            _LOG.warning("[%s] send HID key not supported (%d, %d)", self.log_id, use_page, usage)
+            return StatusCodes.OK
+        _LOG.warning("[%s] send HID key not supported (%d, %d)", self.log_id, use_page, usage)
+        return StatusCodes.SERVICE_UNAVAILABLE
 
     def reset_media_data(self, attributes: dict[str, Any]):
         """Reset media metadata."""
