@@ -6,12 +6,13 @@ Sensor entity functions.
 """
 
 import logging
-from typing import Any
+from enum import Enum
+from typing import Any, Type
 
 import tv
 import ucapi.media_player
 from config import AppleTVEntity, AtvDevice, create_entity_id
-from ucapi import EntityTypes, Sensor
+from ucapi import EntityTypes, IntegrationAPI, Sensor
 from ucapi.media_player import States as MediaStates
 from ucapi.sensor import Attributes, DeviceClasses, Options, States
 from utils import AppleTVSensors
@@ -31,7 +32,7 @@ SENSOR_STATE_MAPPING = {
 
 
 # pylint: disable=R0917,R0801
-class AppleTVSensor(AppleTVEntity, Sensor):
+class AppleTVSensor(Sensor, AppleTVEntity):
     """Representation of a AppleTV Sensor entity."""
 
     ENTITY_NAME = "sensor"
@@ -43,6 +44,8 @@ class AppleTVSensor(AppleTVEntity, Sensor):
         name: str | dict[str, str],
         config_device: AtvDevice,
         device: tv.AppleTv,
+        api: IntegrationAPI,
+        *,
         options: dict[Options, Any] | None = None,
         device_class: DeviceClasses = DeviceClasses.CUSTOM,
     ):
@@ -53,11 +56,17 @@ class AppleTVSensor(AppleTVEntity, Sensor):
         self._config_device = config_device
         self._state: States = States.UNAVAILABLE
         super().__init__(entity_id, name, features, self.all_attributes, device_class=device_class, options=options)
+        AppleTVEntity.__init__(self, api)
 
     @property
-    def deviceid(self) -> str:
+    def atv_id(self) -> str:
         """Return device identifier."""
         return self._device.identifier
+
+    @property
+    def attribute_enum(self) -> Type[Enum]:
+        """Return the sensor-entity attribute enum."""
+        return Attributes
 
     @property
     def state(self) -> States:
@@ -77,12 +86,13 @@ class AppleTVSensor(AppleTVEntity, Sensor):
             Attributes.STATE: SENSOR_STATE_MAPPING.get(self._device.media_state),
         }
 
-    def update_attributes(self, update: dict[str, Any] | None = None) -> dict[str, Any] | None:
-        """Return updated sensor value from full update if provided or sensor value if no update is provided."""
+    def filter_changed_attributes(self, update: dict[str, Any]) -> dict[str, Any]:
+        """Return only the changed attributes."""
         attributes: dict[str, Any] = {}
+        # TODO(#118) probably needs to be refactored
         if update:
             if ucapi.media_player.Attributes.STATE in update:
-                new_state = SENSOR_STATE_MAPPING.get(update[ucapi.media_player.Attributes.STATE])
+                new_state = SENSOR_STATE_MAPPING.get(update[ucapi.media_player.Attributes.STATE], States.UNKNOWN)
                 if new_state != self._state:
                     self._state = new_state
                     attributes[Attributes.STATE] = self._state
@@ -98,7 +108,12 @@ class AppSensor(AppleTVSensor):
     ENTITY_NAME = "app"
     SENSOR_NAME = AppleTVSensors.SENSOR_APP
 
-    def __init__(self, config_device: AtvDevice, device: tv.AppleTv):
+    def __init__(
+        self,
+        config_device: AtvDevice,
+        device: tv.AppleTv,
+        api: IntegrationAPI,
+    ):
         """Initialize the class."""
         entity_id = f"{create_entity_id(config_device.identifier, EntityTypes.SENSOR)}.{self.ENTITY_NAME}"
         super().__init__(
@@ -108,6 +123,7 @@ class AppSensor(AppleTVSensor):
             },
             config_device,
             device,
+            api,
         )
 
     @property
@@ -122,7 +138,12 @@ class AudioOutputSensor(AppleTVSensor):
     ENTITY_NAME = "audio_output"
     SENSOR_NAME = AppleTVSensors.SENSOR_AUDIO_OUTPUT
 
-    def __init__(self, config_device: AtvDevice, device: tv.AppleTv):
+    def __init__(
+        self,
+        config_device: AtvDevice,
+        device: tv.AppleTv,
+        api: IntegrationAPI,
+    ):
         """Initialize the class."""
         entity_id = f"{create_entity_id(config_device.identifier, EntityTypes.SENSOR)}.{self.ENTITY_NAME}"
         super().__init__(
@@ -132,6 +153,7 @@ class AudioOutputSensor(AppleTVSensor):
             },
             config_device,
             device,
+            api,
         )
 
     @property

@@ -32,3 +32,17 @@ def filter_attributes(attributes, attribute_type: Type[Enum]) -> dict[str, Any]:
 def truncate_dict(data: dict[str, Any], max_len: int = 150) -> dict[str, Any]:
     """Return a copy of the dictionary with truncated values to given max length for logging."""
     return {k: (v[:max_len] + "..." if isinstance(v, str) and len(v) > max_len else v) for k, v in data.items()}
+
+
+def key_update_helper(key: str, value: str | list[Any] | None, attributes: dict, original_attributes: dict[str, Any]):
+    """Update the attribute dictionary with the given key and value."""
+    if value is None:
+        return attributes
+
+    if key in original_attributes:
+        if original_attributes[key] != value:
+            attributes[key] = value
+    else:
+        attributes[key] = value
+
+    return attributes

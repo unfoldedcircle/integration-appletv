@@ -6,16 +6,18 @@ Remote entity functions.
 """
 
 import logging
-from typing import Any
+from enum import Enum
+from typing import Any, Type
 
 import tv
 import ucapi.remote
 from config import AppleTVEntity, AtvDevice, create_entity_id
 from media_player import AppleTVMediaPlayer, SimpleCommands
-from ucapi import EntityTypes, Remote, StatusCodes, media_player
+from ucapi import EntityTypes, IntegrationAPI, Remote, StatusCodes, media_player
 from ucapi.media_player import Commands as MediaPlayerCommands
 from ucapi.remote import Attributes, Commands, Features
 from ucapi.ui import Buttons
+from utils import key_update_helper
 
 _LOG = logging.getLogger(__name__)
 
@@ -106,19 +108,13 @@ def _state_from_media_player_state(state: media_player.States) -> ucapi.remote.S
             return ucapi.remote.States.UNKNOWN
 
 
-def _key_update(key: str, value: Any, attributes: dict, original: dict) -> dict:
-    if value is None:
-        return attributes
-    if key not in original or original[key] != value:
-        attributes[key] = value
-    return attributes
-
-
 # pylint: disable=R0903
-class AppleTVRemote(AppleTVEntity, Remote):
+class AppleTVRemote(Remote, AppleTVEntity):
     """Representation of an Apple TV Remote entity."""
 
-    def __init__(self, config_device: AtvDevice, device: tv.AppleTv, mp_entity: AppleTVMediaPlayer):
+    def __init__(
+        self, config_device: AtvDevice, device: tv.AppleTv, api: IntegrationAPI, mp_entity: AppleTVMediaPlayer
+    ):
         """Initialize the class."""
         # pylint: disable=R0801
         self._device = device
@@ -156,18 +152,24 @@ class AppleTVRemote(AppleTVEntity, Remote):
             button_mapping=REMOTE_BUTTONS_MAPPING,
             ui_pages=[_main_ui_page()],
         )
+        AppleTVEntity.__init__(self, api)
 
     @property
-    def deviceid(self) -> str:
+    def atv_id(self) -> str:
         """Return the device identifier."""
         return self._device.identifier
+
+    @property
+    def attribute_enum(self) -> Type[Enum]:
+        """Return the remote-entity attribute enum."""
+        return Attributes
 
     def filter_changed_attributes(self, update: dict[str, Any]) -> dict[str, Any]:
         """Return only the changed attributes (state mapped to remote state)."""
         attributes: dict[str, Any] = {}
         if media_player.Attributes.STATE in update:
             state = _state_from_media_player_state(update[media_player.Attributes.STATE])
-            _key_update(Attributes.STATE, state, attributes, self.attributes)
+            key_update_helper(Attributes.STATE, state, attributes, self.attributes)
         return attributes
 
     async def command(self, cmd_id: str, params: dict[str, Any] | None = None, *, websocket: Any = None) -> StatusCodes:

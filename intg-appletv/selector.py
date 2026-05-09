@@ -6,12 +6,13 @@ Select entity functions.
 """
 
 import logging
-from typing import Any
+from enum import Enum
+from typing import Any, Type
 
 import tv
 import ucapi
 from config import AppleTVEntity, AtvDevice, create_entity_id
-from ucapi import EntityTypes, Select, StatusCodes
+from ucapi import EntityTypes, IntegrationAPI, Select, StatusCodes
 from ucapi.api_definitions import CommandHandler
 from ucapi.media_player import States as MediaStates
 from ucapi.select import Attributes, Commands, States
@@ -32,7 +33,7 @@ SELECTOR_STATE_MAPPING = {
 
 
 # pylint: disable=W1405,R0801
-class AppleTVSelect(AppleTVEntity, Select):
+class AppleTVSelect(Select, AppleTVEntity):
     """Representation of a Apple TV select entity."""
 
     ENTITY_NAME = "select"
@@ -45,6 +46,7 @@ class AppleTVSelect(AppleTVEntity, Select):
         name: str | dict[str, str],
         config_device: AtvDevice,
         device: tv.AppleTv,
+        api: IntegrationAPI,
         select_handler: CommandHandler,
     ):
         """Initialize the class."""
@@ -54,11 +56,17 @@ class AppleTVSelect(AppleTVEntity, Select):
         self._state: States = States.ON
         self._select_handler: CommandHandler = select_handler
         super().__init__(identifier=entity_id, name=name, attributes=self.all_attributes)
+        AppleTVEntity.__init__(self, api)
 
     @property
-    def deviceid(self) -> str:
+    def atv_id(self) -> str:
         """Return device identifier."""
         return self._device.identifier
+
+    @property
+    def attribute_enum(self) -> Type[Enum]:
+        """Return the select-entity attribute enum."""
+        return Attributes
 
     @property
     def current_option(self) -> str:
@@ -79,12 +87,13 @@ class AppleTVSelect(AppleTVEntity, Select):
             Attributes.STATE: States.ON,
         }
 
-    def update_attributes(self, update: dict[str, Any] | None = None) -> dict[str, Any] | None:
-        """Return updated selector value from full update if provided or selector value if no update is provided."""
+    def filter_changed_attributes(self, update: dict[str, Any]) -> dict[str, Any]:
+        """Return only the changed attributes."""
+        # TODO(#118) probably needs to be refactored
         if update:
             attributes: dict[str, Any] = {}
             if ucapi.media_player.Attributes.STATE in update:
-                new_state = SELECTOR_STATE_MAPPING.get(update[ucapi.media_player.Attributes.STATE])
+                new_state = SELECTOR_STATE_MAPPING.get(update[ucapi.media_player.Attributes.STATE], States.UNKNOWN)
                 if new_state != self._state:
                     self._state = new_state
                     attributes[Attributes.STATE] = self._state
@@ -149,7 +158,12 @@ class AppSelect(AppleTVSelect):
     ENTITY_NAME = "app"
     SELECT_NAME = AppleTVSelects.SELECT_APP
 
-    def __init__(self, config_device: AtvDevice, device: tv.AppleTv):
+    def __init__(
+        self,
+        config_device: AtvDevice,
+        device: tv.AppleTv,
+        api: IntegrationAPI,
+    ):
         """Initialize the class."""
         # pylint: disable=W1405,R0801
         entity_id = f"{create_entity_id(config_device.identifier, EntityTypes.SELECT)}.{self.ENTITY_NAME}"
@@ -160,6 +174,7 @@ class AppSelect(AppleTVSelect):
             },
             config_device,
             device,
+            api,
             device.launch_app,
         )
 
@@ -180,7 +195,7 @@ class AudioOutputSelect(AppleTVSelect):
     ENTITY_NAME = "audio_output"
     SELECT_NAME = AppleTVSelects.SELECT_AUDIO_OUTPUT
 
-    def __init__(self, config_device: AtvDevice, device: tv.AppleTv):
+    def __init__(self, config_device: AtvDevice, device: tv.AppleTv, api: IntegrationAPI):
         """Initialize the class."""
         # pylint: disable=W1405,R0801
         entity_id = f"{create_entity_id(config_device.identifier, EntityTypes.SELECT)}.{self.ENTITY_NAME}"
@@ -191,6 +206,7 @@ class AudioOutputSelect(AppleTVSelect):
             },
             config_device,
             device,
+            api,
             device.set_output_device,
         )
 
