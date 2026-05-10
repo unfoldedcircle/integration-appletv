@@ -55,7 +55,6 @@ class AppleTVSelect(Select, AppleTVEntity):
         # pylint: disable = R0801
         self._config_device = config_device
         self._device: tv.AppleTv = device
-        self._state: States = States.ON
         self._select_handler: CommandHandler = select_handler
         super().__init__(identifier=entity_id, name=name, attributes=self.all_attributes)
         AppleTVEntity.__init__(self, api)
@@ -98,10 +97,11 @@ class AppleTVSelect(Select, AppleTVEntity):
         attributes: dict[str, Any] = {}
         if ucapi.media_player.Attributes.STATE in update:
             new_state = self.state_from_media_player_state(update[ucapi.media_player.Attributes.STATE])
-            if new_state != self._state:
-                self._state = new_state
-                attributes[Attributes.STATE] = self._state
+            if new_state != self.attributes.get(Attributes.STATE):
+                attributes[Attributes.STATE] = new_state
         if self.SELECT_NAME in update:
+            # make sure select-entity is available if data changes
+            attributes[Attributes.STATE] = States.ON
             attributes |= update[self.SELECT_NAME]
         return attributes
 

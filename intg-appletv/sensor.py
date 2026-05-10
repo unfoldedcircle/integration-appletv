@@ -56,7 +56,6 @@ class AppleTVSensor(Sensor, AppleTVEntity):
         features = []
 
         self._config_device = config_device
-        self._state: States = States.UNAVAILABLE
         super().__init__(entity_id, name, features, self.all_attributes, device_class=device_class, options=options)
         AppleTVEntity.__init__(self, api)
 
@@ -69,11 +68,6 @@ class AppleTVSensor(Sensor, AppleTVEntity):
     def attribute_enum(self) -> Type[Enum]:
         """Return the sensor-entity attribute enum."""
         return Attributes
-
-    @property
-    def state(self) -> States:
-        """Return sensor state."""
-        return self._state
 
     @property
     @abstractmethod
@@ -97,10 +91,11 @@ class AppleTVSensor(Sensor, AppleTVEntity):
         attributes: dict[str, Any] = {}
         if ucapi.media_player.Attributes.STATE in update:
             new_state = self.state_from_media_player_state(update[ucapi.media_player.Attributes.STATE])
-            if new_state != self._state:
-                self._state = new_state
-                attributes[Attributes.STATE] = self._state
+            if new_state != self.attributes.get(Attributes.STATE):
+                attributes[Attributes.STATE] = new_state
         if self.SENSOR_NAME in update:
+            # make sure sensor-entity is available if data changes
+            attributes[Attributes.STATE] = States.ON
             attributes[Attributes.VALUE] = update[self.SENSOR_NAME]
         return attributes
 
