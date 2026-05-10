@@ -21,7 +21,21 @@ def truncate_dict(data: dict[str, Any], max_len: int = 150) -> dict[str, Any]:
 
 
 def key_update_helper(key: str, value: str | list[Any] | None, attributes: dict, original_attributes: dict[str, Any]):
-    """Update the attribute dictionary with the given key and value."""
+    """
+    Update the given key in the ``attributes`` dictionary with the specified value if required.
+
+    The function compares the value of the key in the original attributes and updates it in
+    attributes only if it is different.
+
+    If the value is None, the original attributes dictionary is returned unmodified.
+
+    :param key: The key whose value needs to be updated.
+    :param value: The new value to associate with the key. It can be a string, list, or None.
+    :param attributes: The dictionary where the key-value pair might be updated.
+    :param original_attributes: The reference dictionary to check the current value of the key.
+    :return: The updated ``attributes`` dictionary.
+    :rtype: dict
+    """
     if value is None:
         return attributes
 

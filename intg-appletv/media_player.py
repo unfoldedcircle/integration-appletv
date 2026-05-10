@@ -7,8 +7,8 @@ Media-player entity functions.
 
 import asyncio
 import logging
-from enum import Enum, StrEnum
-from typing import Any, Type
+from enum import StrEnum
+from typing import Any
 
 from config import AtvDevice
 from entities import AppleTVEntity
@@ -154,11 +154,6 @@ class AppleTVMediaPlayer(MediaPlayer, AppleTVEntity):
     def atv_id(self) -> str:
         """Return the device identifier."""
         return self._device.identifier
-
-    @property
-    def attribute_enum(self) -> Type[Enum]:
-        """Return the media-player attribute enum."""
-        return Attributes
 
     def state_from_media_player_state(self, state: States) -> States:
         """Map media-player state. Pass through state."""
@@ -338,13 +333,28 @@ class AppleTVMediaPlayer(MediaPlayer, AppleTVEntity):
 
         return res if res is not None else StatusCodes.SERVER_ERROR
 
-    def filter_changed_attributes(self, update: dict[str, Any]) -> dict[str, Any]:
-        """Return only the changed attributes."""
+    def filter_attributes(self, update: dict[str, Any], *, force: bool = False) -> dict[str, Any]:
+        """
+        Filter the given attributes from an ATV update and return only the related media-player entity values.
+
+        **Attention:**
+
+        - for ``States.OFF``: all media attributes are reset.
+        - the update dictionary can be modified in place!
+
+        :param update: Dictionary containing the updated properties.
+        :param force: If True, update attributes even if they haven't changed since the last update.
+        :return: Dictionary containing only the changed attributes.
+        """
         attributes: dict[str, Any] = {}
 
+        # pylint: disable=R0801
         for attr in _AVAILABLE_ATTRIBUTES:
             if attr in update:
-                key_update_helper(attr, update[attr], attributes, self.attributes)
+                if force:
+                    attributes[attr] = update[attr]
+                else:
+                    key_update_helper(attr, update[attr], attributes, self.attributes)
 
         if Attributes.STATE in attributes and attributes[Attributes.STATE] == States.OFF:
             AppleTVMediaPlayer.reset_media_data(attributes)

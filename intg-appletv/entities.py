@@ -12,7 +12,7 @@ from enum import Enum, StrEnum
 from typing import Any, Type
 
 from ucapi import IntegrationAPI, media_player
-from utils import filter_attributes, truncate_dict
+from utils import truncate_dict
 
 _LOG = logging.getLogger(__name__)
 
@@ -43,54 +43,43 @@ class AppleTVEntity(ABC):
     def atv_id(self) -> str:
         """Return the ATV device identifier."""
 
-    @property
-    @abstractmethod
-    def attribute_enum(self) -> Type[Enum]:
-        """Return the attribute enum of the concrete entity."""
-
     @abstractmethod
     def state_from_media_player_state(self, state: media_player.States) -> Type[Enum]:
         """Map media-player state to target entity state."""
 
     def update_attributes(self, update: dict[str, Any], *, force: bool = False) -> None:
         """
-        Update the configured entity attributes from the given ATV update.
+        Update the entity attributes from the given ATV update.
 
-        - If the entity is not configured, the updated attributes are ignored.
+        - Updates configured and available entities.
         - Only changed attributes are updated (and will trigger an ``entity_changed`` event), unless the ``force``
           parameter is True.
 
-        **Attention:**
-         - The update dictionary can be modified in place!
-         - The ``force`` parameter will apply all ``update`` keys belonging to the entity's attribute
-           without further filtering.
+        **Attention:** The update dictionary can be modified in place!
 
-        :param update: dictionary containing the updated properties.
-        :param force: if True, update attributes even if they haven't changed.
+        :param update: Dictionary containing the updated properties.
+        :param force: If True, update attributes even if they haven't changed.
         """
-        if force:
-            if media_player.Attributes.STATE in update:
-                state = self.state_from_media_player_state(update[media_player.Attributes.STATE])
-                update[media_player.Attributes.STATE] = state
-            attributes = filter_attributes(update, self.attribute_enum)
-
-        else:
-            attributes = self.filter_changed_attributes(update)
+        attributes = self.filter_attributes(update, force=force)
 
         if attributes:
-            if _LOG.isEnabledFor(logging.DEBUG):
-                # pylint: disable=E1101
-                _LOG.debug("Updating attributes for entity %s : %s", self.id, json.dumps(truncate_dict(attributes)))
             # pylint: disable=E1101
-            self._api.configured_entities.update_attributes(self.id, attributes)
+            entity_id = self.id
+            if _LOG.isEnabledFor(logging.DEBUG):
+                _LOG.debug("Updating attributes for entity %s : %s", entity_id, json.dumps(truncate_dict(attributes)))
+            if self._api.configured_entities.contains(entity_id):
+                self._api.configured_entities.update_attributes(entity_id, attributes)
+            else:
+                self._api.available_entities.update_attributes(entity_id, attributes)
 
     @abstractmethod
-    def filter_changed_attributes(self, update: dict[str, Any]) -> dict[str, Any]:
+    def filter_attributes(self, update: dict[str, Any], *, force: bool = False) -> dict[str, Any]:
         """
-        Filter the given attributes from an ATV update and return only the changed values.
+        Filter the given attributes from an ATV update and return only the related entity values.
 
         **Attention:** the update dictionary can be modified in place!
 
         :param update: dictionary containing the updated properties.
+        :param force: If True, update attributes even if they haven't changed since the last update.
         :return: dictionary containing only the changed attributes.
         """

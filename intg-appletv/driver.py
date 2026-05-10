@@ -156,9 +156,9 @@ def on_atv_connection_error(device_id: str, message) -> None:
 
 def _mark_entities_unavailable(device_id: str, *, force: bool) -> None:
     """Set all entities of a device to state UNAVAILABLE."""
-    for configured_entity in _get_entities(device_id):
+    for entity in _get_entities(device_id, include_all=True):
         # The STATE attribute is common for all entities, just use the media player state :-)
-        configured_entity.update_attributes(
+        entity.update_attributes(
             {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.UNAVAILABLE.value}, force=force
         )
 
@@ -201,8 +201,8 @@ def on_atv_update(device_id: str, update: dict[str, Any]) -> None:
         device = _configured_atvs[device_id]
         update = device.attributes
 
-    for configured_entity in _get_entities(device_id):
-        configured_entity.update_attributes(update)
+    for entity in _get_entities(device_id, include_all=True):
+        entity.update_attributes(update)
 
 
 def _replace_bad_chars(value: str) -> str:

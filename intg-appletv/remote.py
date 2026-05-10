@@ -6,8 +6,7 @@ Remote entity functions.
 """
 
 import logging
-from enum import Enum
-from typing import Any, Type
+from typing import Any
 
 import tv
 import ucapi.remote
@@ -141,11 +140,6 @@ class AppleTVRemote(Remote, AppleTVEntity):
         """Return the device identifier."""
         return self._device.identifier
 
-    @property
-    def attribute_enum(self) -> Type[Enum]:
-        """Return the remote-entity attribute enum."""
-        return Attributes
-
     def state_from_media_player_state(self, state: media_player.States) -> ucapi.remote.States:
         """Map media-player state to remote state."""
         match state:
@@ -164,12 +158,29 @@ class AppleTVRemote(Remote, AppleTVEntity):
             case _:
                 return ucapi.remote.States.UNKNOWN
 
-    def filter_changed_attributes(self, update: dict[str, Any]) -> dict[str, Any]:
-        """Return only the changed attributes (state mapped to remote state)."""
+    def filter_attributes(self, update: dict[str, Any], *, force: bool = False) -> dict[str, Any]:
+        """
+        Filter the given attributes from an ATV update and return only the related remote-entity values.
+
+        **Attention:** the update dictionary can be modified in place!
+
+        :param update: Dictionary containing the updated properties.
+        :param force: If True, update attributes even if they haven't changed since the last update.
+        :return: Dictionary containing only the changed attributes.
+        """
         attributes: dict[str, Any] = {}
         if media_player.Attributes.STATE in update:
-            state = self.state_from_media_player_state(update[media_player.Attributes.STATE])
-            key_update_helper(Attributes.STATE, state, attributes, self.attributes)
+            update[media_player.Attributes.STATE] = self.state_from_media_player_state(
+                update[media_player.Attributes.STATE]
+            )
+
+        for attr in Attributes:
+            if attr in update:
+                if force:
+                    attributes[attr] = update[attr]
+                else:
+                    key_update_helper(attr, update[attr], attributes, self.attributes)
+
         return attributes
 
     async def command(self, cmd_id: str, params: dict[str, Any] | None = None, *, websocket: Any = None) -> StatusCodes:

@@ -7,8 +7,7 @@ Sensor entity functions.
 
 import logging
 from abc import abstractmethod
-from enum import Enum
-from typing import Any, Type
+from typing import Any
 
 import tv
 import ucapi.media_player
@@ -20,8 +19,7 @@ from ucapi.sensor import Attributes, DeviceClasses, Options, States
 
 _LOG = logging.getLogger(__name__)
 
-# pylint: disable=R0801
-SENSOR_STATE_MAPPING = {
+_SENSOR_STATE_MAPPING = {
     MediaStates.OFF: States.ON,
     MediaStates.ON: States.ON,
     MediaStates.STANDBY: States.ON,
@@ -64,11 +62,6 @@ class AppleTVSensor(Sensor, AppleTVEntity):
         return self._device.identifier
 
     @property
-    def attribute_enum(self) -> Type[Enum]:
-        """Return the sensor-entity attribute enum."""
-        return Attributes
-
-    @property
     @abstractmethod
     def sensor_value(self) -> str:
         """Return sensor value."""
@@ -78,20 +71,29 @@ class AppleTVSensor(Sensor, AppleTVEntity):
         """Return all attributes."""
         return {
             Attributes.VALUE: self.sensor_value,
-            Attributes.STATE: SENSOR_STATE_MAPPING.get(self._device.media_state),
+            Attributes.STATE: _SENSOR_STATE_MAPPING.get(self._device.media_state),
         }
 
     def state_from_media_player_state(self, state: States) -> States:
         """Map media-player state to sensor state."""
-        return SENSOR_STATE_MAPPING.get(state, States.UNKNOWN)
+        return _SENSOR_STATE_MAPPING.get(state, States.UNKNOWN)
 
-    def filter_changed_attributes(self, update: dict[str, Any]) -> dict[str, Any]:
-        """Return only the changed attributes."""
+    def filter_attributes(self, update: dict[str, Any], *, force: bool = False) -> dict[str, Any]:
+        """
+        Filter the given attributes from an ATV update and return only the related select-entity values.
+
+        **Attention:** the update dictionary can be modified in place!
+
+        :param update: Dictionary containing the updated properties.
+        :param force: If True, update attributes even if they haven't changed since the last update.
+        :return: Dictionary containing only the changed attributes.
+        """
         attributes: dict[str, Any] = {}
         if ucapi.media_player.Attributes.STATE in update:
             new_state = self.state_from_media_player_state(update[ucapi.media_player.Attributes.STATE])
-            if new_state != self.attributes.get(Attributes.STATE):
+            if force or new_state != self.attributes.get(Attributes.STATE):
                 attributes[Attributes.STATE] = new_state
+        # TODO check for sensor value change
         if self.SENSOR_NAME in update:
             # make sure sensor-entity is available if data changes
             attributes[Attributes.STATE] = States.ON
