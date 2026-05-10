@@ -410,13 +410,13 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         """Play status push update callback handler (push_updater.listener)."""
         if _LOG.isEnabledFor(logging.DEBUG):
             _LOG.debug("[%s] Push update: %s", self.log_id, re.sub(r"\n\s*", ", ", str(playstatus)))
-        _ = asyncio.ensure_future(self._process_update(playstatus))
+        _ = asyncio.ensure_future(self._process_playing_update(playstatus))
 
     def playstatus_error(self, _updater, exception: Exception) -> None:
         """Play status push update error callback handler (push_updater.listener)."""
         _LOG.warning("[%s] A %s error occurred: %s", self.log_id, exception.__class__, exception)
         data = pyatv.interface.Playing()
-        _ = asyncio.ensure_future(self._process_update(data))
+        _ = asyncio.ensure_future(self._process_playing_update(data))
 
     def connection_lost(self, exception) -> None:
         """
@@ -753,7 +753,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             self._shuffle = data.shuffle != ShuffleState.Off
             update[MediaAttr.SHUFFLE] = self._shuffle
 
-    async def _process_update(self, data: pyatv.interface.Playing) -> None:  # pylint: disable=too-many-branches
+    async def _process_playing_update(self, data: pyatv.interface.Playing) -> None:
         # store current state: used in `media_state` property
         self._device_state = data.device_state
 
@@ -780,7 +780,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                 update[AppleTVSelects.SELECT_APP] = {SelectAttributes.CURRENT_OPTION: self.app_name}
                 update[AppleTVSensors.SENSOR_APP] = self.app_name
 
-            self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
+        self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
     async def _update_app_list(self) -> None:
         _LOG.debug("[%s] Updating app list", self.log_id)
