@@ -789,6 +789,10 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         try:
             update[MediaAttr.SOURCE_LIST] = []
             app_list = sorted(await self._atv.apps.app_list(), key=lambda item: item.name.lower())
+            if not app_list:
+                _LOG.info("[%s] No apps found, trying again later", self.log_id)
+                return
+            self._app_list.clear()
             for app in app_list:
                 self._app_list[app.name] = app.identifier
                 update[MediaAttr.SOURCE_LIST].append(app.name)
@@ -806,8 +810,6 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             atvs = await pyatv.scan(self._loop)
             if self._atv is None:
                 return
-            current_output_devices = self._available_output_devices
-            current_output_device = self.output_devices
             device_ids: list[str] = []
             self._available_output_devices = {}
             for atv in atvs:
@@ -823,23 +825,21 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             _LOG.warning("[%s] Output devices: protocol error", self.log_id)
             return
         update = {}
-        if set(current_output_devices.keys()) != set(self._available_output_devices.keys()) and len(device_ids) > 0:
-            # Build combinations of output devices. First device in the list is the current Apple TV
-            # When selecting this entry, it will disable all output devices
-            self._output_devices = OrderedDict()
-            self._output_devices[self._device.name] = []
-            self._build_output_devices_list(atvs, device_ids)
-            update[MediaAttr.SOUND_MODE_LIST] = self.output_devices_combinations
-            update[AppleTVSelects.SELECT_AUDIO_OUTPUT] = {
-                SelectAttributes.CURRENT_OPTION: self.output_devices,
-                SelectAttributes.OPTIONS: self.output_devices_combinations,
-            }
+        # Build combinations of output devices. The first device in the list is the current Apple TV.
+        # When selecting this entry, it will disable all output devices
+        self._output_devices = OrderedDict()
+        self._output_devices[self._device.name] = []
+        self._build_output_devices_list(atvs, device_ids)
+        update[MediaAttr.SOUND_MODE_LIST] = self.output_devices_combinations
+        update[AppleTVSelects.SELECT_AUDIO_OUTPUT] = {
+            SelectAttributes.CURRENT_OPTION: self.output_devices,
+            SelectAttributes.OPTIONS: self.output_devices_combinations,
+        }
 
-        if current_output_device != self.output_devices:
-            update[MediaAttr.SOUND_MODE] = self.output_devices
-            update[AppleTVSensors.SENSOR_AUDIO_OUTPUT] = self.output_devices
-            update.setdefault(AppleTVSelects.SELECT_AUDIO_OUTPUT, {})
-            update[AppleTVSelects.SELECT_AUDIO_OUTPUT][SelectAttributes.CURRENT_OPTION] = self.output_devices
+        update[MediaAttr.SOUND_MODE] = self.output_devices
+        update[AppleTVSensors.SENSOR_AUDIO_OUTPUT] = self.output_devices
+        update.setdefault(AppleTVSelects.SELECT_AUDIO_OUTPUT, {})
+        update[AppleTVSelects.SELECT_AUDIO_OUTPUT][SelectAttributes.CURRENT_OPTION] = self.output_devices
 
         _LOG.debug("[%s] Updated sound mode list: %s", self.log_id, json.dumps(update))
 
@@ -888,6 +888,11 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
             update[MediaAttr.STATE] = self.media_state
             self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
+
+            if len(self._app_list) == 0:
+                await self._update_app_list()
+            if not self._available_output_devices:
+                await self._update_output_devices()
 
             await asyncio.sleep(self._poll_interval)
         _LOG.debug("[%s] Polling task stopped", self.log_id)
