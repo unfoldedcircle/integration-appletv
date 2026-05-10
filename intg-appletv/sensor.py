@@ -13,11 +13,10 @@ from typing import Any, Type
 import tv
 import ucapi.media_player
 from config import AtvDevice, create_entity_id
-from entities import AppleTVEntity
+from entities import AppleTVEntity, AppleTVSensors
 from ucapi import EntityTypes, IntegrationAPI, Sensor
 from ucapi.media_player import States as MediaStates
 from ucapi.sensor import Attributes, DeviceClasses, Options, States
-from utils import AppleTVSensors
 
 _LOG = logging.getLogger(__name__)
 

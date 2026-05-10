@@ -36,6 +36,7 @@ from typing import (
 import pyatv
 import pyatv.const
 from config import AtvDevice, AtvProtocol
+from entities import AppleTVSelects, AppleTVSensors
 from pyatv import interface
 from pyatv.const import (
     DeviceState,
@@ -66,7 +67,6 @@ from ucapi.media_player import Attributes as MediaAttr
 from ucapi.media_player import MediaContentType, RepeatMode
 from ucapi.media_player import States as MediaState
 from ucapi.select import Attributes as SelectAttributes
-from utils import AppleTVSelects, AppleTVSensors
 
 _LOG = logging.getLogger(__name__)
 

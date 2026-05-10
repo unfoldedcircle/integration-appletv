@@ -13,12 +13,11 @@ from typing import Any, Type
 import tv
 import ucapi
 from config import AtvDevice, create_entity_id
-from entities import AppleTVEntity
+from entities import AppleTVEntity, AppleTVSelects
 from ucapi import EntityTypes, IntegrationAPI, Select, StatusCodes
 from ucapi.api_definitions import CommandHandler
 from ucapi.media_player import States as MediaStates
 from ucapi.select import Attributes, Commands, States
-from utils import AppleTVSelects
 
 _LOG = logging.getLogger(__name__)
 

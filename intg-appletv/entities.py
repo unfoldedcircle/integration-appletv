@@ -8,13 +8,27 @@ Common entity interface for Apple TV integration.
 import json
 import logging
 from abc import ABC, abstractmethod
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Any, Type
 
 from ucapi import IntegrationAPI, media_player
 from utils import filter_attributes, truncate_dict
 
 _LOG = logging.getLogger(__name__)
+
+
+class AppleTVSelects(StrEnum):
+    """Apple TV select values."""
+
+    SELECT_APP = "select_app"
+    SELECT_AUDIO_OUTPUT = "select_audio_output"
+
+
+class AppleTVSensors(StrEnum):
+    """Apple TV sensor values."""
+
+    SENSOR_APP = "sensor_app"
+    SENSOR_AUDIO_OUTPUT = "sensor_audio_output"
 
 
 class AppleTVEntity(ABC):
