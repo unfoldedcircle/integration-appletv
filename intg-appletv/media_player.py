@@ -32,6 +32,27 @@ _LOG = logging.getLogger(__name__)
 ENABLE_REPEAT_FEAT = False
 ENABLE_SHUFFLE_FEAT = False
 
+_AVAILABLE_ATTRIBUTES = [
+    Attributes.STATE,
+    Attributes.MUTED,
+    Attributes.VOLUME,
+    Attributes.MEDIA_TYPE,
+    Attributes.MEDIA_IMAGE_URL,
+    Attributes.MEDIA_TITLE,
+    Attributes.MEDIA_ALBUM,
+    Attributes.MEDIA_ARTIST,
+    Attributes.MEDIA_POSITION,
+    Attributes.MEDIA_DURATION,
+    Attributes.MEDIA_POSITION_UPDATED_AT,
+    Attributes.SOURCE_LIST,
+    Attributes.SOURCE,
+    Attributes.SOUND_MODE_LIST,
+    Attributes.SOUND_MODE,
+    Attributes.SHUFFLE,
+    Attributes.REPEAT,
+    Attributes.MEDIA_ID,
+]
+
 
 class SimpleCommands(StrEnum):
     """Additional simple commands of the Apple TV not covered by media-player features."""
@@ -321,26 +342,7 @@ class AppleTVMediaPlayer(MediaPlayer, AppleTVEntity):
         """Return only the changed attributes."""
         attributes: dict[str, Any] = {}
 
-        for attr in [
-            Attributes.STATE,
-            Attributes.MUTED,
-            Attributes.VOLUME,
-            Attributes.MEDIA_TYPE,
-            Attributes.MEDIA_IMAGE_URL,
-            Attributes.MEDIA_TITLE,
-            Attributes.MEDIA_ALBUM,
-            Attributes.MEDIA_ARTIST,
-            Attributes.MEDIA_POSITION,
-            Attributes.MEDIA_DURATION,
-            Attributes.MEDIA_POSITION_UPDATED_AT,
-            Attributes.SOURCE_LIST,
-            Attributes.SOURCE,
-            Attributes.SOUND_MODE_LIST,
-            Attributes.SOUND_MODE,
-            Attributes.SHUFFLE,
-            Attributes.REPEAT,
-            Attributes.MEDIA_ID,
-        ]:
+        for attr in _AVAILABLE_ATTRIBUTES:
             if attr in update:
                 key_update_helper(attr, update[attr], attributes, self.attributes)
 
