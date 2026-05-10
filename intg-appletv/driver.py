@@ -92,8 +92,10 @@ async def on_subscribe_entities(entity_ids: list[str]) -> None:
     # force an entity change event with the current state for all subscribed entities
     for entity_id in entity_ids:
         configured_entity: Entity | None = api.configured_entities.get(entity_id)
-        if configured_entity is None or not isinstance(configured_entity, AppleTVEntity):
+        if configured_entity is None:
             continue
+        assert isinstance(configured_entity, AppleTVEntity)
+
         device_id = configured_entity.atv_id
         if device_id in _configured_atvs:
             device = _configured_atvs[device_id]
@@ -174,14 +176,20 @@ def _get_entities(device_id: str, include_all=False) -> list[AppleTVEntity]:
     entities: list[AppleTVEntity] = []
     for entity_entry in api.configured_entities.get_all():
         entity: Entity | None = api.configured_entities.get(entity_entry.get("entity_id", ""))
-        if entity is None or not isinstance(entity, AppleTVEntity) or entity.atv_id != device_id:
+        if entity is None:
+            continue
+        assert isinstance(entity, AppleTVEntity)
+        if entity.atv_id != device_id:
             continue
         entities.append(entity)
     if not include_all:
         return entities
     for entity_entry in api.available_entities.get_all():
         entity: Entity | None = api.available_entities.get(entity_entry.get("entity_id", ""))
-        if entity is None or not isinstance(entity, AppleTVEntity) or entity.atv_id != device_id:
+        if entity is None:
+            continue
+        assert isinstance(entity, AppleTVEntity)
+        if entity.atv_id != device_id:
             continue
         entities.append(entity)
     return entities
