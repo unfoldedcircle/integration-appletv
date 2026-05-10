@@ -117,7 +117,7 @@ class AppleTVSelect(Select, AppleTVEntity):
         if cmd_id == Commands.SELECT_LAST and len(options) > 0:
             return await self._select_handler(options[len(options) - 1])
         if cmd_id == Commands.SELECT_NEXT and len(options) > 0:
-            cycle = params.get("cycle", False)
+            cycle = params.get("cycle", True) if params else True
             try:
                 index = options.index(self.current_option) + 1
                 if not cycle and index >= len(options):
@@ -135,7 +135,7 @@ class AppleTVSelect(Select, AppleTVEntity):
                 )
                 return StatusCodes.BAD_REQUEST
         if cmd_id == Commands.SELECT_PREVIOUS and len(options) > 0:
-            cycle = params.get("cycle", False)
+            cycle = params.get("cycle", True) if params else True
             try:
                 index = options.index(self.current_option) - 1
                 if not cycle and index < 0:
