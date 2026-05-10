@@ -162,24 +162,24 @@ class AppleTVRemote(Remote, AppleTVEntity):
         """
         Filter the given attributes from an ATV update and return only the related remote-entity values.
 
-        **Attention:** the update dictionary can be modified in place!
-
         :param update: Dictionary containing the updated properties.
         :param force: If True, update attributes even if they haven't changed since the last update.
         :return: Dictionary containing only the changed attributes.
         """
         attributes: dict[str, Any] = {}
-        if media_player.Attributes.STATE in update:
-            update[media_player.Attributes.STATE] = self.state_from_media_player_state(
-                update[media_player.Attributes.STATE]
-            )
 
         for attr in Attributes:
-            if attr in update:
+            value = None
+            if attr == Attributes.STATE and media_player.Attributes.STATE in update:
+                value = self.state_from_media_player_state(update[media_player.Attributes.STATE])
+            elif attr in update:
+                value = update[attr]
+
+            if value is not None:
                 if force:
-                    attributes[attr] = update[attr]
+                    attributes[attr] = value
                 else:
-                    key_update_helper(attr, update[attr], attributes, self.attributes)
+                    key_update_helper(attr, value, attributes, self.attributes)
 
         return attributes
 

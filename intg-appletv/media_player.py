@@ -337,10 +337,7 @@ class AppleTVMediaPlayer(MediaPlayer, AppleTVEntity):
         """
         Filter the given attributes from an ATV update and return only the related media-player entity values.
 
-        **Attention:**
-
-        - for ``States.OFF``: all media attributes are reset.
-        - the update dictionary can be modified in place!
+        **Attention:** for ``States.OFF``: all media attributes are reset.
 
         :param update: Dictionary containing the updated properties.
         :param force: If True, update attributes even if they haven't changed since the last update.

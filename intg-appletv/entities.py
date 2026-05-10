@@ -55,8 +55,6 @@ class AppleTVEntity(ABC):
         - Only changed attributes are updated (and will trigger an ``entity_changed`` event), unless the ``force``
           parameter is True.
 
-        **Attention:** The update dictionary can be modified in place!
-
         :param update: Dictionary containing the updated properties.
         :param force: If True, update attributes even if they haven't changed.
         """
@@ -76,8 +74,6 @@ class AppleTVEntity(ABC):
     def filter_attributes(self, update: dict[str, Any], *, force: bool = False) -> dict[str, Any]:
         """
         Filter the given attributes from an ATV update and return only the related entity values.
-
-        **Attention:** the update dictionary can be modified in place!
 
         :param update: dictionary containing the updated properties.
         :param force: If True, update attributes even if they haven't changed since the last update.

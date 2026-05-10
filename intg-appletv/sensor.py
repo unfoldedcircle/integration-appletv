@@ -82,8 +82,6 @@ class AppleTVSensor(Sensor, AppleTVEntity):
         """
         Filter the given attributes from an ATV update and return only the related select-entity values.
 
-        **Attention:** the update dictionary can be modified in place!
-
         :param update: Dictionary containing the updated properties.
         :param force: If True, update attributes even if they haven't changed since the last update.
         :return: Dictionary containing only the changed attributes.
