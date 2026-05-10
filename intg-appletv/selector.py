@@ -100,11 +100,19 @@ class AppleTVSelect(Select, AppleTVEntity):
             new_state = self.state_from_media_player_state(update[ucapi.media_player.Attributes.STATE])
             if force or new_state != self.attributes.get(Attributes.STATE):
                 attributes[Attributes.STATE] = new_state
-        # TODO untangle select-entity attribute updates. Check for select value change.
+        # TODO untangle select-entity attribute updates.
         if self.SELECT_NAME in update:
-            # make sure select-entity is available if data changes
+            if Attributes.CURRENT_OPTION in update[self.SELECT_NAME]:
+                if force or update[self.SELECT_NAME][Attributes.CURRENT_OPTION] != self.attributes.get(
+                    Attributes.CURRENT_OPTION
+                ):
+                    attributes[Attributes.CURRENT_OPTION] = update[self.SELECT_NAME][Attributes.CURRENT_OPTION]
+            if Attributes.OPTIONS in update[self.SELECT_NAME]:
+                if force or update[self.SELECT_NAME][Attributes.OPTIONS] != self.attributes.get(Attributes.OPTIONS):
+                    attributes[Attributes.OPTIONS] = update[self.SELECT_NAME][Attributes.OPTIONS]
+        # make sure select-entity is available if data changes
+        if attributes and Attributes.STATE not in update:
             attributes[Attributes.STATE] = States.ON
-            attributes |= update[self.SELECT_NAME]
         return attributes
 
     async def command(self, cmd_id: str, params: dict[str, Any] | None = None, *, websocket: Any) -> StatusCodes:

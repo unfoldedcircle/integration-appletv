@@ -23,7 +23,7 @@ _Changes in the next release_
 - Update ucapi to 0.6.0 ([#107](https://github.com/unfoldedcircle/integration-appletv/pull/107)).
 - Update pylint version ([#112](https://github.com/unfoldedcircle/integration-appletv/pull/112)).
 - State handling refactor for improved reliability and fallback if power state API is not available ([#120](https://github.com/unfoldedcircle/integration-appletv/pull/120)).
-- Refactored entity attribute update and change filter 
+- Refactored entity attribute update and change filter ([#122](https://github.com/unfoldedcircle/integration-appletv/pull/122)).
 
 ---
 

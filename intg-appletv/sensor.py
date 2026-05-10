@@ -93,11 +93,11 @@ class AppleTVSensor(Sensor, AppleTVEntity):
             new_state = self.state_from_media_player_state(update[ucapi.media_player.Attributes.STATE])
             if force or new_state != self.attributes.get(Attributes.STATE):
                 attributes[Attributes.STATE] = new_state
-        # TODO check for sensor value change
         if self.SENSOR_NAME in update:
-            # make sure sensor-entity is available if data changes
-            attributes[Attributes.STATE] = States.ON
-            attributes[Attributes.VALUE] = update[self.SENSOR_NAME]
+            if force or update[self.SENSOR_NAME] != self.attributes.get(Attributes.VALUE):
+                # make sure sensor-entity is available if data changes
+                attributes[Attributes.STATE] = States.ON
+                attributes[Attributes.VALUE] = update[self.SENSOR_NAME]
         return attributes
 
 
