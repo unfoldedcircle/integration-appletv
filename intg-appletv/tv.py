@@ -842,9 +842,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         update[AppleTVSelects.SELECT_AUDIO_OUTPUT][SelectAttributes.CURRENT_OPTION] = self.output_devices
 
         _LOG.debug("[%s] Updated sound mode list: %s", self.log_id, json.dumps(update))
-
-        if update:
-            self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
+        self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
     def _build_output_devices_list(self, atvs: list[BaseConfig], device_ids: list[str]):
         """Build possible combinations of output devices."""

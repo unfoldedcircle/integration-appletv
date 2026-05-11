@@ -197,18 +197,11 @@ def _get_entities(device_id: str, include_all=False) -> list[AppleTVEntity]:
 
 def on_atv_update(device_id: str, update: dict[str, Any]) -> None:
     """
-    Update attributes of all configured entities if ATV properties changed.
+    Update attributes of all entities if ATV properties changed.
 
     :param device_id: ATV media-player entity identifier
     :param update: dictionary containing the updated properties.
-                  ``None`` indicates that the last known entity attributes should be sent to the Remote.
     """
-    if update is None:
-        if device_id not in _configured_atvs:
-            return
-        device = _configured_atvs[device_id]
-        update = device.attributes
-
     for entity in _get_entities(device_id, include_all=True):
         entity.update_attributes(update)
 
