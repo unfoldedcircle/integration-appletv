@@ -24,6 +24,7 @@ _Changes in the next release_
 - Update pylint version ([#112](https://github.com/unfoldedcircle/integration-appletv/pull/112)).
 - State handling refactor for improved reliability and fallback if power state API is not available ([#120](https://github.com/unfoldedcircle/integration-appletv/pull/120)).
 - Refactored entity attribute update and change filter ([#122](https://github.com/unfoldedcircle/integration-appletv/pull/122)).
+- Automatically wake the Apple TV from standby when a select command is received ([#123](https://github.com/unfoldedcircle/integration-appletv/pull/123)).
 
 ---
 
