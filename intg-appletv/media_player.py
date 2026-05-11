@@ -195,7 +195,7 @@ class AppleTVMediaPlayer(MediaPlayer, AppleTVEntity):
                           callbacks instead of broadcasts.
         :return: status code of the command request
         """
-        # pylint: disable=R0912,R0915
+        # pylint: disable=R0911,R0912,R0915
         _LOG.info("Got %s command request: %s %s", self.id, cmd_id, params if params else "")
 
         # #117: If the device is not connected, but we get a command: try to connect. Should not happen...
