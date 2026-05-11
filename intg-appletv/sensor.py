@@ -94,7 +94,7 @@ class AppleTVSensor(Sensor, AppleTVEntity):
         if self.SENSOR_NAME in update:
             if force or update[self.SENSOR_NAME] != self.attributes.get(Attributes.VALUE):
                 # make sure sensor-entity is available if data changes
-                attributes[Attributes.STATE] = States.ON
+                attributes.setdefault(Attributes.STATE, States.ON)
                 attributes[Attributes.VALUE] = update[self.SENSOR_NAME]
         return attributes
 
