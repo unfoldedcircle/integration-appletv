@@ -20,11 +20,11 @@ _Changes in the next release_
 
 ### Changed
 - Refactored project structure for additional entity types by @albaintor ([#107](https://github.com/unfoldedcircle/integration-appletv/pull/107)).
-- Update ucapi to 0.6.0 ([#107](https://github.com/unfoldedcircle/integration-appletv/pull/107)).
 - Update pylint version ([#112](https://github.com/unfoldedcircle/integration-appletv/pull/112)).
 - State handling refactor for improved reliability and fallback if power state API is not available ([#120](https://github.com/unfoldedcircle/integration-appletv/pull/120)).
 - Refactored entity attribute update and change filter ([#122](https://github.com/unfoldedcircle/integration-appletv/pull/122)).
-- Automatically wake the Apple TV from standby when a select command is received ([#123](https://github.com/unfoldedcircle/integration-appletv/pull/123)).
+- Automatically wake the Apple TV from standby when a select command is received ([#123](https://github.com/unfoldedcircle/integration-appletv/pull/123)).---
+- Update ucapi to 0.7.0 ([#124](https://github.com/unfoldedcircle/integration-appletv/pull/124)).
 
 ---
 
