@@ -32,25 +32,23 @@ _SELECTOR_STATE_MAPPING = {
 }
 
 
-# pylint: disable=W1405,R0801
 class AppleTVSelect(Select, AppleTVEntity):
     """Representation of a Apple TV select entity."""
 
     ENTITY_NAME = "select"
     SELECT_NAME: AppleTVSelects
 
-    # pylint: disable=R0917
     def __init__(
         self,
         entity_id: str,
         name: str | dict[str, str],
         config_device: AtvDevice,
         device: tv.AppleTv,
+        *,
         api: IntegrationAPI,
         select_handler: CommandHandler,
     ):
         """Initialize the class."""
-        # pylint: disable = R0801
         self._config_device = config_device
         self._device: tv.AppleTv = device
         self._select_handler: CommandHandler = select_handler
@@ -176,7 +174,6 @@ class AppSelect(AppleTVSelect):
         api: IntegrationAPI,
     ):
         """Initialize the class."""
-        # pylint: disable=W1405,R0801
         entity_id = f"{create_entity_id(config_device.identifier, EntityTypes.SELECT)}.{self.ENTITY_NAME}"
         super().__init__(
             entity_id,
@@ -185,8 +182,8 @@ class AppSelect(AppleTVSelect):
             },
             config_device,
             device,
-            api,
-            device.launch_app,
+            api=api,
+            select_handler=device.launch_app,
         )
 
     @property
@@ -208,7 +205,6 @@ class AudioOutputSelect(AppleTVSelect):
 
     def __init__(self, config_device: AtvDevice, device: tv.AppleTv, api: IntegrationAPI):
         """Initialize the class."""
-        # pylint: disable=W1405,R0801
         entity_id = f"{create_entity_id(config_device.identifier, EntityTypes.SELECT)}.{self.ENTITY_NAME}"
         super().__init__(
             entity_id,
@@ -217,8 +213,8 @@ class AudioOutputSelect(AppleTVSelect):
             },
             config_device,
             device,
-            api,
-            device.set_output_device,
+            api=api,
+            select_handler=device.set_output_device,
         )
 
     @property

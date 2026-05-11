@@ -8,6 +8,8 @@ Uses the [pyatv](https://github.com/postlund/pyatv) library with concepts borrow
 :license: Mozilla Public License Version 2.0, see LICENSE for more details.
 """
 
+# pylint: disable=too-many-lines
+
 import asyncio
 import base64
 import datetime
@@ -75,9 +77,6 @@ BACKOFF_SEC = 2
 ARTWORK_WIDTH = 400
 ARTWORK_HEIGHT = 400
 ERROR_OS_WAIT = 0.5
-
-
-# pylint: disable=too-many-lines
 
 
 class EVENTS(StrEnum):

@@ -89,7 +89,6 @@ def _main_ui_page() -> dict[str, Any]:
     }
 
 
-# pylint: disable=R0903
 class AppleTVRemote(Remote, AppleTVEntity):
     """Representation of an Apple TV Remote entity."""
 
@@ -97,7 +96,6 @@ class AppleTVRemote(Remote, AppleTVEntity):
         self, config_device: AtvDevice, device: tv.AppleTv, api: IntegrationAPI, mp_entity: AppleTVMediaPlayer
     ):
         """Initialize the class."""
-        # pylint: disable=R0801
         self._device = device
         self._media_player = mp_entity
         entity_id = create_entity_id(config_device.identifier, EntityTypes.REMOTE)
@@ -185,7 +183,7 @@ class AppleTVRemote(Remote, AppleTVEntity):
 
     async def command(self, cmd_id: str, params: dict[str, Any] | None = None, *, websocket: Any = None) -> StatusCodes:
         """Remote entity command handler."""
-        # pylint: disable=R0911,R0912,W0613
+        # pylint: disable=R0911,R0912
         match cmd_id:
             case Commands.ON:
                 return await self._media_player.command(media_player.Commands.ON, None)

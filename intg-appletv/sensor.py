@@ -30,7 +30,6 @@ _SENSOR_STATE_MAPPING = {
 }
 
 
-# pylint: disable=R0917,R0801
 class AppleTVSensor(Sensor, AppleTVEntity):
     """Representation of a AppleTV Sensor entity."""
 
@@ -43,8 +42,8 @@ class AppleTVSensor(Sensor, AppleTVEntity):
         name: str | dict[str, str],
         config_device: AtvDevice,
         device: tv.AppleTv,
-        api: IntegrationAPI,
         *,
+        api: IntegrationAPI,
         options: dict[Options, Any] | None = None,
         device_class: DeviceClasses = DeviceClasses.CUSTOM,
     ):
@@ -120,7 +119,7 @@ class AppSensor(AppleTVSensor):
             },
             config_device,
             device,
-            api,
+            api=api,
         )
 
     @property
@@ -150,7 +149,7 @@ class AudioOutputSensor(AppleTVSensor):
             },
             config_device,
             device,
-            api,
+            api=api,
         )
 
     @property

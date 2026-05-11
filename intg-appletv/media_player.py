@@ -103,7 +103,6 @@ class AppleTVMediaPlayer(MediaPlayer, AppleTVEntity):
         api: IntegrationAPI,
     ):
         """Initialize the class."""
-        # pylint: disable = R0801
         self._device = device
         self._assumed_state: States = States.OFF
         """Fallback state if device power state is not available."""
@@ -169,7 +168,6 @@ class AppleTVMediaPlayer(MediaPlayer, AppleTVEntity):
         """
         # tvOS 18.4 will raise an exception https://github.com/postlund/pyatv/issues/2648
         # Screensaver state is no longer accessible
-        # pylint: disable=W0718
         try:
             if self._device.media_state != States.PLAYING and await self._device.screensaver_active():
                 _LOG.debug("Screensaver is running, sending menu command for play_pause to exit")
@@ -181,7 +179,7 @@ class AppleTVMediaPlayer(MediaPlayer, AppleTVEntity):
                     return await self._device.cursor_select()
                 # Nothing was playing, only the screensaver was active
                 return StatusCodes.OK
-        except Exception:
+        except Exception:  # pylint: disable=W0718
             pass
         return None
 
@@ -343,7 +341,6 @@ class AppleTVMediaPlayer(MediaPlayer, AppleTVEntity):
         """
         attributes: dict[str, Any] = {}
 
-        # pylint: disable=R0801
         for attr in _AVAILABLE_ATTRIBUTES:
             if attr in update:
                 if force:
