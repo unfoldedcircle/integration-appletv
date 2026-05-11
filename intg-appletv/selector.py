@@ -6,21 +6,22 @@ Select entity functions.
 """
 
 import logging
+from abc import abstractmethod
 from typing import Any
 
 import tv
 import ucapi
-from config import AppleTVEntity, AtvDevice, create_entity_id
-from ucapi import EntityTypes, Select, StatusCodes
+from config import AtvDevice, create_entity_id
+from entities import AppleTVEntity, AppleTVSelects
+from ucapi import EntityTypes, IntegrationAPI, Select, StatusCodes
 from ucapi.api_definitions import CommandHandler
 from ucapi.media_player import States as MediaStates
 from ucapi.select import Attributes, Commands, States
-from utils import AppleTVSelects
 
 _LOG = logging.getLogger(__name__)
 
-# pylint: disable=R0801
-SELECTOR_STATE_MAPPING = {
+# pylint should focus on the real Python issues! pylint: disable=R0801
+_SELECTOR_STATE_MAPPING = {
     MediaStates.OFF: States.ON,
     MediaStates.ON: States.ON,
     MediaStates.STANDBY: States.ON,
@@ -31,44 +32,43 @@ SELECTOR_STATE_MAPPING = {
 }
 
 
-# pylint: disable=W1405,R0801
-class AppleTVSelect(AppleTVEntity, Select):
+class AppleTVSelect(Select, AppleTVEntity):
     """Representation of a Apple TV select entity."""
 
     ENTITY_NAME = "select"
     SELECT_NAME: AppleTVSelects
 
-    # pylint: disable=R0917
     def __init__(
         self,
         entity_id: str,
         name: str | dict[str, str],
         config_device: AtvDevice,
         device: tv.AppleTv,
+        *,
+        api: IntegrationAPI,
         select_handler: CommandHandler,
     ):
         """Initialize the class."""
-        # pylint: disable = R0801
         self._config_device = config_device
         self._device: tv.AppleTv = device
-        self._state: States = States.ON
         self._select_handler: CommandHandler = select_handler
         super().__init__(identifier=entity_id, name=name, attributes=self.all_attributes)
+        AppleTVEntity.__init__(self, entity_id, api)
 
     @property
-    def deviceid(self) -> str:
+    def atv_id(self) -> str:
         """Return device identifier."""
         return self._device.identifier
 
     @property
+    @abstractmethod
     def current_option(self) -> str:
         """Return select value."""
-        raise NotImplementedError()
 
     @property
+    @abstractmethod
     def select_options(self) -> list[str]:
         """Return selection list."""
-        raise NotImplementedError()
 
     @property
     def all_attributes(self) -> dict[str, Any]:
@@ -79,19 +79,37 @@ class AppleTVSelect(AppleTVEntity, Select):
             Attributes.STATE: States.ON,
         }
 
-    def update_attributes(self, update: dict[str, Any] | None = None) -> dict[str, Any] | None:
-        """Return updated selector value from full update if provided or selector value if no update is provided."""
-        if update:
-            attributes: dict[str, Any] = {}
-            if ucapi.media_player.Attributes.STATE in update:
-                new_state = SELECTOR_STATE_MAPPING.get(update[ucapi.media_player.Attributes.STATE])
-                if new_state != self._state:
-                    self._state = new_state
-                    attributes[Attributes.STATE] = self._state
-            if self.SELECT_NAME in update:
-                attributes |= update[self.SELECT_NAME]
-            return attributes
-        return self.all_attributes
+    def state_from_media_player_state(self, state: States) -> States:
+        """Map media-player state to select state."""
+        return _SELECTOR_STATE_MAPPING.get(state, States.UNKNOWN)
+
+    def filter_attributes(self, update: dict[str, Any], *, force: bool = False) -> dict[str, Any]:
+        """
+        Filter the given attributes from an ATV update and return only the related select-entity values.
+
+        :param update: Dictionary containing the updated properties.
+        :param force: If True, update attributes even if they haven't changed since the last update.
+        :return: Dictionary containing only the changed attributes.
+        """
+        attributes: dict[str, Any] = {}
+        if ucapi.media_player.Attributes.STATE in update:
+            new_state = self.state_from_media_player_state(update[ucapi.media_player.Attributes.STATE])
+            if force or new_state != self.attributes.get(Attributes.STATE):
+                attributes[Attributes.STATE] = new_state
+        # TODO untangle select-entity attribute updates.
+        if self.SELECT_NAME in update:
+            if Attributes.CURRENT_OPTION in update[self.SELECT_NAME]:
+                if force or update[self.SELECT_NAME][Attributes.CURRENT_OPTION] != self.attributes.get(
+                    Attributes.CURRENT_OPTION
+                ):
+                    attributes[Attributes.CURRENT_OPTION] = update[self.SELECT_NAME][Attributes.CURRENT_OPTION]
+            if Attributes.OPTIONS in update[self.SELECT_NAME]:
+                if force or update[self.SELECT_NAME][Attributes.OPTIONS] != self.attributes.get(Attributes.OPTIONS):
+                    attributes[Attributes.OPTIONS] = update[self.SELECT_NAME][Attributes.OPTIONS]
+        # make sure select-entity is available if data changes
+        if attributes and Attributes.STATE not in update:
+            attributes[Attributes.STATE] = States.ON
+        return attributes
 
     async def command(self, cmd_id: str, params: dict[str, Any] | None = None, *, websocket: Any) -> StatusCodes:
         """Process selector command."""
@@ -105,7 +123,7 @@ class AppleTVSelect(AppleTVEntity, Select):
         if cmd_id == Commands.SELECT_LAST and len(options) > 0:
             return await self._select_handler(options[len(options) - 1])
         if cmd_id == Commands.SELECT_NEXT and len(options) > 0:
-            cycle = params.get("cycle", False)
+            cycle = params.get("cycle", True) if params else True
             try:
                 index = options.index(self.current_option) + 1
                 if not cycle and index >= len(options):
@@ -123,7 +141,7 @@ class AppleTVSelect(AppleTVEntity, Select):
                 )
                 return StatusCodes.BAD_REQUEST
         if cmd_id == Commands.SELECT_PREVIOUS and len(options) > 0:
-            cycle = params.get("cycle", False)
+            cycle = params.get("cycle", True) if params else True
             try:
                 index = options.index(self.current_option) - 1
                 if not cycle and index < 0:
@@ -149,9 +167,13 @@ class AppSelect(AppleTVSelect):
     ENTITY_NAME = "app"
     SELECT_NAME = AppleTVSelects.SELECT_APP
 
-    def __init__(self, config_device: AtvDevice, device: tv.AppleTv):
+    def __init__(
+        self,
+        config_device: AtvDevice,
+        device: tv.AppleTv,
+        api: IntegrationAPI,
+    ):
         """Initialize the class."""
-        # pylint: disable=W1405,R0801
         entity_id = f"{create_entity_id(config_device.identifier, EntityTypes.SELECT)}.{self.ENTITY_NAME}"
         super().__init__(
             entity_id,
@@ -160,7 +182,8 @@ class AppSelect(AppleTVSelect):
             },
             config_device,
             device,
-            device.launch_app,
+            api=api,
+            select_handler=device.launch_app,
         )
 
     @property
@@ -180,9 +203,8 @@ class AudioOutputSelect(AppleTVSelect):
     ENTITY_NAME = "audio_output"
     SELECT_NAME = AppleTVSelects.SELECT_AUDIO_OUTPUT
 
-    def __init__(self, config_device: AtvDevice, device: tv.AppleTv):
+    def __init__(self, config_device: AtvDevice, device: tv.AppleTv, api: IntegrationAPI):
         """Initialize the class."""
-        # pylint: disable=W1405,R0801
         entity_id = f"{create_entity_id(config_device.identifier, EntityTypes.SELECT)}.{self.ENTITY_NAME}"
         super().__init__(
             entity_id,
@@ -191,7 +213,8 @@ class AudioOutputSelect(AppleTVSelect):
             },
             config_device,
             device,
-            device.set_output_device,
+            api=api,
+            select_handler=device.set_output_device,
         )
 
     @property

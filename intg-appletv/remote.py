@@ -10,12 +10,14 @@ from typing import Any
 
 import tv
 import ucapi.remote
-from config import AppleTVEntity, AtvDevice, create_entity_id
+from config import AtvDevice, create_entity_id
+from entities import AppleTVEntity
 from media_player import AppleTVMediaPlayer, SimpleCommands
-from ucapi import EntityTypes, Remote, StatusCodes, media_player
+from ucapi import EntityTypes, IntegrationAPI, Remote, StatusCodes, media_player
 from ucapi.media_player import Commands as MediaPlayerCommands
 from ucapi.remote import Attributes, Commands, Features
 from ucapi.ui import Buttons
+from utils import key_update_helper
 
 _LOG = logging.getLogger(__name__)
 
@@ -87,40 +89,13 @@ def _main_ui_page() -> dict[str, Any]:
     }
 
 
-def _state_from_media_player_state(state: media_player.States) -> ucapi.remote.States:
-    """Map media-player state to remote state."""
-    match state:
-        case (
-            media_player.States.ON
-            | media_player.States.BUFFERING
-            | media_player.States.PAUSED
-            | media_player.States.PLAYING
-            | media_player.States.STANDBY
-        ):
-            return ucapi.remote.States.ON
-        case media_player.States.OFF:
-            return ucapi.remote.States.OFF
-        case media_player.States.UNAVAILABLE:
-            return ucapi.remote.States.UNAVAILABLE
-        case _:
-            return ucapi.remote.States.UNKNOWN
-
-
-def _key_update(key: str, value: Any, attributes: dict, original: dict) -> dict:
-    if value is None:
-        return attributes
-    if key not in original or original[key] != value:
-        attributes[key] = value
-    return attributes
-
-
-# pylint: disable=R0903
-class AppleTVRemote(AppleTVEntity, Remote):
+class AppleTVRemote(Remote, AppleTVEntity):
     """Representation of an Apple TV Remote entity."""
 
-    def __init__(self, config_device: AtvDevice, device: tv.AppleTv, mp_entity: AppleTVMediaPlayer):
+    def __init__(
+        self, config_device: AtvDevice, device: tv.AppleTv, api: IntegrationAPI, mp_entity: AppleTVMediaPlayer
+    ):
         """Initialize the class."""
-        # pylint: disable=R0801
         self._device = device
         self._media_player = mp_entity
         entity_id = create_entity_id(config_device.identifier, EntityTypes.REMOTE)
@@ -151,28 +126,64 @@ class AppleTVRemote(AppleTVEntity, Remote):
             entity_id,
             f"{config_device.name} Remote",
             [Features.SEND_CMD, Features.ON_OFF, Features.TOGGLE],
-            attributes={Attributes.STATE: _state_from_media_player_state(device.media_state)},
+            attributes={Attributes.STATE: self.state_from_media_player_state(device.media_state)},
             simple_commands=simple_commands,
             button_mapping=REMOTE_BUTTONS_MAPPING,
             ui_pages=[_main_ui_page()],
         )
+        AppleTVEntity.__init__(self, entity_id, api)
 
     @property
-    def deviceid(self) -> str:
+    def atv_id(self) -> str:
         """Return the device identifier."""
         return self._device.identifier
 
-    def filter_changed_attributes(self, update: dict[str, Any]) -> dict[str, Any]:
-        """Return only the changed attributes (state mapped to remote state)."""
+    def state_from_media_player_state(self, state: media_player.States) -> ucapi.remote.States:
+        """Map media-player state to remote state."""
+        match state:
+            case (
+                media_player.States.ON
+                | media_player.States.BUFFERING
+                | media_player.States.PAUSED
+                | media_player.States.PLAYING
+                | media_player.States.STANDBY
+            ):
+                return ucapi.remote.States.ON
+            case media_player.States.OFF:
+                return ucapi.remote.States.OFF
+            case media_player.States.UNAVAILABLE:
+                return ucapi.remote.States.UNAVAILABLE
+            case _:
+                return ucapi.remote.States.UNKNOWN
+
+    def filter_attributes(self, update: dict[str, Any], *, force: bool = False) -> dict[str, Any]:
+        """
+        Filter the given attributes from an ATV update and return only the related remote-entity values.
+
+        :param update: Dictionary containing the updated properties.
+        :param force: If True, update attributes even if they haven't changed since the last update.
+        :return: Dictionary containing only the changed attributes.
+        """
         attributes: dict[str, Any] = {}
-        if media_player.Attributes.STATE in update:
-            state = _state_from_media_player_state(update[media_player.Attributes.STATE])
-            _key_update(Attributes.STATE, state, attributes, self.attributes)
+
+        for attr in Attributes:
+            value = None
+            if attr == Attributes.STATE and media_player.Attributes.STATE in update:
+                value = self.state_from_media_player_state(update[media_player.Attributes.STATE])
+            elif attr in update:
+                value = update[attr]
+
+            if value is not None:
+                if force:
+                    attributes[attr] = value
+                else:
+                    key_update_helper(attr, value, attributes, self.attributes)
+
         return attributes
 
     async def command(self, cmd_id: str, params: dict[str, Any] | None = None, *, websocket: Any = None) -> StatusCodes:
         """Remote entity command handler."""
-        # pylint: disable=R0911,R0912,W0613
+        # pylint: disable=R0911,R0912
         match cmd_id:
             case Commands.ON:
                 return await self._media_player.command(media_player.Commands.ON, None)

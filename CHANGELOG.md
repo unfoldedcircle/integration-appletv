@@ -13,6 +13,7 @@ _Changes in the next release_
 - Regression with tvOS 26.5 by @albaintor ([#110](https://github.com/unfoldedcircle/integration-appletv/pull/110)).
 - Create a valid driver.json file in the custom driver archive with custom driver_id and name ([#116](https://github.com/unfoldedcircle/integration-appletv/pull/116)).
 - Entity state is not updated if Apple TV device disconnects ([#93](https://github.com/unfoldedcircle/integration-appletv/issues/93)).
+- Always return the command result to the caller ([#121](https://github.com/unfoldedcircle/integration-appletv/pull/121)).
 
 ### Added
 - Add remote-entity by @albaintor ([#61](https://github.com/unfoldedcircle/integration-appletv/pull/61), [#115](https://github.com/unfoldedcircle/integration-appletv/pull/115)).
@@ -22,6 +23,7 @@ _Changes in the next release_
 - Update ucapi to 0.6.0 ([#107](https://github.com/unfoldedcircle/integration-appletv/pull/107)).
 - Update pylint version ([#112](https://github.com/unfoldedcircle/integration-appletv/pull/112)).
 - State handling refactor for improved reliability and fallback if power state API is not available ([#120](https://github.com/unfoldedcircle/integration-appletv/pull/120)).
+- Refactored entity attribute update and change filter ([#122](https://github.com/unfoldedcircle/integration-appletv/pull/122)).
 
 ---
 

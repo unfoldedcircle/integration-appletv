@@ -8,11 +8,14 @@ Uses the [pyatv](https://github.com/postlund/pyatv) library with concepts borrow
 :license: Mozilla Public License Version 2.0, see LICENSE for more details.
 """
 
+# pylint: disable=too-many-lines
+
 import asyncio
 import base64
 import datetime
 import hashlib
 import itertools
+import json
 import logging
 import random
 import re
@@ -35,6 +38,7 @@ from typing import (
 import pyatv
 import pyatv.const
 from config import AtvDevice, AtvProtocol
+from entities import AppleTVSelects, AppleTVSensors
 from pyatv import interface
 from pyatv.const import (
     DeviceState,
@@ -65,7 +69,6 @@ from ucapi.media_player import Attributes as MediaAttr
 from ucapi.media_player import MediaContentType, RepeatMode
 from ucapi.media_player import States as MediaState
 from ucapi.select import Attributes as SelectAttributes
-from utils import AppleTVSelects, AppleTVSensors
 
 _LOG = logging.getLogger(__name__)
 
@@ -74,9 +77,6 @@ BACKOFF_SEC = 2
 ARTWORK_WIDTH = 400
 ARTWORK_HEIGHT = 400
 ERROR_OS_WAIT = 0.5
-
-
-# pylint: disable=too-many-lines
 
 
 class EVENTS(StrEnum):
@@ -172,7 +172,7 @@ def async_handle_atvlib_errors(
     async def wrapper(self: _AppleTvT, *args: _P.args, **kwargs: _P.kwargs) -> StatusCodes:
         # pylint: disable=protected-access
         if self._atv is None:
-            _LOG.debug("Command wrapper : not connected try reconnect")
+            _LOG.debug("[%s] Command wrapper: not connected try reconnect", self.log_id)
             await self.connect()
             if self._atv is None:
                 return StatusCodes.SERVICE_UNAVAILABLE
@@ -385,7 +385,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             MediaAttr.SOUND_MODE: self.output_devices,
             MediaAttr.SHUFFLE: self._shuffle,
             MediaAttr.REPEAT: self._repeat,
-            # TODO when UC library udpated
+            # TODO when UC library updated
             # MediaAttr.MEDIA_ID : self._media_id,
             AppleTVSelects.SELECT_APP: {
                 SelectAttributes.CURRENT_OPTION: self.app_name,
@@ -409,13 +409,13 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         """Play status push update callback handler (push_updater.listener)."""
         if _LOG.isEnabledFor(logging.DEBUG):
             _LOG.debug("[%s] Push update: %s", self.log_id, re.sub(r"\n\s*", ", ", str(playstatus)))
-        _ = asyncio.ensure_future(self._process_update(playstatus))
+        _ = asyncio.ensure_future(self._process_playing_update(playstatus))
 
     def playstatus_error(self, _updater, exception: Exception) -> None:
         """Play status push update error callback handler (push_updater.listener)."""
         _LOG.warning("[%s] A %s error occurred: %s", self.log_id, exception.__class__, exception)
         data = pyatv.interface.Playing()
-        _ = asyncio.ensure_future(self._process_update(data))
+        _ = asyncio.ensure_future(self._process_playing_update(data))
 
     def connection_lost(self, exception) -> None:
         """
@@ -752,7 +752,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             self._shuffle = data.shuffle != ShuffleState.Off
             update[MediaAttr.SHUFFLE] = self._shuffle
 
-    async def _process_update(self, data: pyatv.interface.Playing) -> None:  # pylint: disable=too-many-branches
+    async def _process_playing_update(self, data: pyatv.interface.Playing) -> None:
         # store current state: used in `media_state` property
         self._device_state = data.device_state
 
@@ -779,7 +779,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                 update[AppleTVSelects.SELECT_APP] = {SelectAttributes.CURRENT_OPTION: self.app_name}
                 update[AppleTVSensors.SENSOR_APP] = self.app_name
 
-            self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
+        self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
     async def _update_app_list(self) -> None:
         _LOG.debug("[%s] Updating app list", self.log_id)
@@ -788,6 +788,10 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         try:
             update[MediaAttr.SOURCE_LIST] = []
             app_list = sorted(await self._atv.apps.app_list(), key=lambda item: item.name.lower())
+            if not app_list:
+                _LOG.info("[%s] No apps found, trying again later", self.log_id)
+                return
+            self._app_list.clear()
             for app in app_list:
                 self._app_list[app.name] = app.identifier
                 update[MediaAttr.SOURCE_LIST].append(app.name)
@@ -805,8 +809,6 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             atvs = await pyatv.scan(self._loop)
             if self._atv is None:
                 return
-            current_output_devices = self._available_output_devices
-            current_output_device = self.output_devices
             device_ids: list[str] = []
             self._available_output_devices = {}
             for atv in atvs:
@@ -822,28 +824,24 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             _LOG.warning("[%s] Output devices: protocol error", self.log_id)
             return
         update = {}
-        if set(current_output_devices.keys()) != set(self._available_output_devices.keys()) and len(device_ids) > 0:
-            # Build combinations of output devices. First device in the list is the current Apple TV
-            # When selecting this entry, it will disable all output devices
-            self._output_devices = OrderedDict()
-            self._output_devices[self._device.name] = []
-            self._build_output_devices_list(atvs, device_ids)
-            update[MediaAttr.SOUND_MODE_LIST] = self.output_devices_combinations
-            update[AppleTVSelects.SELECT_AUDIO_OUTPUT] = {
-                SelectAttributes.CURRENT_OPTION: self.output_devices,
-                SelectAttributes.OPTIONS: self.output_devices_combinations,
-            }
+        # Build combinations of output devices. The first device in the list is the current Apple TV.
+        # When selecting this entry, it will disable all output devices
+        self._output_devices = OrderedDict()
+        self._output_devices[self._device.name] = []
+        self._build_output_devices_list(atvs, device_ids)
+        update[MediaAttr.SOUND_MODE_LIST] = self.output_devices_combinations
+        update[AppleTVSelects.SELECT_AUDIO_OUTPUT] = {
+            SelectAttributes.CURRENT_OPTION: self.output_devices,
+            SelectAttributes.OPTIONS: self.output_devices_combinations,
+        }
 
-        if current_output_device != self.output_devices:
-            update[MediaAttr.SOUND_MODE] = self.output_devices
-            update[AppleTVSensors.SENSOR_AUDIO_OUTPUT] = self.output_devices
-            update.setdefault(AppleTVSelects.SELECT_AUDIO_OUTPUT, {})
-            update[AppleTVSelects.SELECT_AUDIO_OUTPUT][SelectAttributes.CURRENT_OPTION] = self.output_devices
+        update[MediaAttr.SOUND_MODE] = self.output_devices
+        update[AppleTVSensors.SENSOR_AUDIO_OUTPUT] = self.output_devices
+        update.setdefault(AppleTVSelects.SELECT_AUDIO_OUTPUT, {})
+        update[AppleTVSelects.SELECT_AUDIO_OUTPUT][SelectAttributes.CURRENT_OPTION] = self.output_devices
 
-        _LOG.debug("Updated sound mode list : %s", update)
-
-        if update:
-            self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
+        _LOG.debug("[%s] Updated sound mode list: %s", self.log_id, json.dumps(update))
+        self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
     def _build_output_devices_list(self, atvs: list[BaseConfig], device_ids: list[str]):
         """Build possible combinations of output devices."""
@@ -885,10 +883,13 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             except Exception as ex:  # pylint: disable=broad-except
                 _LOG.error("[%s] Polling error: %s", self.log_id, ex)
 
-            # #117: Keep it simple: we can't reliably determine the old state.
-            #       The on_atv_update event receiver will filter out unchanged entity attributes
             update[MediaAttr.STATE] = self.media_state
             self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
+
+            if len(self._app_list) == 0:
+                await self._update_app_list()
+            if not self._available_output_devices:
+                await self._update_output_devices()
 
             await asyncio.sleep(self._poll_interval)
         _LOG.debug("[%s] Polling task stopped", self.log_id)
@@ -1297,7 +1298,10 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         device_entry = self._output_devices.get(device_name, None)
         if device_entry is None:
             _LOG.warning(
-                "Output device not found in the list %s (list : %s)", device_name, self.output_devices_combinations
+                "[%s] Output device not found in the list %s (list : %s)",
+                self.log_id,
+                device_name,
+                self.output_devices_combinations,
             )
             return StatusCodes.BAD_REQUEST
         output_devices = self._atv.audio.output_devices
@@ -1307,7 +1311,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         for device in output_devices:
             device_ids.append(device.identifier)
 
-        _LOG.debug("Removing output devices %s", device_ids)
+        _LOG.debug("[%s] Removing output devices: %s", self.log_id, device_ids)
         await self._atv.audio.remove_output_devices(*device_ids)
         if len(device_entry) == 0:
             return StatusCodes.OK
@@ -1320,7 +1324,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         if len(found_current_device) == 0:
             new_output_devices.append(self._atv.device_info.output_device_id)
 
-        _LOG.debug("Setting output devices %s", new_output_devices)
+        _LOG.debug("[%s] Setting output devices: %s", self.log_id, new_output_devices)
         await self._atv.audio.set_output_devices(*new_output_devices)
         return StatusCodes.OK
 

@@ -10,25 +10,48 @@ import logging
 from enum import StrEnum
 from typing import Any
 
-import tv
-from config import AppleTVEntity, AtvDevice
+from config import AtvDevice
+from entities import AppleTVEntity
 from hid import UsagePage
 from hid.consumer_control_code import ConsumerControlCode
 from pyatv.const import PowerState
-from ucapi import MediaPlayer, StatusCodes, media_player
+from tv import AppleTv
+from ucapi import IntegrationAPI, MediaPlayer, RepeatMode, StatusCodes
 from ucapi.media_player import (
     Attributes,
     Commands,
     DeviceClasses,
     Features,
     Options,
+    States,
 )
-from utils import filter_attributes
+from utils import filter_attributes, key_update_helper
 
 _LOG = logging.getLogger(__name__)
 # Experimental features, don't seem to work / supported (yet) with ATV4
 ENABLE_REPEAT_FEAT = False
 ENABLE_SHUFFLE_FEAT = False
+
+_AVAILABLE_ATTRIBUTES = [
+    Attributes.STATE,
+    Attributes.MUTED,
+    Attributes.VOLUME,
+    Attributes.MEDIA_TYPE,
+    Attributes.MEDIA_IMAGE_URL,
+    Attributes.MEDIA_TITLE,
+    Attributes.MEDIA_ALBUM,
+    Attributes.MEDIA_ARTIST,
+    Attributes.MEDIA_POSITION,
+    Attributes.MEDIA_DURATION,
+    Attributes.MEDIA_POSITION_UPDATED_AT,
+    Attributes.SOURCE_LIST,
+    Attributes.SOURCE,
+    Attributes.SOUND_MODE_LIST,
+    Attributes.SOUND_MODE,
+    Attributes.SHUFFLE,
+    Attributes.REPEAT,
+    Attributes.MEDIA_ID,
+]
 
 
 class SimpleCommands(StrEnum):
@@ -70,14 +93,18 @@ def _get_cmd_param(name: str, params: dict[str, Any] | None) -> str | bool | Non
     return params.get(name)
 
 
-class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
+class AppleTVMediaPlayer(MediaPlayer, AppleTVEntity):
     """Representation of a AppleTV Media Player entity."""
 
-    def __init__(self, config_device: AtvDevice, device: tv.AppleTv):
+    def __init__(
+        self,
+        config_device: AtvDevice,
+        device: AppleTv,
+        api: IntegrationAPI,
+    ):
         """Initialize the class."""
-        # pylint: disable = R0801
         self._device = device
-        self._assumed_state: media_player.States = media_player.States.OFF
+        self._assumed_state: States = States.OFF
         """Fallback state if device power state is not available."""
         # entity_id = create_entity_id(config_device.name, EntityTypes.MEDIA_PLAYER)
         entity_id = config_device.identifier
@@ -120,11 +147,16 @@ class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
         super().__init__(
             entity_id, config_device.name, features, attributes, device_class=DeviceClasses.TV, options=options
         )
+        AppleTVEntity.__init__(self, entity_id, api)
 
     @property
-    def deviceid(self) -> str:
+    def atv_id(self) -> str:
         """Return the device identifier."""
         return self._device.identifier
+
+    def state_from_media_player_state(self, state: States) -> States:
+        """Map media-player state. Pass through state."""
+        return state
 
     async def _playpause_in_screensaver(self) -> StatusCodes | None:
         """
@@ -132,25 +164,22 @@ class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
 
         Screensaver active: play/pause button exits screensaver. If a playback was paused, resume it.
 
-        :param state: the media-player state
-        :param device: the device
         :return: None if screensaver was not active, a StatusCode otherwise
         """
         # tvOS 18.4 will raise an exception https://github.com/postlund/pyatv/issues/2648
         # Screensaver state is no longer accessible
-        # pylint: disable=W0718
         try:
-            if self._device.media_state != media_player.States.PLAYING and await self._device.screensaver_active():
+            if self._device.media_state != States.PLAYING and await self._device.screensaver_active():
                 _LOG.debug("Screensaver is running, sending menu command for play_pause to exit")
                 await self._device.menu()
-                if self._device.media_state == media_player.States.PAUSED:
+                if self._device.media_state == States.PAUSED:
                     # another awkwardness: the play_pause button doesn't work anymore after exiting the screensaver.
                     # One has to send a dpad select first to start playback. Afterward, play_pause works again...
                     await asyncio.sleep(1)  # delay required, otherwise the second button press is ignored
                     return await self._device.cursor_select()
                 # Nothing was playing, only the screensaver was active
                 return StatusCodes.OK
-        except Exception:
+        except Exception:  # pylint: disable=W0718
             pass
         return None
 
@@ -179,7 +208,7 @@ class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
 
         # Automatically wake ATV from standby if a command is received
         state = self._device.media_state
-        if state == media_player.States.OFF and cmd_id not in (Commands.OFF, Commands.TOGGLE):
+        if state == States.OFF and cmd_id not in (Commands.OFF, Commands.TOGGLE):
             _LOG.debug("Device is off, sending turn on command")
             res = await self._device.turn_on()
             if res != StatusCodes.OK:
@@ -221,13 +250,9 @@ class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
                         "Power state is not available for toggle, using assumed state: %s", self._assumed_state
                     )
                     state = self._assumed_state
-                    self._assumed_state = (
-                        media_player.States.OFF
-                        if self._assumed_state == media_player.States.ON
-                        else media_player.States.ON
-                    )
+                    self._assumed_state = States.OFF if self._assumed_state == States.ON else States.ON
 
-                if state == media_player.States.OFF:
+                if state == States.OFF:
                     res = await self._device.turn_on()
                 else:
                     res = await self._device.turn_off()
@@ -303,3 +328,41 @@ class AppleTVMediaPlayer(AppleTVEntity, MediaPlayer):
                 res = await self._device.pause()
 
         return res if res is not None else StatusCodes.SERVER_ERROR
+
+    def filter_attributes(self, update: dict[str, Any], *, force: bool = False) -> dict[str, Any]:
+        """
+        Filter the given attributes from an ATV update and return only the related media-player entity values.
+
+        **Attention:** for ``States.OFF``: all media attributes are reset.
+
+        :param update: Dictionary containing the updated properties.
+        :param force: If True, update attributes even if they haven't changed since the last update.
+        :return: Dictionary containing only the changed attributes.
+        """
+        attributes: dict[str, Any] = {}
+
+        for attr in _AVAILABLE_ATTRIBUTES:
+            if attr in update:
+                if force:
+                    attributes[attr] = update[attr]
+                else:
+                    key_update_helper(attr, update[attr], attributes, self.attributes)
+
+        if Attributes.STATE in attributes and attributes[Attributes.STATE] == States.OFF:
+            AppleTVMediaPlayer.reset_media_data(attributes)
+
+        return attributes
+
+    @staticmethod
+    def reset_media_data(attributes: dict[str, Any]):
+        """Reset media metadata."""
+        attributes[Attributes.MEDIA_POSITION] = 0
+        attributes[Attributes.MEDIA_DURATION] = 0
+        attributes[Attributes.MEDIA_IMAGE_URL] = ""
+        attributes[Attributes.MEDIA_TITLE] = ""
+        attributes[Attributes.MEDIA_ARTIST] = ""
+        attributes[Attributes.MEDIA_ALBUM] = ""
+        attributes[Attributes.MEDIA_TYPE] = ""
+        attributes[Attributes.REPEAT] = RepeatMode.OFF
+        attributes[Attributes.SHUFFLE] = False
+        attributes[Attributes.SOURCE] = ""
