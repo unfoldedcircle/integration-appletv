@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Changes in the next release_
 
+---
+
+## v0.21.0 - 2026-05-11
 ### Fixed
 - Regression with tvOS 26.5 by @albaintor ([#110](https://github.com/unfoldedcircle/integration-appletv/pull/110)).
 - Create a valid driver.json file in the custom driver archive with custom driver_id and name ([#116](https://github.com/unfoldedcircle/integration-appletv/pull/116)).
@@ -26,8 +29,6 @@ _Changes in the next release_
 - Refactored entity attribute update and change filter ([#122](https://github.com/unfoldedcircle/integration-appletv/pull/122)).
 - Automatically wake the Apple TV from standby when a select command is received ([#123](https://github.com/unfoldedcircle/integration-appletv/pull/123)).
 - Update ucapi to 0.7.0 ([#124](https://github.com/unfoldedcircle/integration-appletv/pull/124)).
-
----
 
 ## v0.20.4 - 2026-02-27
 ### Changed
