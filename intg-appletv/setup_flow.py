@@ -294,6 +294,7 @@ async def _handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput 
             _reconfigured_device = selected_device
             mac_address = selected_device.mac_address if selected_device.mac_address else ""
             address = selected_device.address if selected_device.address else ""
+            global_volume = selected_device.global_volume if selected_device.global_volume is not None else True
 
             return RequestUserInput(
                 _af("Configure your Apple TV (configured mac address {mac_address})", mac_address=mac_address),
@@ -313,7 +314,7 @@ async def _handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput 
                         "id": "address",
                         "label": _a("IP address (optional)"),
                     },
-                    __global_volume(True),
+                    __global_volume(global_volume),
                 ],
             )
 
