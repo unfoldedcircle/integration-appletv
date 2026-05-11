@@ -7,18 +7,27 @@ Select entity functions.
 
 import logging
 from abc import abstractmethod
-from typing import Any
+from typing import Any, Awaitable, Callable, TypeAlias
 
 import tv
 import ucapi
 from config import AtvDevice, create_entity_id
 from entities import AppleTVEntity, AppleTVSelects
 from ucapi import EntityTypes, IntegrationAPI, Select, StatusCodes
-from ucapi.api_definitions import CommandHandler
 from ucapi.media_player import States as MediaStates
 from ucapi.select import Attributes, Commands, States
 
 _LOG = logging.getLogger(__name__)
+
+SelectHandler: TypeAlias = Callable[[str], Awaitable[StatusCodes]]
+"""Selection handler signature.
+
+Parameters:
+
+- option: select option
+
+Returns: status code
+"""
 
 # pylint should focus on the real Python issues! pylint: disable=R0801
 _SELECTOR_STATE_MAPPING = {
@@ -33,7 +42,7 @@ _SELECTOR_STATE_MAPPING = {
 
 
 class AppleTVSelect(Select, AppleTVEntity):
-    """Representation of a Apple TV select entity."""
+    """Representation of an Apple TV select entity."""
 
     ENTITY_NAME = "select"
     SELECT_NAME: AppleTVSelects
@@ -46,12 +55,12 @@ class AppleTVSelect(Select, AppleTVEntity):
         device: tv.AppleTv,
         *,
         api: IntegrationAPI,
-        select_handler: CommandHandler,
+        select_handler: SelectHandler,
     ):
         """Initialize the class."""
         self._config_device = config_device
         self._device: tv.AppleTv = device
-        self._select_handler: CommandHandler = select_handler
+        self._select_handler: SelectHandler = select_handler
         super().__init__(identifier=entity_id, name=name, attributes=self.all_attributes)
         AppleTVEntity.__init__(self, entity_id, api)
 
@@ -113,9 +122,21 @@ class AppleTVSelect(Select, AppleTVEntity):
 
     async def command(self, cmd_id: str, params: dict[str, Any] | None = None, *, websocket: Any) -> StatusCodes:
         """Process selector command."""
-        # pylint: disable=R0911
+        # pylint: disable=R0911, R0912
+        _LOG.info("[%s] Got select request: %s %s", self._device.log_id, cmd_id, params if params else "")
+
+        # Automatically wake ATV from standby if a command is received
+        state = self._device.media_state
+        if state == MediaStates.OFF:
+            _LOG.debug("[%s] Device is off, sending turn on command", self._device.log_id)
+            res = await self._device.turn_on()
+            if res != StatusCodes.OK:
+                return res
+
         if cmd_id == Commands.SELECT_OPTION and params:
             option = params.get("option", None)
+            if option is None:
+                return StatusCodes.BAD_REQUEST
             return await self._select_handler(option)
         options = self.select_options
         if cmd_id == Commands.SELECT_FIRST and len(options) > 0:
@@ -134,7 +155,7 @@ class AppleTVSelect(Select, AppleTVEntity):
             except ValueError as ex:
                 _LOG.warning(
                     "[%s] Invalid option %s in list %s %s",
-                    self._config_device.address,
+                    self._device.log_id,
                     self.current_option,
                     options,
                     ex,
@@ -152,7 +173,7 @@ class AppleTVSelect(Select, AppleTVEntity):
             except ValueError as ex:
                 _LOG.warning(
                     "[%s] Invalid option %s in list %s %s",
-                    self._config_device.address,
+                    self._device.log_id,
                     self.current_option,
                     options,
                     ex,
@@ -162,7 +183,7 @@ class AppleTVSelect(Select, AppleTVEntity):
 
 
 class AppSelect(AppleTVSelect):
-    """Representation of a AppleTV selector entity."""
+    """Representation of an AppleTV selector entity."""
 
     ENTITY_NAME = "app"
     SELECT_NAME = AppleTVSelects.SELECT_APP
