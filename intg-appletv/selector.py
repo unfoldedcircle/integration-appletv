@@ -55,7 +55,7 @@ class AppleTVSelect(Select, AppleTVEntity):
         self._device: tv.AppleTv = device
         self._select_handler: CommandHandler = select_handler
         super().__init__(identifier=entity_id, name=name, attributes=self.all_attributes)
-        AppleTVEntity.__init__(self, api)
+        AppleTVEntity.__init__(self, entity_id, api)
 
     @property
     def atv_id(self) -> str:

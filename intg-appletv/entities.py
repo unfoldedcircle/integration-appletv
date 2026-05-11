@@ -32,10 +32,16 @@ class AppleTVSensors(StrEnum):
 
 
 class AppleTVEntity(ABC):
-    """Abstract AppleTV entity."""
+    """Mixin for Apple TV backed ucapi entities.
 
-    def __init__(self, api: IntegrationAPI):
+    The concrete class must also inherit from a ucapi Entity subclass such as
+    MediaPlayer, Remote, Select, or Sensor.
+    """
+
+    def __init__(self, entity_id: str, api: IntegrationAPI):
         """Initialize the AppleTVEntity."""
+        # pragmatic and explicit way to access the Entity.id property instead of the hackish `self.id`
+        self._entity_id = entity_id
         self._api: IntegrationAPI = api
 
     @property
@@ -61,14 +67,14 @@ class AppleTVEntity(ABC):
         attributes = self.filter_attributes(update, force=force)
 
         if attributes:
-            # pylint: disable=E1101
-            entity_id = self.id
             if _LOG.isEnabledFor(logging.DEBUG):
-                _LOG.debug("Updating attributes for entity %s : %s", entity_id, json.dumps(truncate_dict(attributes)))
-            if self._api.configured_entities.contains(entity_id):
-                self._api.configured_entities.update_attributes(entity_id, attributes)
+                _LOG.debug(
+                    "Updating attributes for entity %s : %s", self._entity_id, json.dumps(truncate_dict(attributes))
+                )
+            if self._api.configured_entities.contains(self._entity_id):
+                self._api.configured_entities.update_attributes(self._entity_id, attributes)
             else:
-                self._api.available_entities.update_attributes(entity_id, attributes)
+                self._api.available_entities.update_attributes(self._entity_id, attributes)
 
     @abstractmethod
     def filter_attributes(self, update: dict[str, Any], *, force: bool = False) -> dict[str, Any]:

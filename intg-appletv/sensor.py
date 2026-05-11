@@ -54,7 +54,7 @@ class AppleTVSensor(Sensor, AppleTVEntity):
 
         self._config_device = config_device
         super().__init__(entity_id, name, features, self.all_attributes, device_class=device_class, options=options)
-        AppleTVEntity.__init__(self, api)
+        AppleTVEntity.__init__(self, entity_id, api)
 
     @property
     def atv_id(self) -> str:

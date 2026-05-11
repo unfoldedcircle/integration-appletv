@@ -148,7 +148,7 @@ class AppleTVMediaPlayer(MediaPlayer, AppleTVEntity):
         super().__init__(
             entity_id, config_device.name, features, attributes, device_class=DeviceClasses.TV, options=options
         )
-        AppleTVEntity.__init__(self, api)
+        AppleTVEntity.__init__(self, entity_id, api)
 
     @property
     def atv_id(self) -> str:
@@ -165,8 +165,6 @@ class AppleTVMediaPlayer(MediaPlayer, AppleTVEntity):
 
         Screensaver active: play/pause button exits screensaver. If a playback was paused, resume it.
 
-        :param state: the media-player state
-        :param device: the device
         :return: None if screensaver was not active, a StatusCode otherwise
         """
         # tvOS 18.4 will raise an exception https://github.com/postlund/pyatv/issues/2648

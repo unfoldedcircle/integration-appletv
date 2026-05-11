@@ -133,7 +133,7 @@ class AppleTVRemote(Remote, AppleTVEntity):
             button_mapping=REMOTE_BUTTONS_MAPPING,
             ui_pages=[_main_ui_page()],
         )
-        AppleTVEntity.__init__(self, api)
+        AppleTVEntity.__init__(self, entity_id, api)
 
     @property
     def atv_id(self) -> str:
