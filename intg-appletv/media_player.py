@@ -28,7 +28,7 @@ from ucapi.media_player import (
 from utils import filter_attributes, key_update_helper
 
 _LOG = logging.getLogger(__name__)
-# Experimental features, don't seem to work / supported (yet) with ATV4
+# Experimental features don't seem to work / supported (yet) with ATV4
 ENABLE_REPEAT_FEAT = False
 ENABLE_SHUFFLE_FEAT = False
 
@@ -94,7 +94,7 @@ def _get_cmd_param(name: str, params: dict[str, Any] | None) -> str | bool | Non
 
 
 class AppleTVMediaPlayer(MediaPlayer, AppleTVEntity):
-    """Representation of a AppleTV Media Player entity."""
+    """Representation of an AppleTV Media Player entity."""
 
     def __init__(
         self,
@@ -236,6 +236,8 @@ class AppleTVMediaPlayer(MediaPlayer, AppleTVEntity):
             case Commands.VOLUME_DOWN:
                 res = await self._device.volume_down()
             case Commands.VOLUME:
+                if params is None:
+                    return StatusCodes.BAD_REQUEST
                 res = await self._device.volume_set(params.get("volume"))
             case Commands.MUTE_TOGGLE:
                 res = await self._device.send_hid_key(UsagePage.CONSUMER, ConsumerControlCode.MUTE)
@@ -282,7 +284,7 @@ class AppleTVMediaPlayer(MediaPlayer, AppleTVEntity):
                 res = await self._device.control_center()
             case Commands.HOME:
                 res = await self._device.home()
-                # Request a defer update because music can play in the background
+                # Request a deferred update because music can play in the background
                 asyncio.create_task(self._device.deferred_state_update())
             case Commands.BACK:
                 res = await self._device.menu()
@@ -291,6 +293,8 @@ class AppleTVMediaPlayer(MediaPlayer, AppleTVEntity):
             case Commands.CHANNEL_UP:
                 res = await self._device.channel_up()
             case Commands.SELECT_SOURCE:
+                if params is None:
+                    return StatusCodes.BAD_REQUEST
                 res = await self._device.launch_app(params["source"])
             case Commands.GUIDE:
                 res = await self._device.toggle_guide()
@@ -313,6 +317,8 @@ class AppleTVMediaPlayer(MediaPlayer, AppleTVEntity):
                 mode = _get_cmd_param("mode", params)
                 res = await self._device.set_output_device(mode) if isinstance(mode, str) else StatusCodes.BAD_REQUEST
             case Commands.SEEK:
+                if params is None:
+                    return StatusCodes.BAD_REQUEST
                 res = await self._device.set_media_position(params.get("media_position", 0))
             case SimpleCommands.SWIPE_LEFT:
                 res = await self._device.swipe(1000, 500, 50, 500, 200)
