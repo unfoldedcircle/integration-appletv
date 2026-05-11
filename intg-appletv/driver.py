@@ -99,9 +99,10 @@ async def on_subscribe_entities(entity_ids: list[str]) -> None:
         device_id = configured_entity.atv_id
         if device_id in _configured_atvs:
             device = _configured_atvs[device_id]
-            state = device.media_state
-            # It doesn't matter if we use the media_player.Attributes enum. It's called the same for all entities
-            configured_entity.update_attributes({media_player.Attributes.STATE: state}, force=True)
+            # Set all current attributes in the configured entity to make sure it is up to date once the Remote sends a
+            # `get_entity_states` request. Note: `update_attributes` will also trigger an entity_change event.
+            # Better to have too many `entity_change` events than old data!
+            configured_entity.update_attributes(device.attributes, force=True)
             continue
 
         device = config.devices.get(device_id) if config.devices else None
