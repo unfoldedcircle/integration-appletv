@@ -9,10 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Changes in the next release_
 
-### Fixed
-- Global volume configuration in the setup flow always showed enabled.
-
 ---
+
+## v0.21.1 - 2026-05-11
+### Fixed
+- Show the correct global volume setting in the setup flow ([#125](https://github.com/unfoldedcircle/integration-appletv/pull/125)).
 
 ## v0.21.0 - 2026-05-11
 ### Fixed

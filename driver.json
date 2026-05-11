@@ -1,6 +1,6 @@
 {
 	"driver_id": "appletv",
-	"version": "0.21.0",
+	"version": "0.21.1",
 	"min_core_api": "0.7.1",
 	"name": { "en": "Apple TV" },
 	"icon": "uc:integration",
