@@ -23,7 +23,7 @@ _Changes in the next release_
 - Always return the command result to the caller ([#121](https://github.com/unfoldedcircle/integration-appletv/pull/121)).
 
 ### Added
-- Add remote-entity by @albaintor ([#61](https://github.com/unfoldedcircle/integration-appletv/pull/61), [#115](https://github.com/unfoldedcircle/integration-appletv/pull/115)).
+- Add remote-entity by @henrikwidlund ([#61](https://github.com/unfoldedcircle/integration-appletv/pull/61), [#115](https://github.com/unfoldedcircle/integration-appletv/pull/115)).
 - Select- and sensor-entities for app and sound output by @albaintor ([#111](https://github.com/unfoldedcircle/integration-appletv/pull/111)).
 
 ### Changed
