@@ -14,7 +14,6 @@ import asyncio
 import base64
 import datetime
 import hashlib
-import itertools
 import json
 import logging
 import random
@@ -254,6 +253,8 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         self._app_list: dict[str, str] = {}
         self._available_output_devices: dict[str, str] = {}
         self._output_devices: OrderedDict[str, list[str]] = OrderedDict[str, list[str]]()
+        self._output_devices[self._device.name] = []
+        self._output_device_id_to_name: dict[str, str] = {}
         self._playback_state = PlaybackState.NORMAL
         self._output_devices_volume: dict[str, float] = {}
         self._volume_level: float = 0.0
@@ -334,13 +335,19 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
     @property
     def output_devices(self) -> str:
-        """Return the current selection of output devices."""
+        """Return current output device entry name."""
         if self._atv is None or self._atv.audio is None:
             return ""
-        device_names = []
-        for device in self._atv.audio.output_devices:
-            device_names.append(device.name)
-        return ", ".join(sorted(device_names, key=str.casefold))
+        current_id = self._atv.device_info.output_device_id if self._atv.device_info else None
+        additional_device_ids = {d.identifier for d in self._atv.audio.output_devices if d.identifier != current_id}
+        if not additional_device_ids:
+            return self._device.name
+        if len(additional_device_ids) == 1:
+            only_id = next(iter(additional_device_ids))
+            if only_id in self._output_device_id_to_name:
+                return self._output_device_id_to_name[only_id]
+        # Active group doesn't match any known entry.
+        return ""
 
     @property
     def app_name(self) -> str:
@@ -828,6 +835,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         # When selecting this entry, it will disable all output devices
         self._output_devices = OrderedDict()
         self._output_devices[self._device.name] = []
+        self._output_device_id_to_name = {}
         self._build_output_devices_list(atvs, device_ids)
         update[MediaAttr.SOUND_MODE_LIST] = self.output_devices_combinations
         update[AppleTVSelects.SELECT_AUDIO_OUTPUT] = {
@@ -844,20 +852,22 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
     def _build_output_devices_list(self, atvs: list[BaseConfig], device_ids: list[str]):
-        """Build possible combinations of output devices."""
-        # Don't go beyond combinations of 5 devices
-        max_len = min(len(device_ids), 4)
-        for i in range(0, max_len):
-            combinations = itertools.combinations(device_ids, i + 1)
-            for combination in combinations:
-                device_names: list[str] = []
-                for device_id in combination:
-                    for atv in atvs:
-                        if atv.device_info.output_device_id == device_id:
-                            device_names.append(atv.name)
-                            break
-                entry_name: str = ", ".join(sorted(device_names, key=str.casefold))
-                self._output_devices[entry_name] = list(combination)
+        """Build output device list (single extra device per entry, in addition to current Apple TV)."""
+        for device_id in device_ids:
+            for atv in atvs:
+                if atv.device_info is None or atv.device_info.output_device_id != device_id:
+                    continue
+                name = atv.name
+                if name in self._output_devices:
+                    name = f"{atv.name} ({device_id[-4:]})"
+                # Counter fallback: same name AND same id suffix is rare but possible?
+                suffix_n = 2
+                while name in self._output_devices:
+                    name = f"{atv.name} ({device_id[-4:]}#{suffix_n})"
+                    suffix_n += 1
+                self._output_devices[name] = [device_id]
+                self._output_device_id_to_name[device_id] = name
+                break
 
     async def _poll_worker(self) -> None:
         await asyncio.sleep(2)
