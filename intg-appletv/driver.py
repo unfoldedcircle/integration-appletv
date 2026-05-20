@@ -339,6 +339,31 @@ async def patched_pyatv_companion_connect(self):
     await self.subscribe_event("_iMC")
 
 
+async def patched_pyatv_companion_system_info(self):
+    """Patch pyatv method to send system information to device."""
+    # pylint: disable=W0212
+    creds = pyatv.auth.hap_pairing.parse_credentials(self.core.service.credentials)
+    info = self.core.settings.info
+    _LOG.debug("Sending system information")
+    await self._send_command(
+        "_systemInfo",
+        {
+            "_bf": 0,
+            "_cf": 512,
+            "_clFl": 128,
+            # A null "_i" stops the device from pushing TVSystemStatus
+            # (power state) events; fall back to a stable identifier.
+            "_i": info.rp_id or info.device_id.replace(":", "").lower(),
+            "_idsID": creds.client_id,
+            "_pubID": info.device_id,
+            "_sf": 256,
+            "_sv": "170.18",
+            "model": info.model,
+            "name": info.name,
+        },
+    )
+
+
 async def main():
     """Start the Remote Two/3 integration driver."""
     if os.getenv("INVOCATION_ID"):
@@ -368,6 +393,7 @@ async def main():
 
     # TODO patch for tvOS 26.5 : to be removed when https://github.com/postlund/pyatv/issues/2845 is fixed
     pyatv.protocols.companion.api.CompanionAPI.connect = patched_pyatv_companion_connect
+    pyatv.protocols.companion.api.CompanionAPI.system_info = patched_pyatv_companion_system_info
 
     # load paired devices
     config.devices = config.Devices(api.config_dir_path, on_device_added, on_device_removed)
