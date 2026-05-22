@@ -236,8 +236,9 @@ class Devices:
                     )
         return result
 
+    @staticmethod
     def get_discovered_device(
-        self, configured_device: AtvDevice, discovered_atvs: list[pyatv.interface.BaseConfig]
+        configured_device: AtvDevice, discovered_atvs: list[pyatv.interface.BaseConfig]
     ) -> pyatv.interface.BaseConfig | None:
         """Return the discovered AppleTV corresponding to the configured device."""
         found_atv: pyatv.interface.BaseConfig | None = None

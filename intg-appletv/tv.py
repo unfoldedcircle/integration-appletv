@@ -54,6 +54,7 @@ from pyatv.core.facade import FacadeAudio, FacadeRemoteControl, FacadeTouchGestu
 from pyatv.interface import BaseConfig, OutputDevice, Playing
 from pyatv.protocols.companion import (
     CompanionAPI,
+    CompanionApps,
     MediaControlCommand,
     SystemStatus,
 )
@@ -266,7 +267,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         self._media_duration: int | None = None
         self._media_position_updated_at: datetime.datetime | None = None
         self._repeat = RepeatMode.OFF
-        self._shuffle = False
+        self._shuffle: bool | None = False
         self._source: str | None = None
 
     @property
@@ -452,9 +453,9 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         update = {MediaAttr.VOLUME: volume_level}
         self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
-    def volume_update(self, _old_level: float, new_level: float) -> None:
+    def volume_update(self, old_level: float, new_level: float) -> None:
         """Volume level change callback."""
-        _LOG.debug("[%s] Volume level: %d", self.log_id, new_level)
+        _LOG.debug("[%s] Volume level update: %s -> %s", self.log_id, old_level, new_level)
         self._volume_level = new_level
         self._volume_notify()
 
@@ -462,7 +463,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         """Output device volume was updated."""
         # Skip if volume does not concern an external device
         _LOG.debug("[%s] Volume level for device %s", self.log_id, output_device.identifier)
-        if output_device.identifier == self._atv.device_info.output_device_id:
+        if self._atv and output_device.identifier == self._atv.device_info.output_device_id:
             return
         volume = round(new_level, 1)
         _LOG.debug("[%s] Volume level for device %s : %.2f", self.log_id, output_device.identifier, volume)
@@ -488,11 +489,25 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
     def add_credentials(self, credentials: dict[AtvProtocol, str]) -> None:
         """Add credentials for a protocol."""
-        self._device.credentials.append(credentials)
+        self._device.credentials.append({protocol.value: credential for protocol, credential in credentials.items()})
 
     def get_credentials(self) -> list[dict[AtvProtocol, str]]:
         """Return stored credentials."""
-        return self._device.credentials
+        if not self._device.credentials:
+            _LOG.error("[%s] No credentials defined!", self.log_id)
+            return []
+
+        converted_credentials: list[dict[AtvProtocol, str]] = []
+        for credentials in self._device.credentials:
+            converted: dict[AtvProtocol, str] = {}
+            for protocol, credential in credentials.items():
+                try:
+                    converted[AtvProtocol(protocol)] = credential
+                except ValueError:
+                    _LOG.warning("[%s] Ignoring invalid ATV protocol: %s", self.log_id, protocol)
+            converted_credentials.append(converted)
+
+        return converted_credentials
 
     async def start_pairing(self, protocol: Protocol, name: str) -> int | None:
         """Start the pairing process with the Apple TV."""
@@ -515,11 +530,19 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
     async def enter_pin(self, pin: int) -> None:
         """Pin code used for pairing."""
+        if not self._pairing_process:
+            _LOG.error("[%s] Pairing process not initialized", self.log_id)
+            return
+
         _LOG.debug("[%s] Entering PIN", self.log_id)
         self._pairing_process.pin(pin)
 
     async def finish_pairing(self) -> pyatv.interface.BaseService | None:
         """Finish the pairing process."""
+        if not self._pairing_process:
+            _LOG.error("[%s] Pairing process not initialized", self.log_id)
+            return None
+
         _LOG.debug("[%s] Pairing finished", self.log_id)
         res = None
 
@@ -568,6 +591,11 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
         _LOG.debug("[%s] Connect loop ended", self.log_id)
         self._connect_task = None
+
+        # Safety check for future refactoring and to satisfy linter
+        if not self._atv:
+            _LOG.error("[%s] Connection loop ended without successful connection", self.log_id)
+            return
 
         # Add callback listener for various push updates
         self._atv.push_updater.listener = self
@@ -691,7 +719,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         else:
             _LOG.debug("[%s] Polling was already stopped", self.log_id)
 
-    async def _analyze_updated_data(self, update: dict[str, Any], data: Playing):
+    async def _analyze_updated_data(self, update: dict[MediaAttr, Any], data: Playing):
         """Analyze and report updated data."""
         await self._process_artwork(update, data)
 
@@ -747,7 +775,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         # store current state: used in `media_state` property
         self._device_state = data.device_state
 
-        update = {MediaAttr.STATE: self.media_state}
+        update: dict[MediaAttr, Any] = {MediaAttr.STATE: self.media_state}
 
         reset_playback_info = self._device_state not in [
             DeviceState.Playing,
@@ -763,7 +791,12 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         else:
             await self._analyze_updated_data(update, data)
 
-        if self._is_feature_available(FeatureName.App) and (source := self._atv.metadata.app.name):
+        if (
+            self._atv
+            and self._atv.metadata.app
+            and self._is_feature_available(FeatureName.App)
+            and (source := self._atv.metadata.app.name)
+        ):
             if source != self._source:
                 self._source = source
                 update[MediaAttr.SOURCE] = self._source
@@ -771,6 +804,9 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
     async def _update_app_list(self) -> None:
+        if not self._atv:
+            _LOG.warning("[%s] App list not updated, ATV not initialized", self.log_id)
+            return
         _LOG.debug("[%s] Updating app list", self.log_id)
         update = {}
 
@@ -782,8 +818,9 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                 return
             self._app_list.clear()
             for app in app_list:
-                self._app_list[app.name] = app.identifier
-                update[MediaAttr.SOURCE_LIST].append(app.name)
+                if app.name:
+                    self._app_list[app.name] = app.identifier
+                    update[MediaAttr.SOURCE_LIST].append(app.name)
         except pyatv.exceptions.NotSupportedError:
             _LOG.warning("[%s] App list is not supported", self.log_id)
         except pyatv.exceptions.ProtocolError:
@@ -855,7 +892,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         await asyncio.sleep(2)
         _LOG.debug("[%s] Polling started with interval %ds", self.log_id, self._poll_interval)
         while self._atv is not None:
-            update = {}
+            update: dict[MediaAttr, Any] = {}
 
             app_name = self.app_name
             if app_name:
@@ -898,6 +935,8 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         return PowerState.Unknown
 
     async def _process_artwork(self, update: dict[Any, Any], data: pyatv.interface.Playing | None):
+        if not self._atv:
+            return
         current_media_image_url = self._media_image_url
         if self._device_state not in [DeviceState.Idle, DeviceState.Stopped]:
             try:
@@ -950,9 +989,13 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             # Screensaver state is only accessible in SystemStatus
             # This call will raise an exception for tvOS >= 18.4 until it is resolved (or feature removed)
             # See https://github.com/postlund/pyatv/issues/2648
-            if self._atv and isinstance(self._atv.apps.main_instance.api, CompanionAPI):
-                system_status = await self._atv.apps.main_instance.api.fetch_attention_state()
-                return system_status
+            if self._atv:
+                main_instance = getattr(self._atv.apps, "main_instance", None)
+                if isinstance(main_instance, CompanionApps):
+                    api = getattr(main_instance, "api", None)
+                    if isinstance(api, CompanionAPI):
+                        system_status = await api.fetch_attention_state()
+                        return system_status
         except Exception:  # pylint: disable=broad-exception-caught
             pass
         return SystemStatus.Unknown
@@ -1341,14 +1384,16 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         :param use_page: HID usage page (1 Generic Desktop, 7 Keyboard, 12 Consumer)
         :param usage: HID key usage
         """
-        if self._atv and isinstance(self._atv.remote_control.main_instance, MrpRemoteControl):
-            await self._atv.remote_control.main_instance.protocol.send(messages.send_hid_event(use_page, usage, True))
-            await self._atv.remote_control.main_instance.protocol.send(messages.send_hid_event(use_page, usage, False))
-            return StatusCodes.OK
+        if self._atv:
+            main_instance = getattr(self._atv.remote_control, "main_instance", None)
+            if isinstance(main_instance, MrpRemoteControl):
+                await main_instance.protocol.send(messages.send_hid_event(use_page, usage, True))
+                await main_instance.protocol.send(messages.send_hid_event(use_page, usage, False))
+                return StatusCodes.OK
         _LOG.warning("[%s] send HID key not supported (%d, %d)", self.log_id, use_page, usage)
         return StatusCodes.SERVICE_UNAVAILABLE
 
-    def reset_media_data(self, attributes: dict[str, Any]):
+    def reset_media_data(self, attributes: dict[MediaAttr, Any]):
         """Reset media metadata."""
         attributes[MediaAttr.MEDIA_POSITION] = 0
         attributes[MediaAttr.MEDIA_DURATION] = 0
@@ -1366,7 +1411,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         self._media_title = None
         self._media_artist = None
         self._media_album = None
-        self._media_content_type = None
+        self._media_content_type = MediaContentType.VIDEO
         self._repeat = RepeatMode.OFF
         self._shuffle = None
         self._source = None
@@ -1381,6 +1426,6 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             MediaState.BUFFERING,
         ]:
             # if nothing is playing: clear the playing information
-            attributes: dict[str, Any] = {}
+            attributes: dict[MediaAttr, Any] = {}
             self.reset_media_data(attributes)
             self.events.emit(EVENTS.UPDATE, self.device_config.identifier, attributes)

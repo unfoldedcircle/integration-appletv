@@ -8,8 +8,8 @@ Common entity interface for Apple TV integration.
 import json
 import logging
 from abc import ABC, abstractmethod
-from enum import Enum, StrEnum
-from typing import Any, Type
+from enum import StrEnum
+from typing import Any
 
 from ucapi import IntegrationAPI, media_player
 from utils import truncate_dict
@@ -55,7 +55,7 @@ class AppleTVEntity(ABC):
         return self._entity_id
 
     @abstractmethod
-    def state_from_media_player_state(self, state: media_player.States) -> Type[Enum]:
+    def state_from_media_player_state(self, state: media_player.States) -> str:
         """Map media-player state to target entity state."""
 
     def update_attributes(self, update: dict[str, Any], *, force: bool = False) -> None:
