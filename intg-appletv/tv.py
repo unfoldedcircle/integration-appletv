@@ -253,7 +253,8 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         self._device_state: DeviceState | None = None
         self._app_list: dict[str, str] = {}
         self._available_output_devices: dict[str, str] = {}
-        self._output_devices: OrderedDict[str, list[str]] = OrderedDict[str, list[str]]()
+        self._output_devices: OrderedDict[str, frozenset[str]] = OrderedDict[str, frozenset[str]]()
+        self._output_devices[self._device.name] = frozenset()
         self._playback_state = PlaybackState.NORMAL
         self._output_devices_volume: dict[str, float] = {}
         self._volume_level: float = 0.0
@@ -334,13 +335,15 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
     @property
     def output_devices(self) -> str:
-        """Return the current selection of output devices."""
+        """Return current output device entry name."""
         if self._atv is None or self._atv.audio is None:
             return ""
-        device_names = []
-        for device in self._atv.audio.output_devices:
-            device_names.append(device.name)
-        return ", ".join(sorted(device_names, key=str.casefold))
+        current_id = self._atv.device_info.output_device_id if self._atv.device_info else None
+        active = frozenset(d.identifier for d in self._atv.audio.output_devices if d.identifier != current_id)
+        for name, ids in self._output_devices.items():
+            if ids == active:
+                return name
+        return ""
 
     @property
     def app_name(self) -> str:
@@ -809,14 +812,15 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             atvs = await pyatv.scan(self._loop)
             if self._atv is None:
                 return
-            device_ids: list[str] = []
-            self._available_output_devices = {}
-            for atv in atvs:
-                if atv.device_info.output_device_id == self._atv.device_info.output_device_id:
-                    continue
-                if atv.device_info.output_device_id not in device_ids:
-                    device_ids.append(atv.device_info.output_device_id)
-                    self._available_output_devices[atv.device_info.output_device_id] = atv.name
+            id_to_name = self._build_id_to_name_map(atvs)
+            current_id = self._atv.device_info.output_device_id if self._atv.device_info else None
+            # sort the devices, or we'd risk providing different results each time the method runs
+            # depending on the order devices are discovered
+            device_ids: list[str] = sorted(
+                (d for d in id_to_name if d != current_id),
+                key=lambda d: id_to_name[d].casefold(),
+            )
+            self._available_output_devices = {d: id_to_name[d] for d in device_ids}
         except pyatv.exceptions.NotSupportedError:
             _LOG.warning("[%s] Output devices listing is not supported", self.log_id)
             return
@@ -827,8 +831,8 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         # Build combinations of output devices. The first device in the list is the current Apple TV.
         # When selecting this entry, it will disable all output devices
         self._output_devices = OrderedDict()
-        self._output_devices[self._device.name] = []
-        self._build_output_devices_list(atvs, device_ids)
+        self._output_devices[self._device.name] = frozenset()
+        self._build_output_devices_list(id_to_name, device_ids)
         update[MediaAttr.SOUND_MODE_LIST] = self.output_devices_combinations
         update[AppleTVSelects.SELECT_AUDIO_OUTPUT] = {
             SelectAttributes.CURRENT_OPTION: self.output_devices,
@@ -843,21 +847,32 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         _LOG.debug("[%s] Updated sound mode list: %s", self.log_id, json.dumps(update))
         self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
-    def _build_output_devices_list(self, atvs: list[BaseConfig], device_ids: list[str]):
-        """Build possible combinations of output devices."""
-        # Don't go beyond combinations of 5 devices
-        max_len = min(len(device_ids), 4)
-        for i in range(0, max_len):
-            combinations = itertools.combinations(device_ids, i + 1)
-            for combination in combinations:
-                device_names: list[str] = []
-                for device_id in combination:
-                    for atv in atvs:
-                        if atv.device_info.output_device_id == device_id:
-                            device_names.append(atv.name)
-                            break
-                entry_name: str = ", ".join(sorted(device_names, key=str.casefold))
-                self._output_devices[entry_name] = list(combination)
+    # used to not let the output devices list grow uncontrolled
+    _MAX_OUTPUT_DEVICE_ENTRIES = 64
+
+    def _build_output_devices_list(self, id_to_name: dict[str, str], device_ids: list[str]):
+        """Build output device list, capped at _MAX_OUTPUT_DEVICE_ENTRIES."""
+        max_devices_per_group = min(len(device_ids), 4)
+        for group_size in range(1, max_devices_per_group + 1):
+            for combination in itertools.combinations(device_ids, group_size):
+                if len(self._output_devices) >= self._MAX_OUTPUT_DEVICE_ENTRIES:
+                    return
+                names = [id_to_name[d] for d in combination if d in id_to_name]
+                entry_name = ", ".join(sorted(names, key=str.casefold))
+                self._output_devices[entry_name] = frozenset(combination)
+
+    @staticmethod
+    def _build_id_to_name_map(atvs: list[BaseConfig]) -> dict[str, str]:
+        """Build a mapping of output_device_id -> name for the given scan results."""
+        id_to_name: dict[str, str] = {}
+        for atv in atvs:
+            if atv.device_info is None:
+                continue
+            output_id = atv.device_info.output_device_id
+            if output_id is None:
+                continue
+            id_to_name[output_id] = atv.name
+        return id_to_name
 
     async def _poll_worker(self) -> None:
         await asyncio.sleep(2)
