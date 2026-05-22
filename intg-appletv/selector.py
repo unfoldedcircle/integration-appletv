@@ -12,8 +12,9 @@ from typing import Any, Awaitable, Callable, TypeAlias
 import tv
 import ucapi
 from config import AtvDevice, create_entity_id
-from entities import AppleTVEntity, AppleTVSelects
+from entities import AppleTVEntity
 from ucapi import EntityTypes, IntegrationAPI, Select, StatusCodes
+from ucapi.media_player import Attributes as MediaAttr
 from ucapi.media_player import States as MediaStates
 from ucapi.select import Attributes, Commands, States
 
@@ -45,7 +46,10 @@ class AppleTVSelect(Select, AppleTVEntity):
     """Representation of an Apple TV select entity."""
 
     ENTITY_NAME = "select"
-    SELECT_NAME: AppleTVSelects
+    _SELECT_CURRENT_ATTRIBUTE: str
+    """Update attribute name for current option."""
+    _SELECT_OPTIONS_ATTRIBUTE: str
+    """Update attribute name for select options."""
 
     def __init__(
         self,
@@ -88,7 +92,7 @@ class AppleTVSelect(Select, AppleTVEntity):
             Attributes.STATE: States.ON,
         }
 
-    def state_from_media_player_state(self, state: States) -> States:
+    def state_from_media_player_state(self, state: MediaStates) -> States:
         """Map media-player state to select state."""
         return _SELECTOR_STATE_MAPPING.get(state, States.UNKNOWN)
 
@@ -105,19 +109,15 @@ class AppleTVSelect(Select, AppleTVEntity):
             new_state = self.state_from_media_player_state(update[ucapi.media_player.Attributes.STATE])
             if force or new_state != self.attributes.get(Attributes.STATE):
                 attributes[Attributes.STATE] = new_state
-        # TODO untangle select-entity attribute updates.
-        if self.SELECT_NAME in update:
-            if Attributes.CURRENT_OPTION in update[self.SELECT_NAME]:
-                if force or update[self.SELECT_NAME][Attributes.CURRENT_OPTION] != self.attributes.get(
-                    Attributes.CURRENT_OPTION
-                ):
-                    attributes[Attributes.CURRENT_OPTION] = update[self.SELECT_NAME][Attributes.CURRENT_OPTION]
-            if Attributes.OPTIONS in update[self.SELECT_NAME]:
-                if force or update[self.SELECT_NAME][Attributes.OPTIONS] != self.attributes.get(Attributes.OPTIONS):
-                    attributes[Attributes.OPTIONS] = update[self.SELECT_NAME][Attributes.OPTIONS]
+        if self._SELECT_CURRENT_ATTRIBUTE in update:
+            if force or update[self._SELECT_CURRENT_ATTRIBUTE] != self.attributes.get(Attributes.CURRENT_OPTION):
+                attributes[Attributes.CURRENT_OPTION] = update[self._SELECT_CURRENT_ATTRIBUTE]
+        if self._SELECT_OPTIONS_ATTRIBUTE in update:
+            if force or update[self._SELECT_OPTIONS_ATTRIBUTE] != self.attributes.get(Attributes.OPTIONS):
+                attributes[Attributes.OPTIONS] = update[self._SELECT_OPTIONS_ATTRIBUTE]
         # make sure select-entity is available if data changes
         if attributes and Attributes.STATE not in update:
-            attributes[Attributes.STATE] = States.ON
+            attributes.setdefault(Attributes.STATE, States.ON)
         return attributes
 
     async def command(self, cmd_id: str, params: dict[str, Any] | None = None, *, websocket: Any) -> StatusCodes:
@@ -186,7 +186,8 @@ class AppSelect(AppleTVSelect):
     """Representation of an AppleTV selector entity."""
 
     ENTITY_NAME = "app"
-    SELECT_NAME = AppleTVSelects.SELECT_APP
+    _SELECT_CURRENT_ATTRIBUTE = MediaAttr.SOURCE.value
+    _SELECT_OPTIONS_ATTRIBUTE = MediaAttr.SOURCE_LIST.value
 
     def __init__(
         self,
@@ -222,7 +223,8 @@ class AudioOutputSelect(AppleTVSelect):
     """Audio output selector entity."""
 
     ENTITY_NAME = "audio_output"
-    SELECT_NAME = AppleTVSelects.SELECT_AUDIO_OUTPUT
+    _SELECT_CURRENT_ATTRIBUTE = MediaAttr.SOUND_MODE.value
+    _SELECT_OPTIONS_ATTRIBUTE = MediaAttr.SOUND_MODE_LIST.value
 
     def __init__(self, config_device: AtvDevice, device: tv.AppleTv, api: IntegrationAPI):
         """Initialize the class."""

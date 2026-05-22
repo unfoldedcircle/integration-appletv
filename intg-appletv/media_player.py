@@ -143,7 +143,7 @@ class AppleTVMediaPlayer(MediaPlayer, AppleTVEntity):
             features.append(Features.SHUFFLE)
 
         attributes = filter_attributes(device.attributes, Attributes)
-        options = {Options.SIMPLE_COMMANDS: list(SimpleCommands)}
+        options: dict[str, list[Any]] = {Options.SIMPLE_COMMANDS: list(SimpleCommands)}
         super().__init__(
             entity_id, config_device.name, features, attributes, device_class=DeviceClasses.TV, options=options
         )
