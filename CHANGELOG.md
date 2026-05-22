@@ -11,6 +11,16 @@ _Changes in the next release_
 
 ---
 
+## v0.22.0 - 2026-05-22
+### Fixed
+- Power state handling with newer tvOS by @albaintor ([#127](https://github.com/unfoldedcircle/integration-appletv/pull/127)).
+- Update select- and sensor-entities if the audio output changes ([#128](https://github.com/unfoldedcircle/integration-appletv/pull/128)).
+
+### Changed
+- Reduce number of output device combinations by @henrikwidlund ([#126](https://github.com/unfoldedcircle/integration-appletv/pull/126)).
+- Simplify select- and sensor-entity updates by using media-player attribute changes ([#128](https://github.com/unfoldedcircle/integration-appletv/pull/128)).
+- Various linter and type fixes ([#130](https://github.com/unfoldedcircle/integration-appletv/pull/130)).
+
 ## v0.21.1 - 2026-05-11
 ### Fixed
 - Show the correct global volume setting in the setup flow ([#125](https://github.com/unfoldedcircle/integration-appletv/pull/125)).
