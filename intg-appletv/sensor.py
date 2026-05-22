@@ -16,7 +16,7 @@ from entities import AppleTVEntity
 from ucapi import EntityTypes, IntegrationAPI, Sensor
 from ucapi.media_player import Attributes as MediaAttr
 from ucapi.media_player import States as MediaStates
-from ucapi.sensor import Attributes, DeviceClasses, Options, States
+from ucapi.sensor import Attributes, DeviceClasses, States
 
 _LOG = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ class AppleTVSensor(Sensor, AppleTVEntity):
         device: tv.AppleTv,
         *,
         api: IntegrationAPI,
-        options: dict[Options, Any] | None = None,
+        options: dict[str, Any] | None = None,
         device_class: DeviceClasses = DeviceClasses.CUSTOM,
     ):
         """Initialize the class."""
