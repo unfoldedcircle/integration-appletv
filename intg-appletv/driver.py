@@ -292,8 +292,8 @@ def on_device_removed(device: config.AtvDevice | None) -> None:
             _LOOP.create_task(atv.disconnect())
             atv.events.remove_all_listeners()
             for entity in _get_entities(atv.identifier, include_all=True):
-                api.configured_entities.remove(entity.id)
-                api.available_entities.remove(entity.id)
+                api.configured_entities.remove(entity.entity_id)
+                api.available_entities.remove(entity.entity_id)
 
 
 class JournaldFormatter(logging.Formatter):

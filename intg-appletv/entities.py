@@ -49,6 +49,11 @@ class AppleTVEntity(ABC):
     def atv_id(self) -> str:
         """Return the ATV device identifier."""
 
+    @property
+    def entity_id(self):
+        """Return the entity identifier."""
+        return self._entity_id
+
     @abstractmethod
     def state_from_media_player_state(self, state: media_player.States) -> Type[Enum]:
         """Map media-player state to target entity state."""

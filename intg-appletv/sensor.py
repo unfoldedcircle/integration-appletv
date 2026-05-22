@@ -12,8 +12,9 @@ from typing import Any
 import tv
 import ucapi.media_player
 from config import AtvDevice, create_entity_id
-from entities import AppleTVEntity, AppleTVSensors
+from entities import AppleTVEntity
 from ucapi import EntityTypes, IntegrationAPI, Sensor
+from ucapi.media_player import Attributes as MediaAttr
 from ucapi.media_player import States as MediaStates
 from ucapi.sensor import Attributes, DeviceClasses, Options, States
 
@@ -34,7 +35,8 @@ class AppleTVSensor(Sensor, AppleTVEntity):
     """Representation of a AppleTV Sensor entity."""
 
     ENTITY_NAME = "sensor"
-    SENSOR_NAME: AppleTVSensors
+    _SENSOR_ATTRIBUTE: str
+    """Update attribute name for sensor value."""
 
     def __init__(
         self,
@@ -73,7 +75,7 @@ class AppleTVSensor(Sensor, AppleTVEntity):
             Attributes.STATE: _SENSOR_STATE_MAPPING.get(self._device.media_state),
         }
 
-    def state_from_media_player_state(self, state: States) -> States:
+    def state_from_media_player_state(self, state: MediaStates) -> States:
         """Map media-player state to sensor state."""
         return _SENSOR_STATE_MAPPING.get(state, States.UNKNOWN)
 
@@ -90,11 +92,11 @@ class AppleTVSensor(Sensor, AppleTVEntity):
             new_state = self.state_from_media_player_state(update[ucapi.media_player.Attributes.STATE])
             if force or new_state != self.attributes.get(Attributes.STATE):
                 attributes[Attributes.STATE] = new_state
-        if self.SENSOR_NAME in update:
-            if force or update[self.SENSOR_NAME] != self.attributes.get(Attributes.VALUE):
+        if self._SENSOR_ATTRIBUTE in update:
+            if force or update[self._SENSOR_ATTRIBUTE] != self.attributes.get(Attributes.VALUE):
                 # make sure sensor-entity is available if data changes
                 attributes.setdefault(Attributes.STATE, States.ON)
-                attributes[Attributes.VALUE] = update[self.SENSOR_NAME]
+                attributes[Attributes.VALUE] = update[self._SENSOR_ATTRIBUTE]
         return attributes
 
 
@@ -102,7 +104,7 @@ class AppSensor(AppleTVSensor):
     """Current App sensor entity."""
 
     ENTITY_NAME = "app"
-    SENSOR_NAME = AppleTVSensors.SENSOR_APP
+    _SENSOR_ATTRIBUTE = MediaAttr.SOURCE.value
 
     def __init__(
         self,
@@ -132,7 +134,7 @@ class AudioOutputSensor(AppleTVSensor):
     """Current audio output sensor entity."""
 
     ENTITY_NAME = "audio_output"
-    SENSOR_NAME = AppleTVSensors.SENSOR_AUDIO_OUTPUT
+    _SENSOR_ATTRIBUTE = MediaAttr.SOUND_MODE.value
 
     def __init__(
         self,
