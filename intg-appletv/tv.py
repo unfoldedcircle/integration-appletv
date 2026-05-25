@@ -487,27 +487,16 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         _LOG.debug(f"Found {len(atvs)} AppleTV for identifier {identifier} and hosts {hosts} : %s", atvs[0])
         return atvs[0]
 
-    def add_credentials(self, credentials: dict[AtvProtocol, str]) -> None:
+    def add_credentials(self, credentials: dict[str, str]) -> None:
         """Add credentials for a protocol."""
-        self._device.credentials.append({protocol.value: credential for protocol, credential in credentials.items()})
+        self._device.credentials.append(credentials)
 
-    def get_credentials(self) -> list[dict[AtvProtocol, str]]:
+    def get_credentials(self) -> list[dict[str, str]]:
         """Return stored credentials."""
         if not self._device.credentials:
             _LOG.error("[%s] No credentials defined!", self.log_id)
             return []
-
-        converted_credentials: list[dict[AtvProtocol, str]] = []
-        for credentials in self._device.credentials:
-            converted: dict[AtvProtocol, str] = {}
-            for protocol, credential in credentials.items():
-                try:
-                    converted[AtvProtocol(protocol)] = credential
-                except ValueError:
-                    _LOG.warning("[%s] Ignoring invalid ATV protocol: %s", self.log_id, protocol)
-            converted_credentials.append(converted)
-
-        return converted_credentials
+        return self._device.credentials
 
     async def start_pairing(self, protocol: Protocol, name: str) -> int | None:
         """Start the pairing process with the Apple TV."""
