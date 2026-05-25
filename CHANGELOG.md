@@ -11,6 +11,11 @@ _Changes in the next release_
 
 ---
 
+## v0.22.1 - 2026-05-25
+### Fixed
+- Connect Apple TV after setup ([#133](https://github.com/unfoldedcircle/integration-appletv/pull/133)).
+- Regression with credential type fixes in the last release, preventing setting up a new device ([#132](https://github.com/unfoldedcircle/integration-appletv/pull/132)).
+
 ## v0.22.0 - 2026-05-22
 ### Fixed
 - Power state handling with newer tvOS by @albaintor ([#127](https://github.com/unfoldedcircle/integration-appletv/pull/127)).
