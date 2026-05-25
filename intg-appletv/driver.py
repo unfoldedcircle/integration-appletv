@@ -99,6 +99,8 @@ async def on_subscribe_entities(entity_ids: list[str]) -> None:
         device_id = configured_entity.atv_id
         if device_id in _configured_atvs:
             device = _configured_atvs[device_id]
+            # make sure the device is connected when subscribing to an entity
+            await device.connect()
             # Set all current attributes in the configured entity to make sure it is up to date once the Remote sends a
             # `get_entity_states` request. Note: `update_attributes` will also trigger an entity_change event.
             # Better to have too many `entity_change` events than old data!
@@ -107,7 +109,7 @@ async def on_subscribe_entities(entity_ids: list[str]) -> None:
 
         device = config.devices.get(device_id) if config.devices else None
         if device:
-            _add_configured_atv(device)
+            _add_configured_atv(device, connect=True)
         else:
             _LOG.error("Failed to subscribe entity %s: no Apple TV instance found", entity_id)
 
@@ -272,7 +274,7 @@ def _register_available_entities(device_config: config.AtvDevice, device: tv.App
 def on_device_added(device: config.AtvDevice) -> None:
     """Handle a newly added device in the configuration."""
     _LOG.debug("New device added: %s", device)
-    _add_configured_atv(device, connect=False)
+    _add_configured_atv(device, connect=True)
 
 
 def on_device_removed(device: config.AtvDevice | None) -> None:
