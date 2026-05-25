@@ -12,7 +12,7 @@ import logging
 import os
 from asyncio import Lock
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import Iterator
 
 import discover
@@ -24,7 +24,7 @@ _LOG = logging.getLogger(__name__)
 _CFG_FILENAME = "config.json"
 
 
-class AtvProtocol(str, Enum):
+class AtvProtocol(StrEnum):
     """Apple TV protocols."""
 
     AIRPLAY = "airplay"

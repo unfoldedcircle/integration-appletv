@@ -268,6 +268,9 @@ async def _handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput 
             # Found mac address/identifier of selected AppleTV upon detection
             found_selected_device_id = ""
             for discovered_atv in discovered_atvs:
+                if discovered_atv.identifier is None:
+                    _LOG.warning("Skipping device: no identifier! %s", discovered_atv)
+                    continue
                 # List of detected AppleTVs : exclude already configured ones except the one the user selected
                 if (
                     selected_device.identifier != discovered_atv.identifier
@@ -484,14 +487,14 @@ async def _handle_user_data_airplay_pin(
         _LOG.error("Pairing Apple TV device no longer available after entering AirPlay pin. Aborting setup")
         return SetupError()
 
-    await _pairing_apple_tv.enter_pin(msg.input_values["pin_airplay"])
+    await _pairing_apple_tv.enter_pin(int(msg.input_values["pin_airplay"]))
 
     res = await _pairing_apple_tv.finish_pairing()
-    if res is None:
+    if res is None or res.credentials is None:
         return SetupError()
 
     # Store credentials
-    c = {"protocol": AtvProtocol.AIRPLAY, "credentials": res.credentials}
+    c = {"protocol": AtvProtocol.AIRPLAY.value, "credentials": res.credentials}
     _pairing_apple_tv.add_credentials(c)
 
     # Start new pairing process
@@ -535,16 +538,16 @@ async def _handle_user_data_companion_pin(msg: UserDataResponse) -> SetupComplet
         _LOG.error("Pairing Apple TV device no longer available after entering companion pin. Aborting setup")
         return SetupError()
 
-    await _pairing_apple_tv.enter_pin(msg.input_values["pin_companion"])
+    await _pairing_apple_tv.enter_pin(int(msg.input_values["pin_companion"]))
 
     res = await _pairing_apple_tv.finish_pairing()
     await _pairing_apple_tv.disconnect()
 
-    if res is None:
+    if res is None or res.credentials is None:
         _pairing_apple_tv = None
         return SetupError()
 
-    c = {"protocol": AtvProtocol.COMPANION, "credentials": res.credentials}
+    c = {"protocol": AtvProtocol.COMPANION.value, "credentials": res.credentials}
     _pairing_apple_tv.add_credentials(c)
 
     device = AtvDevice(
