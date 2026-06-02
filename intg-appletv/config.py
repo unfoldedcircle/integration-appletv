@@ -6,18 +6,22 @@ Configuration handling of the integration driver.
 """
 
 import asyncio
-import dataclasses
-import json
-import logging
-import os
 from asyncio import Lock
+from collections.abc import Callable, Iterator
+import contextlib
+import dataclasses
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Iterator
+import json
+import logging
+from pathlib import Path
+from typing import Any
+
+import pyatv
+from typing_extensions import override
+from ucapi import EntityTypes
 
 import discover
-import pyatv
-from ucapi import EntityTypes
 
 _LOG = logging.getLogger(__name__)
 
@@ -52,8 +56,9 @@ class AtvDevice:
 class _EnhancedJSONEncoder(json.JSONEncoder):
     """Python dataclass json encoder."""
 
-    def default(self, o):
-        if dataclasses.is_dataclass(o):
+    @override
+    def default(self, o: Any) -> Any:
+        if dataclasses.is_dataclass(o) and not isinstance(o, type):
             return dataclasses.asdict(o)
         return super().default(o)
 
@@ -71,14 +76,19 @@ def base_entity_id_from_entity_id(entity_id: str) -> str:
 class Devices:
     """Integration driver configuration class. Manages all configured Apple TV devices."""
 
-    def __init__(self, data_path: str, add_handler, remove_handler):
+    def __init__(
+        self,
+        data_path: str,
+        add_handler: Callable[[AtvDevice], None] | None,
+        remove_handler: Callable[[AtvDevice | None], None] | None,
+    ) -> None:
         """
         Create a configuration instance for the given configuration path.
 
         :param data_path: configuration path for the configuration file and client device certificates.
         """
         self._data_path: str = data_path
-        self._cfg_file_path: str = os.path.join(data_path, _CFG_FILENAME)
+        self._cfg_file_path: Path = Path(data_path) / _CFG_FILENAME
         self._config: list[AtvDevice] = []
         self._add_handler = add_handler
         self._remove_handler = remove_handler
@@ -96,10 +106,7 @@ class Devices:
 
     def contains(self, atv_id: str) -> bool:
         """Check if there's a device with the given device identifier."""
-        for item in self._config:
-            if item.identifier == atv_id:
-                return True
-        return False
+        return any(item.identifier == atv_id for item in self._config)
 
     def add_or_update(self, atv: AtvDevice) -> None:
         """
@@ -150,8 +157,8 @@ class Devices:
         """Remove the configuration file."""
         self._config = []
 
-        if os.path.exists(self._cfg_file_path):
-            os.remove(self._cfg_file_path)
+        if self._cfg_file_path.exists():
+            self._cfg_file_path.unlink()
 
         if self._remove_handler is not None:
             self._remove_handler(None)
@@ -163,7 +170,7 @@ class Devices:
         :return: True if the configuration could be saved.
         """
         try:
-            with open(self._cfg_file_path, "w+", encoding="utf-8") as f:
+            with self._cfg_file_path.open("w+", encoding="utf-8") as f:
                 json.dump(self._config, f, ensure_ascii=False, cls=_EnhancedJSONEncoder)
             return True
         except OSError as err:
@@ -178,7 +185,7 @@ class Devices:
         :return: True if the configuration could be loaded.
         """
         try:
-            with open(self._cfg_file_path, "r", encoding="utf-8") as f:
+            with self._cfg_file_path.open(encoding="utf-8") as f:
                 data = json.load(f)
             for item in data:
                 # not using AtvDevice(**item) to be able to migrate old configuration files with missing attributes
@@ -201,10 +208,7 @@ class Devices:
 
     def migration_required(self) -> bool:
         """Check if configuration migration is required."""
-        for item in self._config:
-            if not item.name or not item.mac_address:
-                return True
-        return False
+        return any(not item.name or not item.mac_address for item in self._config)
 
     async def migrate(self) -> bool:
         """Migrate configuration if required."""
@@ -242,10 +246,8 @@ class Devices:
     ) -> pyatv.interface.BaseConfig | None:
         """Return the discovered AppleTV corresponding to the configured device."""
         found_atv: pyatv.interface.BaseConfig | None = None
-        try:
+        with contextlib.suppress(StopIteration):
             found_atv = next(atv for atv in discovered_atvs if atv.identifier == configured_device.mac_address)
-        except StopIteration:
-            pass
         # Fallback to device name if not found
         if found_atv is None:
             try:
@@ -266,57 +268,70 @@ class Devices:
             return False
 
         # Only one instance of devices change
-        await self._config_lock.acquire()
-        identifiers = set(map(lambda device: device.mac_address, self._config))
-        # Scan should be quick if the devices are connected when submitting their identifiers
-        discovered_atvs = await discover.apple_tvs(asyncio.get_event_loop(), identifier=identifiers)
-        result = False
-        find_all = False
-        for item in self._config:
-            found_atv = self.get_discovered_device(item, discovered_atvs)
-
-            # If the configured device has not been found, discover all devices (longer) and check after them
-            if found_atv is None and not find_all:
-                discovered_atvs = await discover.apple_tvs(asyncio.get_event_loop())
-                find_all = True
+        async with self._config_lock:
+            identifiers = {device.mac_address for device in self._config if device.mac_address}
+            # Scan should be quick if the devices are connected when submitting their identifiers
+            discovered_atvs = await discover.apple_tvs(asyncio.get_event_loop(), identifier=identifiers)
+            result = False
+            find_all = False
+            for item in self._config:
                 found_atv = self.get_discovered_device(item, discovered_atvs)
 
-            if found_atv is None:
+                # If the configured device has not been found, discover all devices (longer) and check after them
+                if found_atv is None and not find_all:
+                    discovered_atvs = await discover.apple_tvs(asyncio.get_event_loop())
+                    find_all = True
+                    found_atv = self.get_discovered_device(item, discovered_atvs)
+
+                if found_atv is None:
+                    _LOG.debug(
+                        "Check device change : %s (mac=%s, ip=%s) could not be found on network.",
+                        item.name,
+                        item.mac_address,
+                        item.address,
+                    )
+                    continue
+                found_addr = str(found_atv.address)
+                if (
+                    found_atv.identifier == item.mac_address
+                    and found_atv.name == item.name
+                    and (item.address is None or item.address == found_addr)
+                ):
+                    continue
+
+                # Name, or mac address or IP address (only for manual configuration) changed
                 _LOG.debug(
-                    "Check device change : %s (mac=%s, ip=%s) could not be found on network.",
+                    "Check device change: %s (mac=%s, ip=%s) changed, now identified as %s (mac=%s, ip=%s)",
                     item.name,
                     item.mac_address,
                     item.address,
+                    found_atv.name,
+                    found_atv.identifier,
+                    found_addr,
                 )
-                continue
-            if (
-                found_atv.identifier == item.mac_address
-                and found_atv.name == item.name
-                and (item.address is None or item.address == found_atv.address)
-            ):
-                continue
+                item.name = found_atv.name
+                item.mac_address = found_atv.identifier
+                if item.address and item.address != found_addr:
+                    item.address = found_addr
+                result = True
 
-            # Name, or mac address or IP address (only for manual configuration) changed
-            _LOG.debug(
-                "Check device change: %s (mac=%s, ip=%s) changed, now identified as %s (mac=%s, ip=%s)",
-                item.name,
-                item.mac_address,
-                item.address,
-                found_atv.name,
-                found_atv.identifier,
-                str(found_atv.address),
-            )
-            item.name = found_atv.name
-            item.mac_address = found_atv.identifier
-            if item.address and item.address != found_atv.address:
-                item.address = str(found_atv.address)
-            result = True
-
-        if result:
-            _LOG.debug("Configuration updated")
-            self.store()
-        self._config_lock.release()
-        return result
+            if result:
+                _LOG.debug("Configuration updated")
+                self.store()
+            return result
 
 
-devices: Devices | None = None  # pylint: disable=C0103
+devices: "Devices | None" = None
+"""
+Module-level Devices instance. Initialized at startup by driver.main() via
+`config.devices = Devices(...)`. Callers should prefer `get_devices()` to fail fast on
+uninitialized access rather than reading the bare module attribute.
+"""
+
+
+def get_devices() -> "Devices":
+    """Return the initialized Devices instance, raising if startup has not run yet."""
+    if devices is None:
+        msg = "Configuration not initialized; driver.main() must run before config access"
+        raise RuntimeError(msg)
+    return devices

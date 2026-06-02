@@ -6,17 +6,19 @@ Remote entity functions.
 """
 
 import logging
-from typing import Any
+from typing import Any, cast
 
-import tv
+from typing_extensions import override
+from ucapi import EntityTypes, IntegrationAPI, StatusCodes, media_player
+from ucapi.media_player import Commands as MediaPlayerCommands
 import ucapi.remote
+from ucapi.remote import Attributes, Commands, Features, Remote
+from ucapi.ui import Buttons
+
 from config import AtvDevice, create_entity_id
 from entities import AppleTVEntity
 from media_player import AppleTVMediaPlayer, SimpleCommands
-from ucapi import EntityTypes, IntegrationAPI, Remote, StatusCodes, media_player
-from ucapi.media_player import Commands as MediaPlayerCommands
-from ucapi.remote import Attributes, Commands, Features
-from ucapi.ui import Buttons
+import tv
 from utils import key_update_helper
 
 _LOG = logging.getLogger(__name__)
@@ -122,7 +124,7 @@ class AppleTVRemote(Remote, AppleTVEntity):
             MediaPlayerCommands.CONTEXT_MENU.upper(),
             *self._media_player_simple_commands,
         ]
-        super().__init__(
+        cast("Any", super()).__init__(
             entity_id,
             f"{config_device.name} Remote",
             [Features.SEND_CMD, Features.ON_OFF, Features.TOGGLE],
@@ -134,10 +136,12 @@ class AppleTVRemote(Remote, AppleTVEntity):
         AppleTVEntity.__init__(self, entity_id, api)
 
     @property
+    @override
     def atv_id(self) -> str:
         """Return the device identifier."""
         return self._device.identifier
 
+    @override
     def state_from_media_player_state(self, state: media_player.States) -> ucapi.remote.States:
         """Map media-player state to remote state."""
         match state:
@@ -156,6 +160,7 @@ class AppleTVRemote(Remote, AppleTVEntity):
             case _:
                 return ucapi.remote.States.UNKNOWN
 
+    @override
     def filter_attributes(self, update: dict[str, Any], *, force: bool = False) -> dict[str, Any]:
         """
         Filter the given attributes from an ATV update and return only the related remote-entity values.
@@ -181,9 +186,15 @@ class AppleTVRemote(Remote, AppleTVEntity):
 
         return attributes
 
-    async def command(self, cmd_id: str, params: dict[str, Any] | None = None, *, websocket: Any = None) -> StatusCodes:
+    @override
+    async def command(
+        self,
+        cmd_id: str,
+        params: dict[str, Any] | None = None,
+        *,
+        websocket: Any = None,
+    ) -> StatusCodes:
         """Remote entity command handler."""
-        # pylint: disable=R0911,R0912
         match cmd_id:
             case Commands.ON:
                 return await self._media_player.command(media_player.Commands.ON, None)
@@ -191,6 +202,8 @@ class AppleTVRemote(Remote, AppleTVEntity):
                 return await self._media_player.command(media_player.Commands.OFF, None)
             case Commands.TOGGLE:
                 return await self._media_player.command(media_player.Commands.TOGGLE, None)
+            case _:
+                pass
 
         if cmd_id.startswith("remote."):
             _LOG.error("Command %s is not allowed.", cmd_id)

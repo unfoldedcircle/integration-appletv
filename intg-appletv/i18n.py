@@ -9,10 +9,9 @@ This implementation is compatible with Crowdin for translation management.
 :license: Mozilla Public License Version 2.0, see LICENSE for more details.
 """
 
-import os
 from gettext import NullTranslations, translation
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any
 
 # Define the available languages
 AVAILABLE_LANGUAGES = ["en_US", "de_DE", "es_ES", "fr_FR", "nl_NL", "sv_SE"]
@@ -22,13 +21,12 @@ DEFAULT_LANGUAGE = "en_US"
 LOCALE_DIR = Path(__file__).parent / "locales"
 
 # Cache for translators to avoid creating them multiple times
-_translators: Dict[str, NullTranslations] = {}
+_translators: dict[str, NullTranslations] = {}
 
-# Current language # pylint: disable=C0103
 _current_language = DEFAULT_LANGUAGE
 
 
-def setup_i18n(locale_dir: Optional[str] = None) -> None:
+def setup_i18n(locale_dir: str | None = None) -> None:
     """
     Set up the internationalization system.
 
@@ -44,12 +42,12 @@ def setup_i18n(locale_dir: Optional[str] = None) -> None:
         LOCALE_DIR = Path(locale_dir)
 
     # Ensure the locales directory exists
-    os.makedirs(LOCALE_DIR, exist_ok=True)
+    LOCALE_DIR.mkdir(parents=True, exist_ok=True)
 
     # Create language directories if they don't exist
     for lang in AVAILABLE_LANGUAGES:
         lang_dir = LOCALE_DIR / lang / "LC_MESSAGES"
-        os.makedirs(lang_dir, exist_ok=True)
+        lang_dir.mkdir(parents=True, exist_ok=True)
 
 
 def set_language(language: str) -> None:
@@ -60,13 +58,10 @@ def set_language(language: str) -> None:
     """
     global _current_language
 
-    if language in AVAILABLE_LANGUAGES:
-        _current_language = language
-    else:
-        _current_language = DEFAULT_LANGUAGE
+    _current_language = language if language in AVAILABLE_LANGUAGES else DEFAULT_LANGUAGE
 
 
-def get_translator(language: Optional[str] = None) -> NullTranslations:
+def get_translator(language: str | None = None) -> NullTranslations:
     """
     Get a translator for the specified language.
 
@@ -111,7 +106,7 @@ def ngettext(singular: str, plural: str, n: int) -> str:
     return translator.ngettext(singular, plural, n)
 
 
-def i18all(message: str) -> Dict[str, str]:
+def i18all(message: str) -> dict[str, str]:
     """
     Create a translation dictionary for all available languages.
 
@@ -141,7 +136,7 @@ def i18all(message: str) -> Dict[str, str]:
     return result
 
 
-def i18all_format(message: str, **kwargs) -> Dict[str, str]:
+def i18all_format(message: str, **kwargs: Any) -> dict[str, str]:
     """
     Create a translation dictionary for all available languages with a formatting operation.
 
@@ -178,7 +173,7 @@ def i18all_format(message: str, **kwargs) -> Dict[str, str]:
     return result
 
 
-def i18all_multi(*args: str) -> Dict[str, str]:
+def i18all_multi(*args: str) -> dict[str, str]:
     """
     Create a translation dictionary for all available languages with multiple messages.
 
@@ -218,6 +213,27 @@ _n = ngettext
 _a = i18all
 _af = i18all_format
 _am = i18all_multi
+
+# Expose the underscore-prefixed shorthand aliases as part of the public API.
+__all__ = [
+    "AVAILABLE_LANGUAGES",
+    "DEFAULT_LANGUAGE",
+    "_",
+    "__",
+    "_a",
+    "_af",
+    "_am",
+    "_n",
+    "echo",
+    "get_translator",
+    "gettext",
+    "i18all",
+    "i18all_format",
+    "i18all_multi",
+    "ngettext",
+    "set_language",
+    "setup_i18n",
+]
 
 # Initialize the i18n system
 setup_i18n()

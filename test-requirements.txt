@@ -1,6 +1,2 @@
-# pin pylint version: it has a tendendy for stricter rules in patch updates!
-pylint==4.0.5
-flake8-docstrings
-flake8
-black
-isort
+ruff==0.15.13
+pyright==1.1.409

@@ -4,7 +4,8 @@
 # Original source: https://github.com/adafruit/Adafruit_CircuitPython_HID/tree/main
 
 """
-`adafruit_hid.consumer_control_code.ConsumerControlCode`
+`adafruit_hid.consumer_control_code.ConsumerControlCode`.
+
 ========================================================
 
 * Author(s): Dan Halbert
@@ -17,8 +18,6 @@ class ConsumerControlCode:
     This list includes a few common consumer control codes from
     https://www.usb.org/sites/default/files/hut1_21_0.pdf#page=118.
     """
-
-    # pylint: disable-msg=too-few-public-methods
 
     RECORD = 0xB2
     """Record"""
