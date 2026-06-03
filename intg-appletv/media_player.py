@@ -85,6 +85,8 @@ class SimpleCommands(StrEnum):
     """Send pause command. App specific! Some treat it as play_pause."""
     PLAY_PAUSE_KEY = "PLAY_PAUSE_KEY"
     """Alternative play/pause command by sending a HID key press."""
+    MENU_PICK = "MENU_PICK"
+    """Menu pick command by sending a HID key press (exits screensaver/play/OK)."""
 
 
 def _get_cmd_param(name: str, params: dict[str, Any] | None) -> str | bool | None:
@@ -332,6 +334,8 @@ class AppleTVMediaPlayer(MediaPlayer, AppleTVEntity):
                 res = await self._device.play()
             case SimpleCommands.PAUSE:
                 res = await self._device.pause()
+            case SimpleCommands.MENU_PICK:
+                res = await self._device.send_hid_key(UsagePage.CONSUMER, 0x41)
 
         return res if res is not None else StatusCodes.SERVER_ERROR
 
