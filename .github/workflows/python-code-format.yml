@@ -37,21 +37,20 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Create virtual environment
+      - name: Install pip
         run: |
-          python -m venv .venv
+          python -m pip install --upgrade pip
 
       - name: Install dependencies
         run: |
-          .venv/bin/python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then .venv/bin/pip install -r requirements.txt; fi
-          if [ -f test-requirements.txt ]; then .venv/bin/pip install -r test-requirements.txt; fi
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f test-requirements.txt ]; then pip install -r test-requirements.txt; fi
       - name: Lint with ruff
         run: |
-          .venv/bin/python -m ruff check intg-appletv
+          python -m ruff check intg-appletv
       - name: Check code formatting with ruff
         run: |
-          .venv/bin/python -m ruff format --check intg-appletv
+          python -m ruff format --check intg-appletv
       - name: Type check with pyright
         run: |
-          .venv/bin/python -m pyright
+          python -m pyright
