@@ -8,6 +8,7 @@ This module handles monkey patching of the pyatv library.
 # pyright: reportPrivateUsage=false
 
 import logging
+import os
 from typing import Any, cast
 
 import pyatv
@@ -53,6 +54,9 @@ async def patched_pyatv_companion_system_info(self: pyatv.protocols.companion.ap
     """Patch pyatv method to send system information to device."""
     creds = pyatv.auth.hap_pairing.parse_credentials(self.core.service.credentials)
     info = self.core.settings.info
+    # `_i` needs to be unique per client, otherwise multiple clients will get disconnected!
+    if info.rp_id is None:
+        info.rp_id = os.urandom(6).hex()
     _LOG.debug("Sending system information")
     await self._send_command(
         "_systemInfo",
@@ -62,7 +66,7 @@ async def patched_pyatv_companion_system_info(self: pyatv.protocols.companion.ap
             "_clFl": 128,
             # A null "_i" stops the device from pushing TVSystemStatus
             # (power state) events; fall back to a stable identifier.
-            "_i": info.rp_id or info.device_id.replace(":", "").lower(),
+            "_i": info.rp_id,
             "_idsID": creds.client_id,
             "_pubID": info.device_id,
             "_sf": 256,
