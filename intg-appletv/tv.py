@@ -176,6 +176,7 @@ def async_handle_atvlib_errors(
         except (pyatv.exceptions.ConnectionFailedError, pyatv.exceptions.ConnectionLostError) as err:
             result = StatusCodes.SERVICE_UNAVAILABLE
             _LOG.warning("[%s] ATV network error (%s%s): %s", self.log_id, func.__name__, args, err)
+            self._handle_disconnect()  # pyright: ignore[reportPrivateUsage]
         except pyatv.exceptions.AuthenticationError as err:
             result = StatusCodes.UNAUTHORIZED
             _LOG.warning("[%s] Authentication error (%s%s): %s", self.log_id, func.__name__, args, err)
@@ -606,24 +607,41 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             _LOG.error("[%s] Connection loop ended without successful connection", self.log_id)
             return
 
-        # Add callback listener for various push updates
-        self._atv.push_updater.listener = self
-        self._atv.push_updater.start()
-        self._atv.listener = self
-        self._atv.audio.listener = self
+        # Set up listeners and start push updates.
+        # pyatv blocks the facade immediately after close(), so any access here can raise
+        # BlockedStateError if the connection was lost between _connect_once() returning and
+        # this point.  We set self._atv.listener = self FIRST so that from this point forward
+        # connection_lost/connection_closed callbacks will fire even if we crash mid-setup.
+        try:
+            self._atv.listener = self
+            self._atv.push_updater.listener = self
+            self._atv.push_updater.start()
+            self._atv.audio.listener = self
 
-        # Reset the backoff counter
-        self._connection_attempts = 0
+            # Reset the backoff counter
+            self._connection_attempts = 0
 
-        await self._start_polling()
+            await self._start_polling()
 
-        if self._atv.features.in_state(FeatureState.Available, FeatureName.AppList):
-            self._loop.create_task(self._update_app_list())
+            if self._atv.features.in_state(FeatureState.Available, FeatureName.AppList):
+                self._loop.create_task(self._update_app_list())
 
-        self._loop.create_task(self._update_output_devices())
+            self._loop.create_task(self._update_output_devices())
 
-        self.events.emit(EVENTS.CONNECTED, self._device.identifier)
-        _LOG.debug("[%s] Connected", self.log_id)
+            self.events.emit(EVENTS.CONNECTED, self._device.identifier)
+            _LOG.debug("[%s] Connected", self.log_id)
+        except pyatv.exceptions.BlockedStateError as err:
+            # The pyatv facade was already closed/blocked before we could finish setup.
+            # This happens when the remote side drops the connection in the narrow window
+            # after pyatv.connect() returns but before our listener is fully wired up.
+            # Trigger a clean disconnect so the reconnect loop restarts.
+            _LOG.warning(
+                "[%s] Connection was lost during post-connect setup (%s): %s",
+                self.log_id,
+                err.args[0] if err.args else "blocked",
+                err,
+            )
+            self._handle_disconnect()
 
     async def _connect_once(self) -> bool:
         try:
@@ -834,6 +852,10 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             _LOG.warning("[%s] App list is not supported", self.log_id)
         except pyatv.exceptions.ProtocolError:
             _LOG.warning("[%s] App list: protocol error", self.log_id)
+        except pyatv.exceptions.BlockedStateError:
+            # Connection was closed while we were fetching the app list; ignore silently.
+            _LOG.debug("[%s] Connection closed during app list update, skipping", self.log_id)
+            return
 
         self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
@@ -857,6 +879,10 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             return
         except pyatv.exceptions.ProtocolError:
             _LOG.warning("[%s] Output devices: protocol error", self.log_id)
+            return
+        except pyatv.exceptions.BlockedStateError:
+            # Connection was closed while we were fetching output devices; ignore silently.
+            _LOG.debug("[%s] Connection closed during output device update, skipping", self.log_id)
             return
         update: dict[str, Any] = {}
         # Build combinations of output devices. The first device in the list is the current Apple TV.
@@ -916,6 +942,16 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                 else:
                     # No playback data available, clear the artwork
                     await self._process_artwork(update, None)
+            except pyatv.exceptions.BlockedStateError as ex:
+                # The pyatv facade was closed under us; trigger a clean reconnect and exit.
+                _LOG.warning("[%s] Polling: connection blocked, triggering reconnect: %s", self.log_id, ex)
+                self._handle_disconnect()
+                return
+            except (pyatv.exceptions.ConnectionFailedError, pyatv.exceptions.ConnectionLostError) as ex:
+                # Connection was lost during a poll; let _handle_disconnect restart the loop.
+                _LOG.warning("[%s] Polling: connection lost, triggering reconnect: %s", self.log_id, ex)
+                self._handle_disconnect()
+                return
             except pyatv.exceptions.NotSupportedError:
                 pass
             except Exception as ex:  # pylint: disable=broad-except  # noqa: BLE001
@@ -991,7 +1027,10 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
     def _is_feature_available(self, feature: FeatureName) -> bool:
         if self._atv:
-            return self._atv.features.in_state(FeatureState.Available, feature)
+            try:
+                return self._atv.features.in_state(FeatureState.Available, feature)
+            except pyatv.exceptions.BlockedStateError:
+                return False
         return False
 
     async def _system_status(self) -> SystemStatus:
