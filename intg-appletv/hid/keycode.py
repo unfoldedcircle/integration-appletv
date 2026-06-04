@@ -4,7 +4,8 @@
 # Original source: https://github.com/adafruit/Adafruit_CircuitPython_HID/tree/main
 
 """
-`adafruit_hid.keycode.Keycode`
+`adafruit_hid.keycode.Keycode`.
+
 ====================================================
 
 * Author(s): Scott Shawcroft, Dan Halbert
@@ -28,9 +29,6 @@ class Keycode:
     different variations of a keyboard.
     """
 
-    # pylint: disable-msg=too-few-public-methods
-
-    # pylint: disable-msg=invalid-name
     A = 0x04
     """``a`` and ``A``"""
     B = 0x05
@@ -47,7 +45,7 @@ class Keycode:
     """``g`` and ``G``"""
     H = 0x0B
     """``h`` and ``H``"""
-    I = 0x0C
+    I = 0x0C  # noqa: E741
     """``i`` and ``I``"""
     J = 0x0D
     """``j`` and ``J``"""
@@ -59,7 +57,7 @@ class Keycode:
     """``m`` and ``M``"""
     N = 0x11
     """``n`` and ``N``"""
-    O = 0x12
+    O = 0x12  # noqa: E741
     """``o`` and ``O``"""
     P = 0x13
     """``p`` and ``P``"""
@@ -300,9 +298,8 @@ class Keycode:
     RIGHT_GUI = 0xE7
     """GUI modifier right of the spacebar"""
 
-    # pylint: enable-msg=invalid-name
     @classmethod
     def modifier_bit(cls, keycode: int) -> int:
-        """Return the modifer bit to be set in an HID keycode report if this is a
-        modifier key; otherwise return 0."""
+        """Return the modifier bit to be set in an HID keycode report if this is a modifier key; otherwise return 0."""
+
         return 1 << (keycode - 0xE0) if cls.LEFT_CONTROL <= keycode <= cls.RIGHT_GUI else 0

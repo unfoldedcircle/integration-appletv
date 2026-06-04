@@ -1,0 +1,107 @@
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+src = ["intg-appletv", "tests"]
+extend-exclude = ["build", "dist"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle
+    "F",      # pyflakes
+    "B",      # bugbear
+    "I",      # isort
+    "PL",     # pylint
+    "UP",     # pyupgrade
+    "SIM",    # simplify
+    "ASYNC",  # async rules
+    "S",      # security
+    "C4",     # comprehensions
+    "RUF",    # ruff-specific
+    "TRY",    # tryceratops
+    "PERF",   # perflint
+    "DTZ",    # datetimez
+    "PTH",    # pathlib
+    "RET",    # return rules
+    "G",      # logging-format
+    "LOG",    # logging
+    "PIE",    # flake8-pie
+    "A",      # builtins
+    "ARG",    # unused arguments
+    "BLE",    # blind except
+    "ISC",    # implicit string concat
+    "FLY",    # flynt
+    "FURB",   # refurb
+    "RSE",    # raise rules
+    "T20",    # print
+    "INP",    # namespace packages
+    "TCH",    # type-checking
+    "EM",     # errmsg
+    "SLF",    # self-access
+    "TID",    # tidy imports
+    "FBT",    # boolean trap
+]
+
+ignore = [
+    "ISC003",  # conflicts with pyright reportImplicitStringConcatenation
+    "PLR0911", # too-many-return-statements
+    "PLR0912", # too-many-branches
+    "PLR2004", # magic-value-comparison (noisy)
+    "PLW0603", # global-statement
+    "TRY300",  # try-consider-else
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.per-file-ignores]
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+combine-as-imports = true
+split-on-trailing-comma = false
+known-first-party = []
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"pytz".msg = "use datetime.timezone instead"
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+mark-parentheses = false
+
+[tool.ruff.lint.mccabe]
+max-complexity = 25
+
+[tool.ruff.format]
+line-ending = "auto"
+quote-style = "double"
+
+[tool.pyright]
+include = ["intg-appletv"]
+exclude = ["**/__pycache__", "build", "dist"]
+extraPaths = ["intg-appletv"]
+# Standard venv name. Devs with custom venv names must override in their IDE.
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.11"
+typeCheckingMode = "strict"
+reportMissingTypeStubs = false
+useLibraryCodeForTypes = true
+# Untyped 3rd-party deps (ucapi) trigger Unknown cascades.
+reportUnknownVariableType = false
+reportUnknownMemberType = false
+reportUnknownArgumentType = false
+reportUnknownParameterType = "error"
+reportUnknownLambdaType = "error"
+# Module-level state vars use UPPER_CASE by convention. Mutable globals not constants.
+reportConstantRedefinition = false
+# pyatv exposes its public API through submodules (pyatv.interface, pyatv.exceptions,
+# pyatv.const, pyatv.protocols.*) without listing them in __all__, so pyright flags every
+# attribute access as "private import". The accesses are intentional and supported.
+reportPrivateImportUsage = false
+reportImplicitOverride = "error"
+reportUnnecessaryTypeIgnoreComment = "error"
+reportImplicitStringConcatenation = "error"
+deprecateTypingAliases = true
+reportUninitializedInstanceVariable = "error"
+reportPropertyTypeMismatch = "error"
+reportCallInDefaultInitializer = "warning"

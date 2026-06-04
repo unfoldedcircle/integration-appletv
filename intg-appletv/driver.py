@@ -7,29 +7,34 @@ This module implements a Remote Two integration driver for Apple TV devices.
 """
 
 import asyncio
+from collections.abc import Coroutine
 import logging
 import os
-import re
 import sys
-from typing import Any
+from typing import Any, cast
+
+import pyatv
+import pyatv.protocols.companion.api
+from typing_extensions import override
+import ucapi
+from ucapi import Entity, media_player
+import ucapi.api as uc
 
 import config
-import pyatv
+from entities import AppleTVEntity
+from i18n import _a
+from media_player import AppleTVMediaPlayer
+import monkey_patch
+from remote import AppleTVRemote
 import selector
 import sensor
 import setup_flow
 import tv
-import ucapi
-import ucapi.api as uc
-from entities import AppleTVEntity
-from i18n import _a
-from media_player import AppleTVMediaPlayer
-from remote import AppleTVRemote
-from ucapi import Entity, media_player
 
 _LOG = logging.getLogger("driver")  # avoid having __main__ in log messages
 if sys.platform == "win32":
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    windows_policy = cast("Any", asyncio).WindowsSelectorEventLoopPolicy()
+    asyncio.set_event_loop_policy(windows_policy)  # pyright: ignore[reportDeprecated]
 
 _LOOP = asyncio.new_event_loop()
 asyncio.set_event_loop(_LOOP)
@@ -37,6 +42,27 @@ asyncio.set_event_loop(_LOOP)
 # Global variables
 api = uc.IntegrationAPI(_LOOP)
 _configured_atvs: dict[str, tv.AppleTv] = {}
+_background_tasks: set[asyncio.Task[Any]] = set()
+
+
+def _handle_background_task_done(task: asyncio.Task[Any]) -> None:
+    """Retrieve and log background task exceptions before discarding the task."""
+    try:
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc is not None:
+            _LOG.exception("Background task failed", exc_info=exc)
+    finally:
+        _background_tasks.discard(task)
+
+
+def _spawn_task(coro: Coroutine[Any, Any, Any]) -> asyncio.Task[Any]:
+    """Schedule a fire-and-forget coroutine and keep a strong reference until done."""
+    task = _LOOP.create_task(coro)
+    _background_tasks.add(task)
+    task.add_done_callback(_handle_background_task_done)
+    return task
 
 
 @api.listens_to(ucapi.Events.CONNECT)
@@ -50,7 +76,7 @@ async def on_r2_connect_cmd() -> None:
 
 
 @api.listens_to(ucapi.Events.DISCONNECT)
-async def on_r2_disconnect_cmd():
+async def on_r2_disconnect_cmd() -> None:
     """Disconnect all configured ATVs when the Remote Two sends the disconnect command."""
     _LOG.debug("Client disconnect command: disconnecting device(s)")
     for atv in _configured_atvs.values():
@@ -92,9 +118,8 @@ async def on_subscribe_entities(entity_ids: list[str]) -> None:
     # force an entity change event with the current state for all subscribed entities
     for entity_id in entity_ids:
         configured_entity: Entity | None = api.configured_entities.get(entity_id)
-        if configured_entity is None:
+        if not isinstance(configured_entity, AppleTVEntity):
             continue
-        assert isinstance(configured_entity, AppleTVEntity)
 
         device_id = configured_entity.atv_id
         if device_id in _configured_atvs:
@@ -107,7 +132,7 @@ async def on_subscribe_entities(entity_ids: list[str]) -> None:
             configured_entity.update_attributes(device.attributes, force=True)
             continue
 
-        device = config.devices.get(device_id) if config.devices else None
+        device = config.devices.get(device_id) if config.devices is not None else None
         if device:
             _add_configured_atv(device, connect=True)
         else:
@@ -142,7 +167,7 @@ async def on_atv_connected(device_id: str) -> None:
         atv = _configured_atvs[device_id]
         state = atv.media_state
         # make sure to not send an outdated state, not sure if media_state is immediately available
-        if state == tv.MediaState.UNAVAILABLE:
+        if state == media_player.States.UNAVAILABLE:
             state = media_player.States.UNKNOWN
         on_atv_update(device_id, {media_player.Attributes.STATE: state})
 
@@ -153,7 +178,7 @@ def on_atv_disconnected(device_id: str) -> None:
     _mark_entities_unavailable(device_id, force=True)
 
 
-def on_atv_connection_error(device_id: str, message) -> None:
+def on_atv_connection_error(device_id: str, message: Any) -> None:
     """Set entities of ATV to state UNAVAILABLE if ATV connection error occurred."""
     _LOG.error("[%s] Apple TV connection error: %s", device_id, message)
     _mark_entities_unavailable(device_id, force=False)
@@ -168,7 +193,7 @@ def _mark_entities_unavailable(device_id: str, *, force: bool) -> None:
         )
 
 
-def _get_entities(device_id: str, include_all=False) -> list[AppleTVEntity]:
+def _get_entities(device_id: str, *, include_all: bool = False) -> list[AppleTVEntity]:
     """
     Return all associated entities of the given device.
 
@@ -179,9 +204,8 @@ def _get_entities(device_id: str, include_all=False) -> list[AppleTVEntity]:
     entities: list[AppleTVEntity] = []
     for entity_entry in api.configured_entities.get_all():
         entity: Entity | None = api.configured_entities.get(entity_entry.get("entity_id", ""))
-        if entity is None:
+        if not isinstance(entity, AppleTVEntity):
             continue
-        assert isinstance(entity, AppleTVEntity)
         if entity.atv_id != device_id:
             continue
         entities.append(entity)
@@ -189,9 +213,8 @@ def _get_entities(device_id: str, include_all=False) -> list[AppleTVEntity]:
         return entities
     for entity_entry in api.available_entities.get_all():
         entity: Entity | None = api.available_entities.get(entity_entry.get("entity_id", ""))
-        if entity is None:
+        if not isinstance(entity, AppleTVEntity):
             continue
-        assert isinstance(entity, AppleTVEntity)
         if entity.atv_id != device_id:
             continue
         entities.append(entity)
@@ -209,24 +232,17 @@ def on_atv_update(device_id: str, update: dict[str, Any]) -> None:
         entity.update_attributes(update)
 
 
-def _replace_bad_chars(value: str) -> str:
-    if not value:
-        return value
-    # Replace all whitespace characters except the normal space and non-breaking space (#72).
-    return re.sub(r"[\f\n\r\t\v\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]", " ", value)
-
-
-def _add_configured_atv(device_config: config.AtvDevice, connect: bool = True) -> None:
+def _add_configured_atv(device_config: config.AtvDevice, *, connect: bool = True) -> None:
     # the device should not yet be configured, but better be safe
     if device_config.identifier in _configured_atvs:
         atv = _configured_atvs[device_config.identifier]
-        _LOOP.create_task(atv.disconnect())
+        _spawn_task(atv.disconnect())
     else:
         _LOG.debug(
             "Adding new ATV device: %s (%s) %s",
             device_config.name,
             device_config.identifier,
-            device_config.address if device_config.address else "",
+            device_config.address or "",
         )
         atv = tv.AppleTv(device_config, loop=_LOOP)
         atv.events.on(tv.EVENTS.CONNECTED, on_atv_connected)
@@ -235,12 +251,12 @@ def _add_configured_atv(device_config: config.AtvDevice, connect: bool = True) -
         atv.events.on(tv.EVENTS.UPDATE, on_atv_update)
         _configured_atvs[device_config.identifier] = atv
 
-    async def start_connection():
+    async def start_connection() -> None:
         await atv.connect()
 
     if connect:
         # start background task
-        _LOOP.create_task(start_connection())
+        _spawn_task(start_connection())
 
     _register_available_entities(device_config, atv)
 
@@ -282,26 +298,26 @@ def on_device_removed(device: config.AtvDevice | None) -> None:
     if device is None:
         _LOG.debug("Configuration cleared, disconnecting & removing all configured ATV instances")
         for atv in _configured_atvs.values():
-            _LOOP.create_task(atv.disconnect())
+            _spawn_task(atv.disconnect())
             atv.events.remove_all_listeners()
         _configured_atvs.clear()
         api.configured_entities.clear()
         api.available_entities.clear()
-    else:
-        if device.identifier in _configured_atvs:
-            _LOG.debug("Disconnecting from removed ATV %s", device.identifier)
-            atv = _configured_atvs.pop(device.identifier)
-            _LOOP.create_task(atv.disconnect())
-            atv.events.remove_all_listeners()
-            for entity in _get_entities(atv.identifier, include_all=True):
-                api.configured_entities.remove(entity.entity_id)
-                api.available_entities.remove(entity.entity_id)
+    elif device.identifier in _configured_atvs:
+        _LOG.debug("Disconnecting from removed ATV %s", device.identifier)
+        atv = _configured_atvs.pop(device.identifier)
+        _spawn_task(atv.disconnect())
+        atv.events.remove_all_listeners()
+        for entity in _get_entities(atv.identifier, include_all=True):
+            api.configured_entities.remove(entity.entity_id)
+            api.available_entities.remove(entity.entity_id)
 
 
 class JournaldFormatter(logging.Formatter):
     """Formatter for journald. Prefixes messages with priority level."""
 
-    def format(self, record):
+    @override
+    def format(self, record: logging.LogRecord) -> str:
         """Format the log record with journald priority prefix."""
         # mapping of logging levels to journald priority levels
         # https://www.freedesktop.org/software/systemd/man/latest/sd-daemon.html#syslog-compatible-log-levels
@@ -317,56 +333,7 @@ class JournaldFormatter(logging.Formatter):
         return f"{priority}{record.name}: {record.getMessage()}"
 
 
-async def patched_pyatv_companion_connect(self):
-    """Patch connect method for pyatv Companion protocol."""
-    # pylint: disable=W0212
-    if self._protocol:
-        return
-    self._connection = pyatv.protocols.companion.connection.CompanionConnection(
-        self.core.loop,
-        str(self.core.config.address),
-        self.core.service.port,
-        self.core.device_listener,
-    )
-    self._protocol = pyatv.protocols.companion.protocol.CompanionProtocol(
-        self._connection, pyatv.auth.hap_srp.SRPAuthHandler(), self.core.service
-    )
-    self._protocol.listener = self
-    await self._protocol.start()
-    await self.system_info()
-    await self._touch_start()
-    await self._session_start()
-    await self._send_command("TVRCSessionStart", {"ProtocolVersionKey": "1.2"})
-    await self._text_input_start()
-    await self.subscribe_event("_iMC")
-
-
-async def patched_pyatv_companion_system_info(self):
-    """Patch pyatv method to send system information to device."""
-    # pylint: disable=W0212
-    creds = pyatv.auth.hap_pairing.parse_credentials(self.core.service.credentials)
-    info = self.core.settings.info
-    _LOG.debug("Sending system information")
-    await self._send_command(
-        "_systemInfo",
-        {
-            "_bf": 0,
-            "_cf": 512,
-            "_clFl": 128,
-            # A null "_i" stops the device from pushing TVSystemStatus
-            # (power state) events; fall back to a stable identifier.
-            "_i": info.rp_id or info.device_id.replace(":", "").lower(),
-            "_idsID": creds.client_id,
-            "_pubID": info.device_id,
-            "_sf": 256,
-            "_sv": "170.18",
-            "model": info.model,
-            "name": info.name,
-        },
-    )
-
-
-async def main():
+async def main() -> None:
     """Start the Remote Two/3 integration driver."""
     if os.getenv("INVOCATION_ID"):
         # when running under systemd: timestamps are added by the journal
@@ -394,27 +361,29 @@ async def main():
     # logging.getLogger("pyatv").setLevel(logging.DEBUG)
 
     # TODO patch for tvOS 26.5 : to be removed when https://github.com/postlund/pyatv/issues/2845 is fixed
-    pyatv.protocols.companion.api.CompanionAPI.connect = patched_pyatv_companion_connect
-    pyatv.protocols.companion.api.CompanionAPI.system_info = patched_pyatv_companion_system_info
+    companion_api = cast("Any", pyatv.protocols.companion.api.CompanionAPI)
+    companion_api.connect = monkey_patch.patched_pyatv_companion_connect
+    companion_api.system_info = monkey_patch.patched_pyatv_companion_system_info
 
     # load paired devices
     config.devices = config.Devices(api.config_dir_path, on_device_added, on_device_removed)
+    devices = config.get_devices()
     # best effort migration (if required): network might not be available during startup
-    await config.devices.migrate()
+    await devices.migrate()
 
     # Check for devices changes and update its mac address and ip address if necessary
-    await asyncio.create_task(config.devices.handle_devices_change())
+    await devices.handle_devices_change()
     # and register them as available devices.
     # Note: device will be moved to configured devices with the subscribe_events request!
     # This will also start the device connection.
-    for device_config in config.devices.all():
+    for device_config in devices.all():
         _add_configured_atv(device_config, connect=True)
 
     await api.init("driver.json", setup_flow.driver_setup_handler)
     # temporary hack to change driver.json language texts until supported by the wrapper lib
     # Attention: keep in sync with `custom_config.py`!
-    api._driver_info["description"] = _a("Control your Apple TV with Remote Two/3.")  # pylint: disable=W0212
-    api._driver_info["setup_data_schema"] = setup_flow.setup_data_schema()  # pylint: disable=W0212
+    api._driver_info["description"] = _a("Control your Apple TV with Remote Two/3.")  # pyright: ignore[reportPrivateUsage]  # noqa: SLF001
+    api._driver_info["setup_data_schema"] = setup_flow.setup_data_schema()  # pyright: ignore[reportPrivateUsage]  # noqa: SLF001
 
 
 if __name__ == "__main__":

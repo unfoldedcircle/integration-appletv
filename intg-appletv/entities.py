@@ -5,13 +5,14 @@ Common entity interface for Apple TV integration.
 :license: Mozilla Public License Version 2.0, see LICENSE for more details.
 """
 
-import json
-import logging
 from abc import ABC, abstractmethod
 from enum import StrEnum
+import json
+import logging
 from typing import Any
 
 from ucapi import IntegrationAPI, media_player
+
 from utils import truncate_dict
 
 _LOG = logging.getLogger(__name__)
@@ -50,7 +51,7 @@ class AppleTVEntity(ABC):
         """Return the ATV device identifier."""
 
     @property
-    def entity_id(self):
+    def entity_id(self) -> str:
         """Return the entity identifier."""
         return self._entity_id
 

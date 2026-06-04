@@ -5,11 +5,10 @@ Apple TV device discovery.
 :license: Mozilla Public License Version 2.0, see LICENSE for more details.
 """
 
-import logging
 from asyncio import AbstractEventLoop
+import logging
 
 import pyatv
-import pyatv.const
 from pyatv.const import DeviceModel
 
 _LOG = logging.getLogger(__name__)
@@ -27,22 +26,17 @@ async def apple_tvs(
     # extra safety, if anything goes wrong here the reconnection logic is dead
     try:
         atvs = await pyatv.scan(loop, identifier=identifier, hosts=hosts)
-        res = []
-
-        for tv in atvs:
-            # We only support Apple TV devices. Attention: HomePods are reported as TvOS!
-            # https://github.com/unfoldedcircle/feature-and-bug-tracker/issues/173
-            if tv.device_info.model in [
-                # DeviceModel.Gen2,  # too old, doesn't support companion protocol. Additional work required.
-                # DeviceModel.Gen3,  # "
-                DeviceModel.Gen4,
-                DeviceModel.Gen4K,
-                DeviceModel.AppleTV4KGen2,
-                DeviceModel.AppleTV4KGen3,
-            ]:
-                res.append(tv)
-
-        return res
-    except Exception as ex:  # pylint: disable=broad-exception-caught
+        # We only support Apple TV devices. Attention: HomePods are reported as TvOS!
+        # https://github.com/unfoldedcircle/feature-and-bug-tracker/issues/173
+        supported_models = {
+            # DeviceModel.Gen2,  # too old, doesn't support companion protocol. Additional work required.
+            # DeviceModel.Gen3,  # "
+            DeviceModel.Gen4,
+            DeviceModel.Gen4K,
+            DeviceModel.AppleTV4KGen2,
+            DeviceModel.AppleTV4KGen3,
+        }
+        return [tv for tv in atvs if tv.device_info is not None and tv.device_info.model in supported_models]  # pyright: ignore[reportUnnecessaryComparison]
+    except Exception as ex:  # noqa: BLE001 — broad catch retained for resilience
         _LOG.error("Failed to start discovery: %s", ex)
         return []

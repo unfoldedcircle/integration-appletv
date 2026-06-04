@@ -6,25 +6,20 @@ Media-player entity functions.
 """
 
 import asyncio
-import logging
 from enum import StrEnum
-from typing import Any
+import logging
+from typing import Any, cast
+
+from pyatv.const import PowerState
+from typing_extensions import override
+from ucapi import IntegrationAPI, RepeatMode, StatusCodes
+from ucapi.media_player import Attributes, Commands, DeviceClasses, Features, MediaPlayer, Options, States
 
 from config import AtvDevice
 from entities import AppleTVEntity
 from hid import UsagePage
 from hid.consumer_control_code import ConsumerControlCode
-from pyatv.const import PowerState
 from tv import AppleTv
-from ucapi import IntegrationAPI, MediaPlayer, RepeatMode, StatusCodes
-from ucapi.media_player import (
-    Attributes,
-    Commands,
-    DeviceClasses,
-    Features,
-    Options,
-    States,
-)
 from utils import filter_attributes, key_update_helper
 
 _LOG = logging.getLogger(__name__)
@@ -144,16 +139,18 @@ class AppleTVMediaPlayer(MediaPlayer, AppleTVEntity):
 
         attributes = filter_attributes(device.attributes, Attributes)
         options: dict[str, list[Any]] = {Options.SIMPLE_COMMANDS: list(SimpleCommands)}
-        super().__init__(
+        cast("Any", super()).__init__(
             entity_id, config_device.name, features, attributes, device_class=DeviceClasses.TV, options=options
         )
         AppleTVEntity.__init__(self, entity_id, api)
 
     @property
+    @override
     def atv_id(self) -> str:
         """Return the device identifier."""
         return self._device.identifier
 
+    @override
     def state_from_media_player_state(self, state: States) -> States:
         """Map media-player state. Pass through state."""
         return state
@@ -179,11 +176,18 @@ class AppleTVMediaPlayer(MediaPlayer, AppleTVEntity):
                     return await self._device.cursor_select()
                 # Nothing was playing, only the screensaver was active
                 return StatusCodes.OK
-        except Exception:  # pylint: disable=W0718
-            pass
+        except Exception as ex:  # noqa: BLE001 — broad catch retained for resilience
+            _LOG.debug("Screensaver state check failed: %s", ex)
         return None
 
-    async def command(self, cmd_id: str, params: dict[str, Any] | None = None, *, websocket: Any = None) -> StatusCodes:
+    @override
+    async def command(  # noqa: PLR0915
+        self,
+        cmd_id: str,
+        params: dict[str, Any] | None = None,
+        *,
+        websocket: Any = None,
+    ) -> StatusCodes:
         """
         Media-player entity command handler.
 
@@ -195,8 +199,7 @@ class AppleTVMediaPlayer(MediaPlayer, AppleTVEntity):
                           callbacks instead of broadcasts.
         :return: status code of the command request
         """
-        # pylint: disable=R0911,R0912,R0915
-        _LOG.info("Got %s command request: %s %s", self.id, cmd_id, params if params else "")
+        _LOG.info("Got %s command request: %s %s", self.id, cmd_id, params or "")
 
         # #117: If the device is not connected, but we get a command: try to connect. Should not happen...
         # Note: we don't check on entity state `UNAVAILABLE`:
@@ -285,7 +288,7 @@ class AppleTVMediaPlayer(MediaPlayer, AppleTVEntity):
             case Commands.HOME:
                 res = await self._device.home()
                 # Request a deferred update because music can play in the background
-                asyncio.create_task(self._device.deferred_state_update())
+                _ = asyncio.create_task(self._device.deferred_state_update())  # noqa: RUF006
             case Commands.BACK:
                 res = await self._device.menu()
             case Commands.CHANNEL_DOWN:
@@ -332,9 +335,12 @@ class AppleTVMediaPlayer(MediaPlayer, AppleTVEntity):
                 res = await self._device.play()
             case SimpleCommands.PAUSE:
                 res = await self._device.pause()
+            case _:
+                pass
 
-        return res if res is not None else StatusCodes.SERVER_ERROR
+        return res
 
+    @override
     def filter_attributes(self, update: dict[str, Any], *, force: bool = False) -> dict[str, Any]:
         """
         Filter the given attributes from an ATV update and return only the related media-player entity values.
@@ -360,7 +366,7 @@ class AppleTVMediaPlayer(MediaPlayer, AppleTVEntity):
         return attributes
 
     @staticmethod
-    def reset_media_data(attributes: dict[str, Any]):
+    def reset_media_data(attributes: dict[str, Any]) -> None:
         """Reset media metadata."""
         attributes[Attributes.MEDIA_POSITION] = 0
         attributes[Attributes.MEDIA_DURATION] = 0

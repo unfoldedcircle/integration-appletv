@@ -11,7 +11,6 @@ on:
       - 'test-requirements.txt'
       - 'tests/**'
       - '.github/**/*.yml'
-      - '.pylintrc'
       - 'pyproject.toml'
   pull_request:
     branches: [main]
@@ -46,15 +45,12 @@ jobs:
         run: |
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           if [ -f test-requirements.txt ]; then pip install -r test-requirements.txt; fi
-      - name: Analyzing the code with pylint
+      - name: Lint with ruff
         run: |
-          python -m pylint intg-appletv
-      - name: Lint with flake8
+          python -m ruff check intg-appletv
+      - name: Check code formatting with ruff
         run: |
-          python -m flake8 intg-appletv --count --show-source --statistics
-      - name: Check code formatting with isort
+          python -m ruff format --check intg-appletv
+      - name: Type check with pyright
         run: |
-          python -m isort intg-appletv/. --check --verbose
-      - name: Check code formatting with black
-        run: |
-          python -m black intg-appletv --check --verbose --line-length 120
+          python -m pyright

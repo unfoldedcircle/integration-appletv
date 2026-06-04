@@ -5,20 +5,18 @@ Sensor entity functions.
 :license: Mozilla Public License Version 2.0, see LICENSE for more details.
 """
 
-import logging
 from abc import abstractmethod
-from typing import Any
+from typing import Any, cast
 
-import tv
+from typing_extensions import override
+from ucapi import EntityTypes, IntegrationAPI
 import ucapi.media_player
+from ucapi.media_player import Attributes as MediaAttr, States as MediaStates
+from ucapi.sensor import Attributes, DeviceClasses, Sensor, States
+
 from config import AtvDevice, create_entity_id
 from entities import AppleTVEntity
-from ucapi import EntityTypes, IntegrationAPI, Sensor
-from ucapi.media_player import Attributes as MediaAttr
-from ucapi.media_player import States as MediaStates
-from ucapi.sensor import Attributes, DeviceClasses, States
-
-_LOG = logging.getLogger(__name__)
+import tv
 
 _SENSOR_STATE_MAPPING = {
     MediaStates.OFF: States.ON,
@@ -38,7 +36,7 @@ class AppleTVSensor(Sensor, AppleTVEntity):
     _SENSOR_ATTRIBUTE: str
     """Update attribute name for sensor value."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         entity_id: str,
         name: str | dict[str, str],
@@ -51,13 +49,15 @@ class AppleTVSensor(Sensor, AppleTVEntity):
     ):
         """Initialize the class."""
         self._device: tv.AppleTv = device
-        features = []
+        features: list[Any] = []
 
         self._config_device = config_device
-        super().__init__(entity_id, name, features, self.all_attributes, device_class=device_class, options=options)
+        base = cast("Any", super())
+        base.__init__(entity_id, name, features, self.all_attributes, device_class=device_class, options=options)
         AppleTVEntity.__init__(self, entity_id, api)
 
     @property
+    @override
     def atv_id(self) -> str:
         """Return device identifier."""
         return self._device.identifier
@@ -75,10 +75,12 @@ class AppleTVSensor(Sensor, AppleTVEntity):
             Attributes.STATE: _SENSOR_STATE_MAPPING.get(self._device.media_state),
         }
 
+    @override
     def state_from_media_player_state(self, state: MediaStates) -> States:
         """Map media-player state to sensor state."""
         return _SENSOR_STATE_MAPPING.get(state, States.UNKNOWN)
 
+    @override
     def filter_attributes(self, update: dict[str, Any], *, force: bool = False) -> dict[str, Any]:
         """
         Filter the given attributes from an ATV update and return only the related select-entity values.
@@ -92,11 +94,12 @@ class AppleTVSensor(Sensor, AppleTVEntity):
             new_state = self.state_from_media_player_state(update[ucapi.media_player.Attributes.STATE])
             if force or new_state != self.attributes.get(Attributes.STATE):
                 attributes[Attributes.STATE] = new_state
-        if self._SENSOR_ATTRIBUTE in update:
-            if force or update[self._SENSOR_ATTRIBUTE] != self.attributes.get(Attributes.VALUE):
-                # make sure sensor-entity is available if data changes
-                attributes.setdefault(Attributes.STATE, States.ON)
-                attributes[Attributes.VALUE] = update[self._SENSOR_ATTRIBUTE]
+        if self._SENSOR_ATTRIBUTE in update and (
+            force or update[self._SENSOR_ATTRIBUTE] != self.attributes.get(Attributes.VALUE)
+        ):
+            # make sure sensor-entity is available if data changes
+            attributes.setdefault(Attributes.STATE, States.ON)
+            attributes[Attributes.VALUE] = update[self._SENSOR_ATTRIBUTE]
         return attributes
 
 
@@ -125,6 +128,7 @@ class AppSensor(AppleTVSensor):
         )
 
     @property
+    @override
     def sensor_value(self) -> str:
         """Return sensor value."""
         return self._device.app_name
@@ -155,6 +159,7 @@ class AudioOutputSensor(AppleTVSensor):
         )
 
     @property
+    @override
     def sensor_value(self) -> str:
         """Return sensor value."""
         return self._device.output_devices

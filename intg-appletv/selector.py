@@ -5,18 +5,20 @@ Select entity functions.
 :license: Mozilla Public License Version 2.0, see LICENSE for more details.
 """
 
-import logging
 from abc import abstractmethod
-from typing import Any, Awaitable, Callable, TypeAlias
+from collections.abc import Awaitable, Callable
+import logging
+from typing import Any, TypeAlias, cast
 
-import tv
+from typing_extensions import override
 import ucapi
+from ucapi import EntityTypes, IntegrationAPI, StatusCodes
+from ucapi.media_player import Attributes as MediaAttr, States as MediaStates
+from ucapi.select import Attributes, Commands, Select, States
+
 from config import AtvDevice, create_entity_id
 from entities import AppleTVEntity
-from ucapi import EntityTypes, IntegrationAPI, Select, StatusCodes
-from ucapi.media_player import Attributes as MediaAttr
-from ucapi.media_player import States as MediaStates
-from ucapi.select import Attributes, Commands, States
+import tv
 
 _LOG = logging.getLogger(__name__)
 
@@ -30,7 +32,6 @@ Parameters:
 Returns: status code
 """
 
-# pylint should focus on the real Python issues! pylint: disable=R0801
 _SELECTOR_STATE_MAPPING = {
     MediaStates.OFF: States.ON,
     MediaStates.ON: States.ON,
@@ -51,7 +52,7 @@ class AppleTVSelect(Select, AppleTVEntity):
     _SELECT_OPTIONS_ATTRIBUTE: str
     """Update attribute name for select options."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         entity_id: str,
         name: str | dict[str, str],
@@ -65,10 +66,11 @@ class AppleTVSelect(Select, AppleTVEntity):
         self._config_device = config_device
         self._device: tv.AppleTv = device
         self._select_handler: SelectHandler = select_handler
-        super().__init__(identifier=entity_id, name=name, attributes=self.all_attributes)
+        cast("Any", super()).__init__(identifier=entity_id, name=name, attributes=self.all_attributes)
         AppleTVEntity.__init__(self, entity_id, api)
 
     @property
+    @override
     def atv_id(self) -> str:
         """Return device identifier."""
         return self._device.identifier
@@ -92,10 +94,12 @@ class AppleTVSelect(Select, AppleTVEntity):
             Attributes.STATE: States.ON,
         }
 
+    @override
     def state_from_media_player_state(self, state: MediaStates) -> States:
         """Map media-player state to select state."""
         return _SELECTOR_STATE_MAPPING.get(state, States.UNKNOWN)
 
+    @override
     def filter_attributes(self, update: dict[str, Any], *, force: bool = False) -> dict[str, Any]:
         """
         Filter the given attributes from an ATV update and return only the related select-entity values.
@@ -109,21 +113,29 @@ class AppleTVSelect(Select, AppleTVEntity):
             new_state = self.state_from_media_player_state(update[ucapi.media_player.Attributes.STATE])
             if force or new_state != self.attributes.get(Attributes.STATE):
                 attributes[Attributes.STATE] = new_state
-        if self._SELECT_CURRENT_ATTRIBUTE in update:
-            if force or update[self._SELECT_CURRENT_ATTRIBUTE] != self.attributes.get(Attributes.CURRENT_OPTION):
-                attributes[Attributes.CURRENT_OPTION] = update[self._SELECT_CURRENT_ATTRIBUTE]
-        if self._SELECT_OPTIONS_ATTRIBUTE in update:
-            if force or update[self._SELECT_OPTIONS_ATTRIBUTE] != self.attributes.get(Attributes.OPTIONS):
-                attributes[Attributes.OPTIONS] = update[self._SELECT_OPTIONS_ATTRIBUTE]
+        if self._SELECT_CURRENT_ATTRIBUTE in update and (
+            force or update[self._SELECT_CURRENT_ATTRIBUTE] != self.attributes.get(Attributes.CURRENT_OPTION)
+        ):
+            attributes[Attributes.CURRENT_OPTION] = update[self._SELECT_CURRENT_ATTRIBUTE]
+        if self._SELECT_OPTIONS_ATTRIBUTE in update and (
+            force or update[self._SELECT_OPTIONS_ATTRIBUTE] != self.attributes.get(Attributes.OPTIONS)
+        ):
+            attributes[Attributes.OPTIONS] = update[self._SELECT_OPTIONS_ATTRIBUTE]
         # make sure select-entity is available if data changes
         if attributes and Attributes.STATE not in update:
             attributes.setdefault(Attributes.STATE, States.ON)
         return attributes
 
-    async def command(self, cmd_id: str, params: dict[str, Any] | None = None, *, websocket: Any) -> StatusCodes:
+    @override
+    async def command(
+        self,
+        cmd_id: str,
+        params: dict[str, Any] | None = None,
+        *,
+        websocket: Any,
+    ) -> StatusCodes:
         """Process selector command."""
-        # pylint: disable=R0911, R0912
-        _LOG.info("[%s] Got select request: %s %s", self._device.log_id, cmd_id, params if params else "")
+        _LOG.info("[%s] Got select request: %s %s", self._device.log_id, cmd_id, params or "")
 
         # Automatically wake ATV from standby if a command is received
         state = self._device.media_state
@@ -209,11 +221,13 @@ class AppSelect(AppleTVSelect):
         )
 
     @property
+    @override
     def current_option(self) -> str:
         """Return selector value."""
         return self._device.app_name
 
     @property
+    @override
     def select_options(self) -> list[str]:
         """Return selection list."""
         return self._device.app_names
@@ -241,11 +255,13 @@ class AudioOutputSelect(AppleTVSelect):
         )
 
     @property
+    @override
     def current_option(self) -> str:
         """Return selector value."""
         return self._device.output_devices
 
     @property
+    @override
     def select_options(self) -> list[str]:
         """Return selection list."""
         return self._device.output_devices_combinations
