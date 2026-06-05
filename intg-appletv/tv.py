@@ -176,7 +176,10 @@ def async_handle_atvlib_errors(
         except (pyatv.exceptions.ConnectionFailedError, pyatv.exceptions.ConnectionLostError) as err:
             result = StatusCodes.SERVICE_UNAVAILABLE
             _LOG.warning("[%s] ATV network error (%s%s): %s", self.log_id, func.__name__, args, err)
-            self._handle_disconnect()  # pyright: ignore[reportPrivateUsage]
+            # Prevent duplicate DISCONNECTED events if the underlying connection_lost/connection_closed callback already
+            # ran and cleared self._atv
+            if self._atv is not None:  # pyright: ignore[reportPrivateUsage, reportUnnecessaryComparison]
+                self._handle_disconnect()  # pyright: ignore[reportPrivateUsage]
         except pyatv.exceptions.AuthenticationError as err:
             result = StatusCodes.UNAUTHORIZED
             _LOG.warning("[%s] Authentication error (%s%s): %s", self.log_id, func.__name__, args, err)
@@ -641,7 +644,8 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                 err.args[0] if err.args else "blocked",
                 err,
             )
-            self._handle_disconnect()
+            if self._atv is not None:  # pyright: ignore[reportUnnecessaryComparison]
+                self._handle_disconnect()
 
     async def _connect_once(self) -> bool:
         try:
@@ -945,12 +949,14 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             except pyatv.exceptions.BlockedStateError as ex:
                 # The pyatv facade was closed under us; trigger a clean reconnect and exit.
                 _LOG.warning("[%s] Polling: connection blocked, triggering reconnect: %s", self.log_id, ex)
-                self._handle_disconnect()
+                if self._atv is not None:  # pyright: ignore[reportUnnecessaryComparison]
+                    self._handle_disconnect()
                 return
             except (pyatv.exceptions.ConnectionFailedError, pyatv.exceptions.ConnectionLostError) as ex:
                 # Connection was lost during a poll; let _handle_disconnect restart the loop.
                 _LOG.warning("[%s] Polling: connection lost, triggering reconnect: %s", self.log_id, ex)
-                self._handle_disconnect()
+                if self._atv is not None:  # pyright: ignore[reportUnnecessaryComparison]
+                    self._handle_disconnect()
                 return
             except pyatv.exceptions.NotSupportedError:
                 pass
