@@ -11,6 +11,15 @@ _Changes in the next release_
 
 ---
 
+## v0.22.2 - 2026-06-05
+### Fixed
+- Handle pyatv deadlock exceptions ([#135](https://github.com/unfoldedcircle/integration-appletv/pull/135)).
+- Ensure unique pyatv client identifiers to prevent disconnections. Fixes a regression introduced in 0.22.0 with the new power state handling ([#134](https://github.com/unfoldedcircle/integration-appletv/pull/134)).
+
+### Changed
+- Switch to new linters by @henrikwidlund ([#131](https://github.com/unfoldedcircle/integration-appletv/pull/131)).
+- Pinned dependencies and cooldown for dependabot by @henrikwidlund ([#129](https://github.com/unfoldedcircle/integration-appletv/pull/129)).
+
 ## v0.22.1 - 2026-05-25
 ### Fixed
 - Connect Apple TV after setup ([#133](https://github.com/unfoldedcircle/integration-appletv/pull/133)).

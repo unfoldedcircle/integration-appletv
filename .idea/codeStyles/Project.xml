@@ -2,7 +2,9 @@
   <code_scheme name="Project" version="173">
     <option name="DO_NOT_FORMAT">
       <list>
+        <fileSet type="globPattern" pattern="CHANGELOG.md" />
         <fileSet type="globPattern" pattern="denonavrlib/**" />
+        <fileSet type="globPattern" pattern="driver.json" />
       </list>
     </option>
   </code_scheme>
