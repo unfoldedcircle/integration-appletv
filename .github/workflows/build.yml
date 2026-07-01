@@ -25,7 +25,7 @@ env:
   HASH_FILENAME: uc-intg-appletv.hash
   BUILD_CHANGELOG: build-changelog.md
   # Python version to use in the builder image. See https://hub.docker.com/r/unfoldedcircle/r2-pyinstaller for possible versions.
-  PYTHON_VER: 3.11.13-0.6.0
+  PYTHON_VER: 3.11.13-0.7.0
 
 permissions:
   contents: write
@@ -144,7 +144,7 @@ jobs:
     name: Create Release
     if: github.ref == 'refs/heads/main' || contains(github.ref, 'tags/v')
     runs-on: ubuntu-24.04
-    needs: [build, changelog]
+    needs: [ build, changelog ]
 
     steps:
       - name: Download build artifacts

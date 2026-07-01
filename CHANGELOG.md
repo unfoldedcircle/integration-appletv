@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Changes in the next release_
 
+### Changed
+- Update PyInstaller Docker image to 3.11.13-0.7.0
+
 ---
 
 ## v0.22.2 - 2026-06-05
