@@ -13,8 +13,6 @@ import os
 import sys
 from typing import Any, cast
 
-import pyatv
-import pyatv.protocols.companion.api
 from typing_extensions import override
 import ucapi
 from ucapi import Entity, media_player
@@ -24,7 +22,6 @@ import config
 from entities import AppleTVEntity
 from i18n import _a
 from media_player import AppleTVMediaPlayer
-import monkey_patch
 from remote import AppleTVRemote
 import selector
 import sensor
@@ -359,11 +356,6 @@ async def main() -> None:
     logging.getLogger("remote").setLevel(level)
 
     # logging.getLogger("pyatv").setLevel(logging.DEBUG)
-
-    # TODO patch for tvOS 26.5 : to be removed when https://github.com/postlund/pyatv/issues/2845 is fixed
-    companion_api = cast("Any", pyatv.protocols.companion.api.CompanionAPI)
-    companion_api.connect = monkey_patch.patched_pyatv_companion_connect
-    companion_api.system_info = monkey_patch.patched_pyatv_companion_system_info
 
     # load paired devices
     config.devices = config.Devices(api.config_dir_path, on_device_added, on_device_removed)
