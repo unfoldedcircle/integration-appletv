@@ -11,6 +11,7 @@ _Changes in the next release_
 
 ### Changed
 - Update PyInstaller Docker image to 3.11.13-0.7.0
+- Update pyatv to 0.18.0, removing no longer required monkey patches.
 
 ---
 

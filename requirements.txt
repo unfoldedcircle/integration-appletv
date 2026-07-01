@@ -1,4 +1,4 @@
-pyatv==0.17.0
+pyatv==0.18.0
 pyee~=13.0.1
 typing_extensions>=4.15.0
 ucapi==0.7.0
