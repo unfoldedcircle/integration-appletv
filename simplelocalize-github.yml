@@ -8,6 +8,7 @@ pull-request:
 upload:
   when:
     push:
+      branches: [ "main" ]
   files:
     - path: "intg-appletv/locales/en_US/LC_MESSAGES/intg-appletv.po"
       format: "po-pot"
@@ -26,7 +27,7 @@ download:
       format: "po-pot"
       sort: "IMPORT_ORDER"
       options:
-        - "ONLY_TRANSLATED"
+        - "ONLY_ACCEPTED"
       language-keys:
         - "da_DK"
         - "de_DE"
