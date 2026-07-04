@@ -8,7 +8,7 @@ pull-request:
 
 upload:
   files:
-    - path: "intg-appletv/locales/en_GB/LC_MESSAGES/intg-appletv.po"
+    - path: "intg-appletv/locales/en_US/LC_MESSAGES/intg-appletv.po"
       format: "po-pot"
       language-key: "en_US"
       options:
