@@ -1,10 +1,9 @@
 pull-request:
-  title: "🌐 Update translations"
+  title: "🌐 Update translations [ci skip]"
   body: |
     This PR contains updated translations from SimpleLocalize.
     Please review the changes before merging.
   base-branch: "main"
-  head-branch: "l10n"
 
 upload:
   when:
@@ -14,7 +13,10 @@ upload:
       format: "po-pot"
       language-key: "en_US"
       options:
-        - REPLACE_TRANSLATION_IF_FOUND
+        - "REPLACE_TRANSLATION_IF_FOUND"
+        - "DEPRECATE_NOT_PRESENT_KEYS"
+        - "MARK_AS_ACCEPTED"
+        - "UPDATE_ORDER"
 
 download:
   push-branch: "l10n"
@@ -22,6 +24,9 @@ download:
   files:
     - path: "intg-appletv/locales/{lang}/LC_MESSAGES/intg-appletv.po"
       format: "po-pot"
+      sort: "IMPORT_ORDER"
+      options:
+        - "ONLY_TRANSLATED"
       language-keys:
         - "da_DK"
         - "de_DE"
