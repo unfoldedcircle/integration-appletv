@@ -7,6 +7,8 @@ pull-request:
   head-branch: "l10n"
 
 upload:
+  when:
+    push:
   files:
     - path: "intg-appletv/locales/en_US/LC_MESSAGES/intg-appletv.po"
       format: "po-pot"
@@ -15,6 +17,8 @@ upload:
         - REPLACE_TRANSLATION_IF_FOUND
 
 download:
+  push-branch: "l10n"
+  pull-branch: "main"
   files:
     - path: "intg-appletv/locales/{lang}/LC_MESSAGES/intg-appletv.po"
       format: "po-pot"
