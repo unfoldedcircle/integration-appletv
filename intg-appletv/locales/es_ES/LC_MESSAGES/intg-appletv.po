@@ -1,142 +1,97 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: uc-integration-apple-tv\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-06-04 14:51+0200\n"
-"PO-Revision-Date: 2025-07-05 14:27\n"
-"Last-Translator: Unfolded Circle <hello@unfoldedcircle.com>\n"
-"Language-Team: Spanish\n"
-"Language: es\n"
-"MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Crowdin-SourceKey: msgstr\n"
-"X-Crowdin-Project: uc-integration-apple-tv\n"
-"X-Crowdin-Project-ID: 796802\n"
-"X-Crowdin-Language: es-ES\n"
-"X-Crowdin-File: /main/intg-appletv/locales/en_US/LC_MESSAGES/intg-appletv.po\n"
-"X-Crowdin-File-ID: 130\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"Language: es_ES\n"
 
-#: ../driver.py:717
-msgid "Control your Apple TV with Remote Two/3."
-msgstr "Controla tu Apple TV con el Remote Two/3."
-
-#: ../setup_flow.py:64
-msgid "Integration setup"
-msgstr "Configuración de la integración"
-
-#: ../setup_flow.py:68
-msgid "Setup process"
-msgstr "Proceso de configuración"
-
-#: ../setup_flow.py:72
-msgid "The integration will discover your Apple TV on your network."
-msgstr "La integración detectará tu Apple TV en tu red."
-
-#: ../setup_flow.py:75
-msgid "Apple TV 4 and newer are supported and the device must be on the same network as the remote."
-msgstr "Apple TV 4 y más recientes son compatibles y debe estar en la misma red que el mando a distancia."
-
-#: ../setup_flow.py:79
-msgid "During the process, you need to enter multiple PINs that are shown on your Apple TV. Please make sure to set AirPlay access to _Anyone on the Same Network_ in Apple TV settings."
-msgstr "Durante el proceso, necesitas ingresar múltiples PIN que se muestran en tu Apple TV. Por favor, asegúrate de configurar el acceso de AirPlay de la siguiente manera \"Cualquiera en la misma red\" en la configuración de Apple TV."
-
-#. Translators: Make sure to include the support article link as Markdown. See English text
-#: ../setup_flow.py:83
-msgid "Please see our support article for requirements, features and restrictions."
-msgstr "Por favor, consulta nuestro [artículo de soporte] (https://support.unfoldedcircle.com/hc/es/articles/19479576638620) para los requisitos, características y restricciones."
-
-#: ../setup_flow.py:176
-msgid "Add a new device"
-msgstr "Añadir nuevo dispositivo"
-
-#: ../setup_flow.py:185
-msgid "Delete selected device"
-msgstr "Eliminar dispositivo seleccionado"
-
-#: ../setup_flow.py:191
-msgid "Configure selected device"
-msgstr "Configurar dispositivo seleccionado"
-
-#: ../setup_flow.py:197
-msgid "Reset configuration and reconfigure"
-msgstr "Restablecer configuración y reconfigurar"
-
-#: ../setup_flow.py:205
-msgid "Configuration mode"
-msgstr "Tipo de configuración"
-
-#: ../setup_flow.py:210
-msgid "Configured devices"
-msgstr "Dispositivos configurados"
-
-#: ../setup_flow.py:215
 msgid "Action"
 msgstr "Acción"
 
-#: ../setup_flow.py:289
-msgid "Manual MAC address (below)"
-msgstr "Direccion MAC manual (abajo)"
+msgid "Add a new device"
+msgstr "Añadir nuevo dispositivo"
 
-#: ../setup_flow.py:304
-msgid "MAC address"
-msgstr "MAC adress"
+msgid "Apple TV 4 and newer are supported and the device must be on the same network as the remote."
+msgstr "Apple TV 4 y más recientes son compatibles y debe estar en la misma red que el mando a distancia."
 
-#: ../setup_flow.py:309
-msgid "Manual MAC address"
-msgstr "Direccion MAC manual"
-
-#: ../setup_flow.py:314
-msgid "IP address (optional)"
-msgstr "Direccion IP (opcional)"
-
-#: ../setup_flow.py:386
-msgid "Please choose your Apple TV"
-msgstr "Por favor, elige tu Apple TV"
-
-#: ../setup_flow.py:391
-msgid "Choose your Apple TV"
-msgstr "Elige tu Apple TV"
-
-#: ../setup_flow.py:453
-msgid "Please enter the shown AirPlay-Code on your Apple TV"
-msgstr "Por favor, introduce el código AirPlay mostrado en tu Apple TV"
-
-#: ../setup_flow.py:458
 msgid "Apple TV AirPlay-Code"
 msgstr "Código AirPlay de Apple TV"
 
-#: ../setup_flow.py:506
-msgid "Please enter the shown PIN on your Apple TV"
-msgstr "Por favor, introduce el PIN mostrado en tu Apple TV"
-
-#: ../setup_flow.py:511
 msgid "Apple TV PIN"
 msgstr "PIN de Apple TV"
 
-#: ../setup_flow.py:629
-msgid "Setup mode"
-msgstr "Modo de configuración"
-
-#: ../setup_flow.py:633
-msgid "Discover or connect to Apple TV device"
-msgstr "Descubre o conecta con el dispositivo Apple TV"
-
-#. Translators: Markdown can be used for formatting
-#: ../setup_flow.py:638
-msgid "Leave blank to use auto-discovery and click _Next_."
-msgstr "Deje en blanco para usar auto-discovery y haga click en _Siguiente_."
-
-#: ../setup_flow.py:640
-msgid "The device must be on the same network as the remote."
-msgstr "El dispositivo debe estar en la misma red que el mando a distancia."
-
-#: ../setup_flow.py:647
-msgid "IP address (same network only)"
-msgstr "Dirección IP (solo de la misma red)"
-
-#: ../setup_flow.py:657
 msgid "Change volume on all connected devices"
 msgstr "Cambia el volumen en todos los dispositivos conectados"
 
+msgid "Choose your Apple TV"
+msgstr "Elige tu Apple TV"
+
+msgid "Configuration mode"
+msgstr "Tipo de configuración"
+
+msgid "Configure selected device"
+msgstr "Configurar dispositivo seleccionado"
+
+msgid "Configured devices"
+msgstr "Dispositivos configurados"
+
+msgid "Control your Apple TV with Remote Two/3."
+msgstr "Controla tu Apple TV con el Remote Two/3."
+
+msgid "Delete selected device"
+msgstr "Eliminar dispositivo seleccionado"
+
+msgid "Discover or connect to Apple TV device"
+msgstr "Descubre o conecta con el dispositivo Apple TV"
+
+msgid "During the process, you need to enter multiple PINs that are shown on your Apple TV. Please make sure to set AirPlay access to _Anyone on the Same Network_ in Apple TV settings."
+msgstr "Durante el proceso, necesitas ingresar múltiples PIN que se muestran en tu Apple TV. Por favor, asegúrate de configurar el acceso de AirPlay de la siguiente manera Cualquiera en la misma red en la configuración de Apple TV."
+
+msgid "Integration setup"
+msgstr "Configuración de la integración"
+
+msgid "IP address (optional)"
+msgstr "Direccion IP (opcional)"
+
+msgid "IP address (same network only)"
+msgstr "Dirección IP (solo de la misma red)"
+
+# Translators: Markdown can be used for formatting
+msgid "Leave blank to use auto-discovery and click _Next_."
+msgstr "Deje en blanco para usar auto-discovery y haga click en _Siguiente_."
+
+msgid "MAC address"
+msgstr "MAC adress"
+
+msgid "Manual MAC address"
+msgstr "Direccion MAC manual"
+
+msgid "Manual MAC address (below)"
+msgstr "Direccion MAC manual (abajo)"
+
+msgid "Please choose your Apple TV"
+msgstr "Por favor, elige tu Apple TV"
+
+msgid "Please enter the shown AirPlay-Code on your Apple TV"
+msgstr "Por favor, introduce el código AirPlay mostrado en tu Apple TV"
+
+msgid "Please enter the shown PIN on your Apple TV"
+msgstr "Por favor, introduce el PIN mostrado en tu Apple TV"
+
+# Translators: Make sure to include the support article link as Markdown. See English text
+msgid "Please see our support article for requirements, features and restrictions."
+msgstr "Por favor, consulta nuestro [artículo de soporte] (https://support.unfoldedcircle.com/hc/es/articles/19479576638620) para los requisitos, características y restricciones."
+
+msgid "Reset configuration and reconfigure"
+msgstr "Restablecer configuración y reconfigurar"
+
+msgid "Setup mode"
+msgstr "Modo de configuración"
+
+msgid "Setup process"
+msgstr "Proceso de configuración"
+
+msgid "The device must be on the same network as the remote."
+msgstr "El dispositivo debe estar en la misma red que el mando a distancia."
+
+msgid "The integration will discover your Apple TV on your network."
+msgstr "La integración detectará tu Apple TV en tu red."
