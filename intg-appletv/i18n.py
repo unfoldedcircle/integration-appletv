@@ -14,7 +14,20 @@ from pathlib import Path
 from typing import Any
 
 # Define the available languages
-AVAILABLE_LANGUAGES = ["en_US", "de_DE", "es_ES", "fr_FR", "nl_NL", "sv_SE"]
+AVAILABLE_LANGUAGES = [
+    "en_US",
+    "da_DK",
+    "de_DE",
+    "es_ES",
+    "fr_FR",
+    "hu_HU",
+    "it_IT",
+    "nl_NL",
+    "no_NO",
+    "pl_PL",
+    "pt_PT",
+    "sv_SE",
+]
 DEFAULT_LANGUAGE = "en_US"
 
 # Path to the locales directory (relative to the package)

@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Changes in the next release_
 
+### Added
+- Added localization languages: da_DK, hu_HU, it_IT, no_NO, pl_PL, pt_PT
+
 ### Changed
 - Switched translation management from Crowdin to SimpleLocalize.
 
