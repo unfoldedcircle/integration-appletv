@@ -1,5 +1,5 @@
 pull-request:
-  title: "🌐 Update translations [ci skip]"
+  title: "Update translations from SimpleLocalize"
   body: |
     This PR contains updated translations from SimpleLocalize.
     Please review the changes before merging.

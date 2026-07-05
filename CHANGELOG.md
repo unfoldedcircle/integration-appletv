@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Changes in the next release_
 
+### Changed
+- Switched translation management from Crowdin to SimpleLocalize.
+
 ---
 
 ## v0.23.0 - 2026-07-01

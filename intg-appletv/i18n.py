@@ -3,7 +3,7 @@ Internationalization support for the Apple TV integration.
 
 This module provides functions for translating strings in the integration.
 It uses gettext for internationalization and proper pluralization support.
-This implementation is compatible with Crowdin for translation management.
+This implementation is compatible with SimpleLocalize for translation management.
 
 :copyright: (c) 2025 by Unfolded Circle ApS.
 :license: Mozilla Public License Version 2.0, see LICENSE for more details.
