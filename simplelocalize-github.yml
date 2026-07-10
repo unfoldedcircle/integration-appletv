@@ -5,6 +5,9 @@ pull-request:
     Please review the changes before merging.
   base-branch: "main"
 
+commit:
+  title: "docs: update translations for {languageCount} languages [skip ci]"
+
 upload:
   when:
     push:
