@@ -11,7 +11,7 @@ msgid "Integration setup"
 msgstr "Integrationssetup"
 
 msgid "Setup process"
-msgstr "Setup Fortschritt"
+msgstr "Setup-Fortschritt"
 
 msgid "The integration will discover your Apple TV on your network."
 msgstr "Die Integration wird dein Apple TV in deinem Netzwerk erkennen."
@@ -78,10 +78,10 @@ msgid "Apple TV PIN"
 msgstr "Apple TV PIN"
 
 msgid "Setup mode"
-msgstr "Setup Fortschritt"
+msgstr "Setup-Modus"
 
 msgid "Discover or connect to Apple TV device"
-msgstr "Suche oder Verbinde auf Apple TV Gerät"
+msgstr "Apple TV Gerät suchen oder eine Verbindung herstellen"
 
 # Translators: Markdown can be used for formatting
 msgid "Leave blank to use auto-discovery and click _Next_."
