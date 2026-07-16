@@ -112,24 +112,31 @@ REPEAT_MAPPING = {RepeatState.Off: RepeatMode.OFF, RepeatState.All: RepeatMode.A
 def debounce(
     wait: float,
 ) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Coroutine[Any, Any, Task[Any]]]]:
-    """Debounce function with delay in seconds."""
+    """Debounce a coroutine method with delay in seconds (per-instance).
+
+    The decorated function must be a method, i.e. its first positional argument is ``self``. The pending task is
+    stored on the instance (keyed by the wrapped function's name) rather than in the decorator's closure, so
+    multiple instances (e.g. several `AppleTv` devices) each get their own independent debounce timer instead of
+    cancelling each other's pending calls.
+    """
 
     def decorator(func: Callable[..., Awaitable[Any]]) -> Callable[..., Coroutine[Any, Any, Task[Any]]]:
-        task: Task[Any] | None = None
+        attr = f"_debounce_task_{func.__name__}"
 
         @wraps(func)
-        async def debounced(*args: Any, **kwargs: Any) -> Task[Any]:
-            nonlocal task
+        async def debounced(self: Any, *args: Any, **kwargs: Any) -> Task[Any]:
+            existing: Task[Any] | None = getattr(self, attr, None)
+            if existing and not existing.done():
+                existing.cancel()
 
             async def call_func() -> None:
                 """Call wrapped function."""
                 await asyncio.sleep(wait)
-                await func(*args, **kwargs)
+                await func(self, *args, **kwargs)
 
-            if task and not task.done():
-                task.cancel()
-            task = asyncio.create_task(call_func())
-            return task
+            new_task = asyncio.create_task(call_func())
+            setattr(self, attr, new_task)
+            return new_task
 
         return debounced
 
