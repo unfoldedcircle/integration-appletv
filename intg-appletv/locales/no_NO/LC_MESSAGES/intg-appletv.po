@@ -4,60 +4,51 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
 "Language: no_NO\n"
 
-msgid "Action"
-msgstr "Action"
-
-msgid "Add a new device"
-msgstr "Add a new device"
-
-msgid "Apple TV 4 and newer are supported and the device must be on the same network as the remote."
-msgstr "Apple TV 4 and newer are supported and the device must be on the same network as the Remote."
-
-msgid "Apple TV AirPlay-Code"
-msgstr "Apple TV AirPlay-Code"
-
-msgid "Apple TV PIN"
-msgstr "Apple TV PIN"
-
-msgid "Change volume on all connected devices"
-msgstr "Change volume on all connected devices"
-
-msgid "Choose your Apple TV"
-msgstr "Choose your Apple TV"
-
-msgid "Configuration mode"
-msgstr "Configuration mode"
-
-msgid "Configure selected device"
-msgstr "Configure selected device"
-
-msgid "Configured devices"
-msgstr "Configured devices"
-
 msgid "Control your Apple TV with Remote Two/3."
 msgstr "Control your Apple TV with Remote Two/3."
-
-msgid "Delete selected device"
-msgstr "Delete selected device"
-
-msgid "Discover or connect to Apple TV device"
-msgstr "Discover or connect to Apple TV device"
-
-msgid "During the process, you need to enter multiple PINs that are shown on your Apple TV. Please make sure to set AirPlay access to _Anyone on the Same Network_ in Apple TV settings."
-msgstr "During the process, you need to enter multiple PINs that are shown on your Apple TV. Please make sure to set AirPlay access to _Anyone on the Same Network_ in Apple TV settings."
 
 msgid "Integration setup"
 msgstr "Integration setup"
 
-msgid "IP address (optional)"
-msgstr "IP address (optional)"
+msgid "Setup process"
+msgstr "Setup process"
 
-msgid "IP address (same network only)"
-msgstr "IP address (same network only)"
+msgid "The integration will discover your Apple TV on your network."
+msgstr "The integration will discover your Apple TV on your network."
 
-# Translators: Markdown can be used for formatting
-msgid "Leave blank to use auto-discovery and click _Next_."
-msgstr "Leave blank to use auto-discovery and click _Next_."
+msgid "Apple TV 4 and newer are supported and the device must be on the same network as the remote."
+msgstr "Apple TV 4 and newer are supported and the device must be on the same network as the Remote."
+
+msgid "During the process, you need to enter multiple PINs that are shown on your Apple TV. Please make sure to set AirPlay access to _Anyone on the Same Network_ in Apple TV settings."
+msgstr "During the process, you need to enter multiple PINs that are shown on your Apple TV. Please make sure to set AirPlay access to _Anyone on the Same Network_ in Apple TV settings."
+
+# Translators: Make sure to include the support article link as Markdown. See English text
+msgid "Please see our support article for requirements, features and restrictions."
+msgstr "Please see our [support article](https://support.unfoldedcircle.com/hc/en-us/articles/19479576638620) for requirements, features and restrictions."
+
+msgid "Add a new device"
+msgstr "Add a new device"
+
+msgid "Delete selected device"
+msgstr "Delete selected device"
+
+msgid "Configure selected device"
+msgstr "Configure selected device"
+
+msgid "Reset configuration and reconfigure"
+msgstr "Reset configuration and reconfigure"
+
+msgid "Configuration mode"
+msgstr "Configuration mode"
+
+msgid "Configured devices"
+msgstr "Configured devices"
+
+msgid "Action"
+msgstr "Action"
+
+msgid "Manual MAC address (below)"
+msgstr "Manual MAC address (below)"
 
 msgid "MAC address"
 msgstr "MAC address"
@@ -65,33 +56,42 @@ msgstr "MAC address"
 msgid "Manual MAC address"
 msgstr "Manual MAC address"
 
-msgid "Manual MAC address (below)"
-msgstr "Manual MAC address (below)"
+msgid "IP address (optional)"
+msgstr "IP address (optional)"
 
 msgid "Please choose your Apple TV"
 msgstr "Please choose your Apple TV"
 
+msgid "Choose your Apple TV"
+msgstr "Choose your Apple TV"
+
 msgid "Please enter the shown AirPlay-Code on your Apple TV"
 msgstr "Please enter the shown AirPlay-Code on your Apple TV"
+
+msgid "Apple TV AirPlay-Code"
+msgstr "Apple TV AirPlay-Code"
 
 msgid "Please enter the shown PIN on your Apple TV"
 msgstr "Please enter the shown PIN on your Apple TV"
 
-# Translators: Make sure to include the support article link as Markdown. See English text
-msgid "Please see our support article for requirements, features and restrictions."
-msgstr "Please see our [support article](https://support.unfoldedcircle.com/hc/en-us/articles/19479576638620) for requirements, features and restrictions."
-
-msgid "Reset configuration and reconfigure"
-msgstr "Reset configuration and reconfigure"
+msgid "Apple TV PIN"
+msgstr "Apple TV PIN"
 
 msgid "Setup mode"
 msgstr "Setup mode"
 
-msgid "Setup process"
-msgstr "Setup process"
+msgid "Discover or connect to Apple TV device"
+msgstr "Discover or connect to Apple TV device"
+
+# Translators: Markdown can be used for formatting
+msgid "Leave blank to use auto-discovery and click _Next_."
+msgstr "Leave blank to use auto-discovery and click _Next_."
 
 msgid "The device must be on the same network as the remote."
 msgstr "The device must be on the same network as the Remote."
 
-msgid "The integration will discover your Apple TV on your network."
-msgstr "The integration will discover your Apple TV on your network."
+msgid "IP address (same network only)"
+msgstr "IP address (same network only)"
+
+msgid "Change volume on all connected devices"
+msgstr "Change volume on all connected devices"

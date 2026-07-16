@@ -62,6 +62,9 @@ ARTWORK_HEIGHT = 400
 ERROR_OS_WAIT = 0.5
 CONNECT_TIMEOUT = 15.0
 """Maximum time in seconds to wait for pyatv.connect() to complete, comfortably above pyatv's own protocol timeouts."""
+APP_LIST_REFRESH_INTERVAL = 300.0
+OUTPUT_REFRESH_INTERVAL = 300.0
+CONNECT_WAIT_FOR_COMMAND = 3.0
 
 
 class EVENTS(StrEnum):
@@ -113,24 +116,31 @@ REPEAT_MAPPING = {RepeatState.Off: RepeatMode.OFF, RepeatState.All: RepeatMode.A
 def debounce(
     wait: float,
 ) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Coroutine[Any, Any, Task[Any]]]]:
-    """Debounce function with delay in seconds."""
+    """Debounce a coroutine method with delay in seconds (per-instance).
+
+    The decorated function must be a method, i.e. its first positional argument is ``self``. The pending task is
+    stored on the instance (keyed by the wrapped function's name) rather than in the decorator's closure, so
+    multiple instances (e.g. several `AppleTv` devices) each get their own independent debounce timer instead of
+    cancelling each other's pending calls.
+    """
 
     def decorator(func: Callable[..., Awaitable[Any]]) -> Callable[..., Coroutine[Any, Any, Task[Any]]]:
-        task: Task[Any] | None = None
+        attr = f"_debounce_task_{func.__name__}"
 
         @wraps(func)
-        async def debounced(*args: Any, **kwargs: Any) -> Task[Any]:
-            nonlocal task
+        async def debounced(self: Any, *args: Any, **kwargs: Any) -> Task[Any]:
+            existing: Task[Any] | None = getattr(self, attr, None)
+            if existing and not existing.done():
+                existing.cancel()
 
             async def call_func() -> None:
                 """Call wrapped function."""
                 await asyncio.sleep(wait)
-                await func(*args, **kwargs)
+                await func(self, *args, **kwargs)
 
-            if task and not task.done():
-                task.cancel()
-            task = asyncio.create_task(call_func())
-            return task
+            new_task = asyncio.create_task(call_func())
+            setattr(self, attr, new_task)
+            return new_task
 
         return debounced
 
@@ -158,8 +168,20 @@ def async_handle_atvlib_errors(
     @wraps(func)
     async def wrapper(self: _AppleTvT, *args: _P.args, **kwargs: _P.kwargs) -> StatusCodes:
         if self._atv is None:  # pyright: ignore[reportPrivateUsage]
-            _LOG.debug("[%s] Command wrapper: not connected try reconnect", self.log_id)
+            _LOG.debug("[%s] Command wrapper: not connected, requesting reconnect", self.log_id)
             await self.connect()
+            # Give an in-flight connection a brief moment so a command right after wake can land.
+            try:
+                async with asyncio.timeout(CONNECT_WAIT_FOR_COMMAND):
+                    # Deliberate bounded polling: the connect loop has no completion event to wait on.
+                    while (  # noqa: ASYNC110
+                        self._atv is None  # pyright: ignore[reportPrivateUsage]
+                        and self._is_enabled  # pyright: ignore[reportPrivateUsage]
+                        and not self._auth_failed  # pyright: ignore[reportPrivateUsage]
+                    ):
+                        await asyncio.sleep(0.1)
+            except TimeoutError:
+                pass
             if self._atv is None:  # pyright: ignore[reportPrivateUsage]
                 return StatusCodes.SERVICE_UNAVAILABLE
 
@@ -227,6 +249,8 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         self.events = AsyncIOEventEmitter(self._loop)
         self._is_enabled: bool = False
         """Determine if the ATV connection should be kept alive."""
+        self._auth_failed: bool = False
+        """Set when connecting fails with an authentication error; stops reconnect attempts until re-paired."""
         self._atv: pyatv.interface.AppleTV | None = None
         if not device.credentials:
             device.credentials = []
@@ -239,6 +263,9 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         self._poll_interval: int = 10
         self._device_state: DeviceState | None = None
         self._app_list: dict[str, str] = {}
+        self._app_list_supported: bool = True
+        self._next_app_list_refresh: float = 0.0
+        self._next_output_refresh: float = 0.0
         self._available_output_devices: dict[str, str] = {}
         self._output_devices: OrderedDict[str, frozenset[str]] = OrderedDict[str, frozenset[str]]()
         self._output_devices[self._device.name] = frozenset()
@@ -511,6 +538,9 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
     ) -> None:
         """Output device change callback handler, for example airplay speaker."""
         _LOG.debug("[%s] Changed output devices to %s", self.log_id, self.output_devices)
+        # Nudge the poll worker to refresh the available output devices list promptly instead of
+        # waiting for the full OUTPUT_REFRESH_INTERVAL backoff.
+        self._next_output_refresh = 0.0
         self.events.emit(EVENTS.UPDATE, self._device.identifier, {MediaAttr.SOUND_MODE: self.output_devices})
 
     async def _find_atv(self) -> pyatv.interface.BaseConfig | None:
@@ -585,10 +615,9 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         return res
 
     async def connect(self) -> None:
-        """Establish connection to ATV."""
-        if self._is_enabled:
-            return
+        """Ensure the device is being supervised/connected (idempotent)."""
         self._is_enabled = True
+        self._auth_failed = False  # a reconfigure/re-pair should retry after an auth failure
         self._start_connect_loop()
 
     def _start_connect_loop(self) -> None:
@@ -605,7 +634,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
     async def _connect_loop(self) -> None:
         _LOG.debug("[%s] Starting connect loop", self.log_id)
-        while self._is_enabled and self._atv is None:
+        while self._is_enabled and self._atv is None and not self._auth_failed:
             if await self._connect_once():
                 break
             self._connection_attempts += 1
@@ -637,10 +666,23 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
             await self._start_polling()
 
+            # Fresh connection: allow one prompt fetch of the app list and output devices, then
+            # let the poll worker's time-based backoff take over (see _poll_worker). Reset the
+            # latch/timers *before* the eager spawns below, and push the timers into the future
+            # right after so the poll worker's first pass (~2s later) doesn't re-fetch what these
+            # spawned tasks already fetched (or are about to).
+            self._app_list_supported = True
+            self._next_app_list_refresh = 0.0
+            self._next_output_refresh = 0.0
+
             if self._atv.features.in_state(FeatureState.Available, FeatureName.AppList):
                 self._spawn_task(self._update_app_list())
 
             self._spawn_task(self._update_output_devices())
+
+            now = self._loop.time()
+            self._next_app_list_refresh = now + APP_LIST_REFRESH_INTERVAL
+            self._next_output_refresh = now + OUTPUT_REFRESH_INTERVAL
 
             self.events.emit(EVENTS.CONNECTED, self._device.identifier)
             _LOG.debug("[%s] Connected", self.log_id)
@@ -669,8 +711,9 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                 await self._connect(self._apple_tv_conf)
                 return self._atv is not None
         except pyatv.exceptions.AuthenticationError:
-            _LOG.warning("[%s] Could not connect: auth error", self.log_id)
-            await self.disconnect()
+            _LOG.warning("[%s] Could not connect: authentication error", self.log_id)
+            self._auth_failed = True
+            self.events.emit(EVENTS.ERROR, self._device.identifier, "authentication_failed")
             return False
         except asyncio.CancelledError:
             return False
@@ -748,6 +791,22 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         finally:
             self._atv = None
             self._connect_task = None
+
+    def update_config(self, device: AtvDevice) -> None:
+        """
+        Swap in a reconfigured device (e.g. new address / mac_address / credentials).
+
+        This drops the cached, resolved Apple TV configuration so the next connection
+        attempt re-resolves the device with `_find_atv()` using the updated address and
+        mac_address, instead of silently continuing to use the stale one.
+
+        Does not itself disconnect or reconnect: callers that want the new configuration
+        to take effect immediately should `disconnect()` before and `connect()` after.
+        """
+        if not device.credentials:
+            device.credentials = []
+        self._device = device
+        self._apple_tv_conf = None
 
     async def _start_polling(self) -> None:
         if self._atv is None:
@@ -868,6 +927,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                     update[MediaAttr.SOURCE_LIST].append(app.name)
         except pyatv.exceptions.NotSupportedError:
             _LOG.warning("[%s] App list is not supported", self.log_id)
+            self._app_list_supported = False
         except pyatv.exceptions.ProtocolError:
             _LOG.warning("[%s] App list: protocol error", self.log_id)
         except pyatv.exceptions.BlockedStateError:
@@ -978,9 +1038,12 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             update[MediaAttr.STATE] = self.media_state
             self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
-            if len(self._app_list) == 0:
+            now = self._loop.time()
+            if self._app_list_supported and now >= self._next_app_list_refresh:
+                self._next_app_list_refresh = now + APP_LIST_REFRESH_INTERVAL
                 await self._update_app_list()
-            if not self._available_output_devices:
+            if now >= self._next_output_refresh:
+                self._next_output_refresh = now + OUTPUT_REFRESH_INTERVAL
                 await self._update_output_devices()
 
             await asyncio.sleep(self._poll_interval)
