@@ -60,6 +60,7 @@ BACKOFF_SEC = 2
 ARTWORK_WIDTH = 400
 ARTWORK_HEIGHT = 400
 ERROR_OS_WAIT = 0.5
+CONNECT_WAIT_FOR_COMMAND = 3.0
 
 
 class EVENTS(StrEnum):
@@ -156,8 +157,20 @@ def async_handle_atvlib_errors(
     @wraps(func)
     async def wrapper(self: _AppleTvT, *args: _P.args, **kwargs: _P.kwargs) -> StatusCodes:
         if self._atv is None:  # pyright: ignore[reportPrivateUsage]
-            _LOG.debug("[%s] Command wrapper: not connected try reconnect", self.log_id)
+            _LOG.debug("[%s] Command wrapper: not connected, requesting reconnect", self.log_id)
             await self.connect()
+            # Give an in-flight connection a brief moment so a command right after wake can land.
+            try:
+                async with asyncio.timeout(CONNECT_WAIT_FOR_COMMAND):
+                    # Deliberate bounded polling: the connect loop has no completion event to wait on.
+                    while (  # noqa: ASYNC110
+                        self._atv is None  # pyright: ignore[reportPrivateUsage]
+                        and self._is_enabled  # pyright: ignore[reportPrivateUsage]
+                        and not self._auth_failed  # pyright: ignore[reportPrivateUsage]
+                    ):
+                        await asyncio.sleep(0.1)
+            except TimeoutError:
+                pass
             if self._atv is None:  # pyright: ignore[reportPrivateUsage]
                 return StatusCodes.SERVICE_UNAVAILABLE
 
@@ -225,6 +238,8 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         self.events = AsyncIOEventEmitter(self._loop)
         self._is_enabled: bool = False
         """Determine if the ATV connection should be kept alive."""
+        self._auth_failed: bool = False
+        """Set when connecting fails with an authentication error; stops reconnect attempts until re-paired."""
         self._atv: pyatv.interface.AppleTV | None = None
         if not device.credentials:
             device.credentials = []
@@ -578,10 +593,9 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         return res
 
     async def connect(self) -> None:
-        """Establish connection to ATV."""
-        if self._is_enabled:
-            return
+        """Ensure the device is being supervised/connected (idempotent)."""
         self._is_enabled = True
+        self._auth_failed = False  # a reconfigure/re-pair should retry after an auth failure
         self._start_connect_loop()
 
     def _start_connect_loop(self) -> None:
@@ -598,7 +612,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
     async def _connect_loop(self) -> None:
         _LOG.debug("[%s] Starting connect loop", self.log_id)
-        while self._is_enabled and self._atv is None:
+        while self._is_enabled and self._atv is None and not self._auth_failed:
             if await self._connect_once():
                 break
             self._connection_attempts += 1
@@ -662,8 +676,9 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                 await self._connect(self._apple_tv_conf)
                 return self._atv is not None
         except pyatv.exceptions.AuthenticationError:
-            _LOG.warning("[%s] Could not connect: auth error", self.log_id)
-            await self.disconnect()
+            _LOG.warning("[%s] Could not connect: authentication error", self.log_id)
+            self._auth_failed = True
+            self.events.emit(EVENTS.ERROR, self._device.identifier, "authentication_failed")
             return False
         except asyncio.CancelledError:
             return False
