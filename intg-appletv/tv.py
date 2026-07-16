@@ -60,6 +60,8 @@ BACKOFF_SEC = 2
 ARTWORK_WIDTH = 400
 ARTWORK_HEIGHT = 400
 ERROR_OS_WAIT = 0.5
+CONNECT_TIMEOUT = 15.0
+"""Maximum time in seconds to wait for pyatv.connect() to complete, comfortably above pyatv's own protocol timeouts."""
 APP_LIST_REFRESH_INTERVAL = 300.0
 OUTPUT_REFRESH_INTERVAL = 300.0
 CONNECT_WAIT_FOR_COMMAND = 3.0
@@ -544,13 +546,18 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
     async def _find_atv(self) -> pyatv.interface.BaseConfig | None:
         """Find a specific Apple TV on the network by identifier."""
         hosts = [self._device.address] if self._device.address else None
-        identifier = self._device.mac_address
+        identifier = self._device.mac_address or self._device.identifier
+        if not identifier:
+            _LOG.error("[%s] Cannot find device: no identifier/mac", self.log_id)
+            return None
         _LOG.debug("Find AppleTV for identifier %s and hosts %s", identifier, hosts)
         atvs = await pyatv.scan(self._loop, identifier=identifier, hosts=hosts)
-        if not atvs:
-            return None
-        _LOG.debug(f"Found {len(atvs)} AppleTV for identifier {identifier} and hosts {hosts} : %s", atvs[0])
-        return atvs[0]
+        match = next((atv for atv in atvs if identifier in atv.all_identifiers), None)
+        if match is None:
+            _LOG.debug("[%s] No scan result matched identifier %s", self.log_id, identifier)
+        else:
+            _LOG.debug("[%s] Found matching AppleTV for identifier %s", self.log_id, identifier)
+        return match
 
     def add_credentials(self, credentials: dict[AtvProtocol, str]) -> None:
         """Append one credential record per (protocol, credential) pair."""
@@ -765,7 +772,8 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         if self._device.name != conf.name:
             self._device.name = conf.name
 
-        self._atv = await pyatv.connect(conf, self._loop)
+        async with asyncio.timeout(CONNECT_TIMEOUT):
+            self._atv = await pyatv.connect(conf, self._loop)
 
     async def disconnect(self) -> None:
         """Disconnect from ATV."""
