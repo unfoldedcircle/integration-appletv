@@ -54,6 +54,11 @@ ignore = [
 convention = "pep257"
 
 [tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+    "S101",    # assert is the pytest idiom
+    "PLC0415", # local imports are intentional in tests (e.g. purity checks)
+    "INP001",  # tests are not a package
+]
 
 [tool.ruff.lint.isort]
 force-sort-within-sections = true
