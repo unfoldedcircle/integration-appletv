@@ -191,7 +191,7 @@ jobs:
 
       # Use conventional commit changelog, and append the GitHub generated changelog
       - name: Create Pre-Release
-        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda #v3
+        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b #v3
         if: "!contains(github.ref, 'tags/v')"
         with:
           prerelease: true
@@ -209,7 +209,7 @@ jobs:
           for filename in *.tar.gz; do echo "sha256  `sha256sum $filename`" >> ${{ env.HASH_FILENAME }}; done;
 
       - name: Create Release
-        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda #v3
+        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b #v3
         if: "contains(github.ref, 'tags/v')"
         with:
           prerelease: false
