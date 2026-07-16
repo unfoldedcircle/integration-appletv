@@ -756,6 +756,22 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             self._atv = None
             self._connect_task = None
 
+    def update_config(self, device: AtvDevice) -> None:
+        """
+        Swap in a reconfigured device (e.g. new address / mac_address / credentials).
+
+        This drops the cached, resolved Apple TV configuration so the next connection
+        attempt re-resolves the device with `_find_atv()` using the updated address and
+        mac_address, instead of silently continuing to use the stale one.
+
+        Does not itself disconnect or reconnect: callers that want the new configuration
+        to take effect immediately should `disconnect()` before and `connect()` after.
+        """
+        if not device.credentials:
+            device.credentials = []
+        self._device = device
+        self._apple_tv_conf = None
+
     async def _start_polling(self) -> None:
         if self._atv is None:
             _LOG.warning("[%s] Polling not started, AppleTv object is None", self.log_id)
