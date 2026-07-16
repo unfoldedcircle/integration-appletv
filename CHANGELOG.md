@@ -12,8 +12,19 @@ _Changes in the next release_
 ### Added
 - Added localization languages: da_DK, hu_HU, it_IT, no_NO, pl_PL, pt_PT
 
+### Fixed
+- Verify scan match in `_find_atv` and bound `pyatv.connect` with a timeout ([#157](https://github.com/unfoldedcircle/integration-appletv/pull/157)).
+- Back off periodic app-list/output-device scans in poll worker ([#156](https://github.com/unfoldedcircle/integration-appletv/pull/156)).
+- Make debounce decorator per-instance to avoid cross-device cancellation ([#155](https://github.com/unfoldedcircle/integration-appletv/pull/155)).
+- Persist full device config on reconfigure and update live instance ([#154](https://github.com/unfoldedcircle/integration-appletv/pull/154)).
+- Make `connect()` idempotent and stop auth-failure self-cancel ([#153](https://github.com/unfoldedcircle/integration-appletv/pull/153)).
+
 ### Changed
 - Switched translation management from Crowdin to SimpleLocalize.
+- Bump ruff from 0.15.17 to 0.15.20 ([#150](https://github.com/unfoldedcircle/integration-appletv/pull/150)).
+- Bump pyright from 1.1.410 to 1.1.411 ([#149](https://github.com/unfoldedcircle/integration-appletv/pull/149)).
+- Bump actions/setup-python from 6.2.0 to 6.3.0 ([#147](https://github.com/unfoldedcircle/integration-appletv/pull/147)).
+- Bump softprops/action-gh-release from 3.0.0 to 3.0.1 ([#144](https://github.com/unfoldedcircle/integration-appletv/pull/144)).
 
 ---
 
