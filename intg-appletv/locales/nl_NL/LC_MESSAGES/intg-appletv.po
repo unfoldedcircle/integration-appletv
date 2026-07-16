@@ -4,60 +4,51 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
 "Language: nl_NL\n"
 
-msgid "Action"
-msgstr "Uitvoeren"
-
-msgid "Add a new device"
-msgstr "Nieuw apparaat toevoegen"
-
-msgid "Apple TV 4 and newer are supported and the device must be on the same network as the remote."
-msgstr "Apple TV 4 en nieuwere modellen worden ondersteund. Het apparaat moet op hetzelfde netwerk aangesloten zijn als de afstandsbediening."
-
-msgid "Apple TV AirPlay-Code"
-msgstr "Apple TV AirPlay-code"
-
-msgid "Apple TV PIN"
-msgstr "Apple TV PIN-code"
-
-msgid "Change volume on all connected devices"
-msgstr "Wijzig volume op alle aangesloten apparaten"
-
-msgid "Choose your Apple TV"
-msgstr "Kies je Apple TV"
-
-msgid "Configuration mode"
-msgstr "Configuratiemodus"
-
-msgid "Configure selected device"
-msgstr "Geselecteerd apparaat configureren"
-
-msgid "Configured devices"
-msgstr "Geconfigureerde apparaten"
-
 msgid "Control your Apple TV with Remote Two/3."
 msgstr "Bedien je Apple TV met Remote Two/3."
-
-msgid "Delete selected device"
-msgstr "Verwijder geselecteerd apparaat"
-
-msgid "Discover or connect to Apple TV device"
-msgstr "Ontdek of maak verbinding met Apple TV apparaat"
-
-msgid "During the process, you need to enter multiple PINs that are shown on your Apple TV. Please make sure to set AirPlay access to _Anyone on the Same Network_ in Apple TV settings."
-msgstr "Tijdens het proces moet je meerdere pincodes invoeren die op je Apple TV worden weergegeven. Zorg ervoor dat de AirPlay-toegang is ingesteld op _Iedereen op hetzelfde netwerk_ in de Apple TV-instellingen."
 
 msgid "Integration setup"
 msgstr "Integratie configureren"
 
-msgid "IP address (optional)"
-msgstr "IP-adres (optioneel)"
+msgid "Setup process"
+msgstr "Configuratieproces"
 
-msgid "IP address (same network only)"
-msgstr "IP-adres (alleen op hetzelfde netwerk)"
+msgid "The integration will discover your Apple TV on your network."
+msgstr "De integratie zal je Apple TV op je netwerk ontdekken."
 
-# Translators: Markdown can be used for formatting
-msgid "Leave blank to use auto-discovery and click _Next_."
-msgstr "Laat dit veld leeg om auto-discovery te gebruiken en klik _Volgende_."
+msgid "Apple TV 4 and newer are supported and the device must be on the same network as the remote."
+msgstr "Apple TV 4 en nieuwere modellen worden ondersteund. Het apparaat moet op hetzelfde netwerk aangesloten zijn als de afstandsbediening."
+
+msgid "During the process, you need to enter multiple PINs that are shown on your Apple TV. Please make sure to set AirPlay access to _Anyone on the Same Network_ in Apple TV settings."
+msgstr "Tijdens het proces moet je meerdere pincodes invoeren die op je Apple TV worden weergegeven. Zorg ervoor dat de AirPlay-toegang is ingesteld op _Iedereen op hetzelfde netwerk_ in de Apple TV-instellingen."
+
+# Translators: Make sure to include the support article link as Markdown. See English text
+msgid "Please see our support article for requirements, features and restrictions."
+msgstr "Bekijk onze [support pagina](https://support.unfoldedcircle.com/hc/en-us/articles/19479576638620) voor vereisten, functies en begrenzingen."
+
+msgid "Add a new device"
+msgstr "Nieuw apparaat toevoegen"
+
+msgid "Delete selected device"
+msgstr "Verwijder geselecteerd apparaat"
+
+msgid "Configure selected device"
+msgstr "Geselecteerd apparaat configureren"
+
+msgid "Reset configuration and reconfigure"
+msgstr "Configuratie resetten en opnieuw configureren"
+
+msgid "Configuration mode"
+msgstr "Configuratiemodus"
+
+msgid "Configured devices"
+msgstr "Geconfigureerde apparaten"
+
+msgid "Action"
+msgstr "Uitvoeren"
+
+msgid "Manual MAC address (below)"
+msgstr "Handmatig MAC-adres (hieronder)"
 
 msgid "MAC address"
 msgstr "MAC-adres"
@@ -65,33 +56,42 @@ msgstr "MAC-adres"
 msgid "Manual MAC address"
 msgstr "Handmatig MAC-adres"
 
-msgid "Manual MAC address (below)"
-msgstr "Handmatig MAC-adres (hieronder)"
+msgid "IP address (optional)"
+msgstr "IP-adres (optioneel)"
 
 msgid "Please choose your Apple TV"
+msgstr "Kies je Apple TV"
+
+msgid "Choose your Apple TV"
 msgstr "Kies je Apple TV"
 
 msgid "Please enter the shown AirPlay-Code on your Apple TV"
 msgstr "Voer de weergegeven AirPlay-code in op je Apple TV"
 
+msgid "Apple TV AirPlay-Code"
+msgstr "Apple TV AirPlay-code"
+
 msgid "Please enter the shown PIN on your Apple TV"
 msgstr "Voer de weergegeven PIN-code in op je Apple TV"
 
-# Translators: Make sure to include the support article link as Markdown. See English text
-msgid "Please see our support article for requirements, features and restrictions."
-msgstr "Bekijk onze [support pagina](https://support.unfoldedcircle.com/hc/en-us/articles/19479576638620) voor vereisten, functies en begrenzingen."
-
-msgid "Reset configuration and reconfigure"
-msgstr "Configuratie resetten en opnieuw configureren"
+msgid "Apple TV PIN"
+msgstr "Apple TV PIN-code"
 
 msgid "Setup mode"
 msgstr "Setup-modus"
 
-msgid "Setup process"
-msgstr "Configuratieproces"
+msgid "Discover or connect to Apple TV device"
+msgstr "Ontdek of maak verbinding met Apple TV apparaat"
+
+# Translators: Markdown can be used for formatting
+msgid "Leave blank to use auto-discovery and click _Next_."
+msgstr "Laat dit veld leeg om auto-discovery te gebruiken en klik _Volgende_."
 
 msgid "The device must be on the same network as the remote."
 msgstr "Het apparaat moet op hetzelfde netwerk aangesloten zijn als de afstandsbediening."
 
-msgid "The integration will discover your Apple TV on your network."
-msgstr "De integratie zal je Apple TV op je netwerk ontdekken."
+msgid "IP address (same network only)"
+msgstr "IP-adres (alleen op hetzelfde netwerk)"
+
+msgid "Change volume on all connected devices"
+msgstr "Wijzig volume op alle aangesloten apparaten"
