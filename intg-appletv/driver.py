@@ -233,27 +233,42 @@ def _add_configured_atv(device_config: config.AtvDevice, *, connect: bool = True
     # the device should not yet be configured, but better be safe
     if device_config.identifier in _configured_atvs:
         atv = _configured_atvs[device_config.identifier]
-        _spawn_task(atv.disconnect())
-    else:
         _LOG.debug(
-            "Adding new ATV device: %s (%s) %s",
+            "Updating existing ATV device: %s (%s) %s",
             device_config.name,
             device_config.identifier,
             device_config.address or "",
         )
-        atv = tv.AppleTv(device_config, loop=_LOOP)
-        atv.events.on(tv.EVENTS.CONNECTED, on_atv_connected)
-        atv.events.on(tv.EVENTS.DISCONNECTED, on_atv_disconnected)
-        atv.events.on(tv.EVENTS.ERROR, on_atv_connection_error)
-        atv.events.on(tv.EVENTS.UPDATE, on_atv_update)
-        _configured_atvs[device_config.identifier] = atv
 
-    async def start_connection() -> None:
-        await atv.connect()
+        async def reconnect_with_new_config() -> None:
+            # Disconnect first so a stale connection to the old address/identifier isn't left
+            # dangling, then push the new config in and reconnect (which forces re-resolution
+            # of the device since the cached, resolved Apple TV config is dropped).
+            await atv.disconnect()
+            atv.update_config(device_config)
+            if connect:
+                await atv.connect()
+
+        _spawn_task(reconnect_with_new_config())
+        _register_available_entities(device_config, atv)
+        return
+
+    _LOG.debug(
+        "Adding new ATV device: %s (%s) %s",
+        device_config.name,
+        device_config.identifier,
+        device_config.address or "",
+    )
+    atv = tv.AppleTv(device_config, loop=_LOOP)
+    atv.events.on(tv.EVENTS.CONNECTED, on_atv_connected)
+    atv.events.on(tv.EVENTS.DISCONNECTED, on_atv_disconnected)
+    atv.events.on(tv.EVENTS.ERROR, on_atv_connection_error)
+    atv.events.on(tv.EVENTS.UPDATE, on_atv_update)
+    _configured_atvs[device_config.identifier] = atv
 
     if connect:
         # start background task
-        _spawn_task(start_connection())
+        _spawn_task(atv.connect())
 
     _register_available_entities(device_config, atv)
 
@@ -287,6 +302,18 @@ def _register_available_entities(device_config: config.AtvDevice, device: tv.App
 def on_device_added(device: config.AtvDevice) -> None:
     """Handle a newly added device in the configuration."""
     _LOG.debug("New device added: %s", device)
+    _add_configured_atv(device, connect=True)
+
+
+def on_device_updated(device: config.AtvDevice) -> None:
+    """
+    Handle a reconfigured device in the configuration.
+
+    Pushes the updated address / mac_address / credentials to the running `tv.AppleTv`
+    instance (if any) and reconnects it, so a driver restart is not required for a
+    reconfiguration (e.g. changed IP or MAC address) to take effect.
+    """
+    _LOG.debug("Device configuration updated: %s", device)
     _add_configured_atv(device, connect=True)
 
 
@@ -358,7 +385,7 @@ async def main() -> None:
     # logging.getLogger("pyatv").setLevel(logging.DEBUG)
 
     # load paired devices
-    config.devices = config.Devices(api.config_dir_path, on_device_added, on_device_removed)
+    config.devices = config.Devices(api.config_dir_path, on_device_added, on_device_removed, on_device_updated)
     devices = config.get_devices()
     # best effort migration (if required): network might not be available during startup
     await devices.migrate()

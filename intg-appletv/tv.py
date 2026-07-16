@@ -62,6 +62,7 @@ ARTWORK_HEIGHT = 400
 ERROR_OS_WAIT = 0.5
 APP_LIST_REFRESH_INTERVAL = 300.0
 OUTPUT_REFRESH_INTERVAL = 300.0
+CONNECT_WAIT_FOR_COMMAND = 3.0
 
 
 class EVENTS(StrEnum):
@@ -113,24 +114,31 @@ REPEAT_MAPPING = {RepeatState.Off: RepeatMode.OFF, RepeatState.All: RepeatMode.A
 def debounce(
     wait: float,
 ) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Coroutine[Any, Any, Task[Any]]]]:
-    """Debounce function with delay in seconds."""
+    """Debounce a coroutine method with delay in seconds (per-instance).
+
+    The decorated function must be a method, i.e. its first positional argument is ``self``. The pending task is
+    stored on the instance (keyed by the wrapped function's name) rather than in the decorator's closure, so
+    multiple instances (e.g. several `AppleTv` devices) each get their own independent debounce timer instead of
+    cancelling each other's pending calls.
+    """
 
     def decorator(func: Callable[..., Awaitable[Any]]) -> Callable[..., Coroutine[Any, Any, Task[Any]]]:
-        task: Task[Any] | None = None
+        attr = f"_debounce_task_{func.__name__}"
 
         @wraps(func)
-        async def debounced(*args: Any, **kwargs: Any) -> Task[Any]:
-            nonlocal task
+        async def debounced(self: Any, *args: Any, **kwargs: Any) -> Task[Any]:
+            existing: Task[Any] | None = getattr(self, attr, None)
+            if existing and not existing.done():
+                existing.cancel()
 
             async def call_func() -> None:
                 """Call wrapped function."""
                 await asyncio.sleep(wait)
-                await func(*args, **kwargs)
+                await func(self, *args, **kwargs)
 
-            if task and not task.done():
-                task.cancel()
-            task = asyncio.create_task(call_func())
-            return task
+            new_task = asyncio.create_task(call_func())
+            setattr(self, attr, new_task)
+            return new_task
 
         return debounced
 
@@ -158,8 +166,20 @@ def async_handle_atvlib_errors(
     @wraps(func)
     async def wrapper(self: _AppleTvT, *args: _P.args, **kwargs: _P.kwargs) -> StatusCodes:
         if self._atv is None:  # pyright: ignore[reportPrivateUsage]
-            _LOG.debug("[%s] Command wrapper: not connected try reconnect", self.log_id)
+            _LOG.debug("[%s] Command wrapper: not connected, requesting reconnect", self.log_id)
             await self.connect()
+            # Give an in-flight connection a brief moment so a command right after wake can land.
+            try:
+                async with asyncio.timeout(CONNECT_WAIT_FOR_COMMAND):
+                    # Deliberate bounded polling: the connect loop has no completion event to wait on.
+                    while (  # noqa: ASYNC110
+                        self._atv is None  # pyright: ignore[reportPrivateUsage]
+                        and self._is_enabled  # pyright: ignore[reportPrivateUsage]
+                        and not self._auth_failed  # pyright: ignore[reportPrivateUsage]
+                    ):
+                        await asyncio.sleep(0.1)
+            except TimeoutError:
+                pass
             if self._atv is None:  # pyright: ignore[reportPrivateUsage]
                 return StatusCodes.SERVICE_UNAVAILABLE
 
@@ -227,6 +247,8 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         self.events = AsyncIOEventEmitter(self._loop)
         self._is_enabled: bool = False
         """Determine if the ATV connection should be kept alive."""
+        self._auth_failed: bool = False
+        """Set when connecting fails with an authentication error; stops reconnect attempts until re-paired."""
         self._atv: pyatv.interface.AppleTV | None = None
         if not device.credentials:
             device.credentials = []
@@ -586,10 +608,9 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         return res
 
     async def connect(self) -> None:
-        """Establish connection to ATV."""
-        if self._is_enabled:
-            return
+        """Ensure the device is being supervised/connected (idempotent)."""
         self._is_enabled = True
+        self._auth_failed = False  # a reconfigure/re-pair should retry after an auth failure
         self._start_connect_loop()
 
     def _start_connect_loop(self) -> None:
@@ -606,7 +627,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
     async def _connect_loop(self) -> None:
         _LOG.debug("[%s] Starting connect loop", self.log_id)
-        while self._is_enabled and self._atv is None:
+        while self._is_enabled and self._atv is None and not self._auth_failed:
             if await self._connect_once():
                 break
             self._connection_attempts += 1
@@ -683,8 +704,9 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                 await self._connect(self._apple_tv_conf)
                 return self._atv is not None
         except pyatv.exceptions.AuthenticationError:
-            _LOG.warning("[%s] Could not connect: auth error", self.log_id)
-            await self.disconnect()
+            _LOG.warning("[%s] Could not connect: authentication error", self.log_id)
+            self._auth_failed = True
+            self.events.emit(EVENTS.ERROR, self._device.identifier, "authentication_failed")
             return False
         except asyncio.CancelledError:
             return False
@@ -761,6 +783,22 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         finally:
             self._atv = None
             self._connect_task = None
+
+    def update_config(self, device: AtvDevice) -> None:
+        """
+        Swap in a reconfigured device (e.g. new address / mac_address / credentials).
+
+        This drops the cached, resolved Apple TV configuration so the next connection
+        attempt re-resolves the device with `_find_atv()` using the updated address and
+        mac_address, instead of silently continuing to use the stale one.
+
+        Does not itself disconnect or reconnect: callers that want the new configuration
+        to take effect immediately should `disconnect()` before and `connect()` after.
+        """
+        if not device.credentials:
+            device.credentials = []
+        self._device = device
+        self._apple_tv_conf = None
 
     async def _start_polling(self) -> None:
         if self._atv is None:
