@@ -2,7 +2,7 @@
 
 |                         |                                                                                                                                                                |
 |-------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Status**              | Approved (2026-07-16) — Phase 1 in progress                                                                                                                     |
+| **Status**              | Approved (2026-07-16) — Phases 1–2 implemented; Phases 3–4 pending                                                                                              |
 | **Author**              | Claude (Opus 4.8), commissioned by Markus Zehnder                                                                                                              |
 | **Date**                | 2026-07-16                                                                                                                                                     |
 | **Reviewed**            | 2026-07-16 — verified against sources (`main` @ `4f838f1`); gaps corrected in place (poll-worker call sites, supervisor termination, conf-cache semantics, adoption bootstrap, `wait_for_state` contract, INV-6/AC-6 wording) |
