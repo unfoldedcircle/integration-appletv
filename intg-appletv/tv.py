@@ -60,6 +60,8 @@ BACKOFF_SEC = 2
 ARTWORK_WIDTH = 400
 ARTWORK_HEIGHT = 400
 ERROR_OS_WAIT = 0.5
+APP_LIST_REFRESH_INTERVAL = 300.0
+OUTPUT_REFRESH_INTERVAL = 300.0
 
 
 class EVENTS(StrEnum):
@@ -237,6 +239,9 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         self._poll_interval: int = 10
         self._device_state: DeviceState | None = None
         self._app_list: dict[str, str] = {}
+        self._app_list_supported: bool = True
+        self._next_app_list_refresh: float = 0.0
+        self._next_output_refresh: float = 0.0
         self._available_output_devices: dict[str, str] = {}
         self._output_devices: OrderedDict[str, frozenset[str]] = OrderedDict[str, frozenset[str]]()
         self._output_devices[self._device.name] = frozenset()
@@ -509,6 +514,9 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
     ) -> None:
         """Output device change callback handler, for example airplay speaker."""
         _LOG.debug("[%s] Changed output devices to %s", self.log_id, self.output_devices)
+        # Nudge the poll worker to refresh the available output devices list promptly instead of
+        # waiting for the full OUTPUT_REFRESH_INTERVAL backoff.
+        self._next_output_refresh = 0.0
         self.events.emit(EVENTS.UPDATE, self._device.identifier, {MediaAttr.SOUND_MODE: self.output_devices})
 
     async def _find_atv(self) -> pyatv.interface.BaseConfig | None:
@@ -630,10 +638,23 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
             await self._start_polling()
 
+            # Fresh connection: allow one prompt fetch of the app list and output devices, then
+            # let the poll worker's time-based backoff take over (see _poll_worker). Reset the
+            # latch/timers *before* the eager spawns below, and push the timers into the future
+            # right after so the poll worker's first pass (~2s later) doesn't re-fetch what these
+            # spawned tasks already fetched (or are about to).
+            self._app_list_supported = True
+            self._next_app_list_refresh = 0.0
+            self._next_output_refresh = 0.0
+
             if self._atv.features.in_state(FeatureState.Available, FeatureName.AppList):
                 self._spawn_task(self._update_app_list())
 
             self._spawn_task(self._update_output_devices())
+
+            now = self._loop.time()
+            self._next_app_list_refresh = now + APP_LIST_REFRESH_INTERVAL
+            self._next_output_refresh = now + OUTPUT_REFRESH_INTERVAL
 
             self.events.emit(EVENTS.CONNECTED, self._device.identifier)
             _LOG.debug("[%s] Connected", self.log_id)
@@ -860,6 +881,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                     update[MediaAttr.SOURCE_LIST].append(app.name)
         except pyatv.exceptions.NotSupportedError:
             _LOG.warning("[%s] App list is not supported", self.log_id)
+            self._app_list_supported = False
         except pyatv.exceptions.ProtocolError:
             _LOG.warning("[%s] App list: protocol error", self.log_id)
         except pyatv.exceptions.BlockedStateError:
@@ -970,9 +992,12 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             update[MediaAttr.STATE] = self.media_state
             self.events.emit(EVENTS.UPDATE, self._device.identifier, update)
 
-            if len(self._app_list) == 0:
+            now = self._loop.time()
+            if self._app_list_supported and now >= self._next_app_list_refresh:
+                self._next_app_list_refresh = now + APP_LIST_REFRESH_INTERVAL
                 await self._update_app_list()
-            if not self._available_output_devices:
+            if now >= self._next_output_refresh:
+                self._next_output_refresh = now + OUTPUT_REFRESH_INTERVAL
                 await self._update_output_devices()
 
             await asyncio.sleep(self._poll_interval)
