@@ -62,7 +62,7 @@ issue in the library with all the required information to reproduce it.
 
 ### Network
 
-- The Apple TV device must be on the same network subnet as the Remote. Routed networks are not supported.
+- The Apple TV device must be on the same network subnet as the Remote or use a mDNS reflector.
 - [Zeroconf](https://en.m.wikipedia.org/wiki/Zero-configuration_networking) (multicast DNS) must be a allowed.  
   Check your WiFi access point and router that this traffic is not filtered out.
 - When using DHCP: a static IP address reservation for the Apple TV device(s) is recommended.  

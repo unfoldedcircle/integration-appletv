@@ -75,7 +75,7 @@ def setup_data_schema() -> dict[str, Any]:
                             "\n",
                             __(
                                 "Apple TV 4 and newer are supported and the device must be on the same network"
-                                + " as the remote."
+                                + " as the remote or use a mDNS reflector."
                             ),
                             "\n",
                             __(
@@ -436,7 +436,10 @@ async def _handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Req
 
     # Create a new AppleTv object
     # TODO exception handling?
-    atvs = await pyatv.scan(asyncio.get_event_loop(), identifier=choice, hosts=[str(atv.address)])
+    # Manual entry: prefer to use the provided IP as filter - fallback to broad discovery
+    # Automatic entry: relies on 100% mDNS
+    search_hosts = [str(atv.address)] if _manual_address else None
+    atvs = await discover.apple_tvs(asyncio.get_event_loop(), identifier=choice, hosts=search_hosts)
     if not atvs:
         _LOG.error("Cannot connect the chosen Apple TV: %s", choice)
         return SetupError(error_type=IntegrationSetupError.NOT_FOUND)
@@ -648,14 +651,14 @@ def __user_input_discovery() -> RequestUserInput:
                             # Translators: Markdown can be used for formatting
                             __("Leave blank to use auto-discovery and click _Next_."),
                             "\n\n",
-                            __("The device must be on the same network as the remote."),
+                            __("The device must be on the same network as the remote or use a mDNS reflector."),
                         )
                     }
                 },
             },
             {
                 "id": "address",
-                "label": _a("IP address (same network only)"),
+                "label": _a("IP address"),
                 "field": {"text": {"value": ""}},
             },
         ],

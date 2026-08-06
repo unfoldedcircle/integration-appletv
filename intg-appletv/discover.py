@@ -26,6 +26,14 @@ async def apple_tvs(
     # extra safety, if anything goes wrong here the reconnection logic is dead
     try:
         atvs = await pyatv.scan(loop, identifier=identifier, hosts=hosts)
+        if not atvs and hosts:
+            # Direct unicast scan to the host can fail on networks where mDNS multicast is
+            # sent cross VLANs (via an mDNS reflector for example) but plain unicast UDP between
+            # hosts on different VLANs is not. Fall back to an unrestricted multicast scan and
+            # filter by address.
+            _LOG.debug("Unicast scan to %s found nothing, falling back to multicast discovery", hosts)
+            host_set = set(hosts)
+            atvs = [tv for tv in await pyatv.scan(loop, identifier=identifier) if str(tv.address) in host_set]
         # We only support Apple TV devices. Attention: HomePods are reported as TvOS!
         # https://github.com/unfoldedcircle/feature-and-bug-tracker/issues/173
         supported_models = {
