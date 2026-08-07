@@ -16,6 +16,9 @@ msgstr "Configuratieproces"
 msgid "The integration will discover your Apple TV on your network."
 msgstr "De integratie zal je Apple TV op je netwerk ontdekken."
 
+msgid "Apple TV 4 and newer are supported and the device must be on the same network as the remote."
+msgstr "Apple TV 4 en nieuwer worden ondersteund en het apparaat moet zich op hetzelfde netwerk bevinden als de Remote of een mDNS-reflector gebruiken."
+
 msgid "During the process, you need to enter multiple PINs that are shown on your Apple TV. Please make sure to set AirPlay access to _Anyone on the Same Network_ in Apple TV settings."
 msgstr "Tijdens het proces moet je meerdere pincodes invoeren die op je Apple TV worden weergegeven. Zorg ervoor dat de AirPlay-toegang is ingesteld op _Iedereen op hetzelfde netwerk_ in de Apple TV-instellingen."
 
