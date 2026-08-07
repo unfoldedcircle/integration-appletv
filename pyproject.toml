@@ -58,6 +58,10 @@ convention = "pep257"
     "S101",    # assert is the pytest idiom
     "PLC0415", # local imports are intentional in tests (e.g. purity checks)
     "INP001",  # tests are not a package
+    "SLF001",  # white-box shell tests assert on private state (invariants)
+    "ASYNC110", # bounded predicate polling is fine in tests
+    "TRY003",  # literal exception messages are fine in test fakes
+    "EM101",   # literal exception messages are fine in test fakes
 ]
 
 [tool.ruff.lint.isort]
@@ -79,6 +83,9 @@ max-complexity = 25
 [tool.ruff.format]
 line-ending = "auto"
 quote-style = "double"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
 
 [tool.pyright]
 include = ["intg-appletv"]
