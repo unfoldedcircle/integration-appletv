@@ -7,9 +7,6 @@ msgstr ""
 msgid "Apple TV 4 and newer are supported and the device must be on the same network as the remote."
 msgstr "Apple TV 4 e versões mais recentes são compatíveis e o dispositivo deve estar na mesma rede que o Remote ou usar um refletor mDNS."
 
-msgid "Apple TV AirPlay-Code"
-msgstr "Apple TV AirPlay-Code"
-
 msgid "Apple TV PIN"
 msgstr "Apple TV PIN"
 
