@@ -16,9 +16,6 @@ msgstr "Procedura di configurazione"
 msgid "The integration will discover your Apple TV on your network."
 msgstr "L'integrazione rileverà la tua Apple TV sulla tua rete."
 
-msgid "Apple TV 4 and newer are supported and the device must be on the same network as the remote."
-msgstr "Sono supportati Apple TV 4 e versioni successive; il dispositivo deve trovarsi sulla stessa rete del telecomando."
-
 msgid "During the process, you need to enter multiple PINs that are shown on your Apple TV. Please make sure to set AirPlay access to _Anyone on the Same Network_ in Apple TV settings."
 msgstr "Durante la procedura, dovrai inserire diversi codici PIN che vengono visualizzati sulla tua Apple TV. Assicurati di impostare l'accesso ad AirPlay su _Chiunque sulla stessa rete_ nelle impostazioni dell'Apple TV."
 
@@ -86,12 +83,6 @@ msgstr "Trova o connettiti a un dispositivo Apple TV"
 # Translators: Markdown can be used for formatting
 msgid "Leave blank to use auto-discovery and click _Next_."
 msgstr "Lascia vuoto per usare il rilevamento automatico e clicca su _Avanti_."
-
-msgid "The device must be on the same network as the remote."
-msgstr "Il dispositivo deve trovarsi sulla stessa rete del telecomando."
-
-msgid "IP address (same network only)"
-msgstr "Indirizzo IP (solo sulla stessa rete)"
 
 msgid "Change volume on all connected devices"
 msgstr "Modifica il volume su tutti i dispositivi collegati"

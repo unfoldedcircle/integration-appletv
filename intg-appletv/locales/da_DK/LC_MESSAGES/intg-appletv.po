@@ -16,9 +16,6 @@ msgstr "Installationsprocessen"
 msgid "The integration will discover your Apple TV on your network."
 msgstr "Integrationen vil finde dit Apple TV på dit netværk."
 
-msgid "Apple TV 4 and newer are supported and the device must be on the same network as the remote."
-msgstr "Apple TV 4 og nyere modeller understøttes, og enheden skal være på samme netværk som fjernbetjeningen."
-
 msgid "During the process, you need to enter multiple PINs that are shown on your Apple TV. Please make sure to set AirPlay access to _Anyone on the Same Network_ in Apple TV settings."
 msgstr "Under processen skal du indtaste flere PIN-koder, som vises på dit Apple TV. Sørg for at indstille AirPlay-adgangen til _Alle på samme netværk_ i Apple TV-indstillingerne."
 
@@ -86,12 +83,6 @@ msgstr "Find eller opret forbindelse til en Apple TV-enhed"
 # Translators: Markdown can be used for formatting
 msgid "Leave blank to use auto-discovery and click _Next_."
 msgstr "Lad feltet være tomt for at bruge automatisk genkendelse, og klik på _Næste_."
-
-msgid "The device must be on the same network as the remote."
-msgstr "Enheden skal være på samme netværk som fjernbetjeningen."
-
-msgid "IP address (same network only)"
-msgstr "IP-adresse (kun samme netværk)"
 
 msgid "Change volume on all connected devices"
 msgstr "Juster lydstyrken på alle tilsluttede enheder"

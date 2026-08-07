@@ -16,9 +16,6 @@ msgstr "Setup process"
 msgid "The integration will discover your Apple TV on your network."
 msgstr "The integration will discover your Apple TV on your network."
 
-msgid "Apple TV 4 and newer are supported and the device must be on the same network as the remote."
-msgstr "Apple TV 4 and newer are supported and the device must be on the same network as the Remote."
-
 msgid "During the process, you need to enter multiple PINs that are shown on your Apple TV. Please make sure to set AirPlay access to _Anyone on the Same Network_ in Apple TV settings."
 msgstr "During the process, you need to enter multiple PINs that are shown on your Apple TV. Please make sure to set AirPlay access to _Anyone on the Same Network_ in Apple TV settings."
 
@@ -86,12 +83,6 @@ msgstr "Discover or connect to Apple TV device"
 # Translators: Markdown can be used for formatting
 msgid "Leave blank to use auto-discovery and click _Next_."
 msgstr "Leave blank to use auto-discovery and click _Next_."
-
-msgid "The device must be on the same network as the remote."
-msgstr "The device must be on the same network as the Remote."
-
-msgid "IP address (same network only)"
-msgstr "IP address (same network only)"
 
 msgid "Change volume on all connected devices"
 msgstr "Change volume on all connected devices"
