@@ -84,5 +84,8 @@ msgstr "Upptäck eller anslut till Apple TV-enhet"
 msgid "Leave blank to use auto-discovery and click _Next_."
 msgstr "Lämna tomt för att hitta automatiskt och klicka på _Nästa_."
 
+msgid "IP address (same network only)"
+msgstr "IP-adress"
+
 msgid "Change volume on all connected devices"
 msgstr "Styr volymen på alla anslutna enheter"

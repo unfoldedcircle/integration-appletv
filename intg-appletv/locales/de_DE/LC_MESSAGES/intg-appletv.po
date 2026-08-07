@@ -84,5 +84,8 @@ msgstr "Apple TV Gerät suchen oder eine Verbindung herstellen"
 msgid "Leave blank to use auto-discovery and click _Next_."
 msgstr "Leer lassen, um automatische Erkennung zu verwenden und auf _Weiter_ klicken."
 
+msgid "IP address (same network only)"
+msgstr "IP-Adresse"
+
 msgid "Change volume on all connected devices"
 msgstr "Lautstärkeregelung auf allen verbundenen Geräten"

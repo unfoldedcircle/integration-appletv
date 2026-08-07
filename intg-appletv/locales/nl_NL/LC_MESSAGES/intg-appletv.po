@@ -84,5 +84,8 @@ msgstr "Ontdek of maak verbinding met Apple TV apparaat"
 msgid "Leave blank to use auto-discovery and click _Next_."
 msgstr "Laat dit veld leeg om auto-discovery te gebruiken en klik _Volgende_."
 
+msgid "IP address (same network only)"
+msgstr "IP-adres"
+
 msgid "Change volume on all connected devices"
 msgstr "Wijzig volume op alle aangesloten apparaten"
