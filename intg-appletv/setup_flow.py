@@ -75,7 +75,7 @@ def setup_data_schema() -> dict[str, Any]:
                             "\n",
                             __(
                                 "Apple TV 4 and newer are supported and the device must be on the same network"
-                                + " as the remote or use a mDNS reflector."
+                                + " as the remote."
                             ),
                             "\n",
                             __(
