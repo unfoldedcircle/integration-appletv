@@ -651,14 +651,14 @@ def __user_input_discovery() -> RequestUserInput:
                             # Translators: Markdown can be used for formatting
                             __("Leave blank to use auto-discovery and click _Next_."),
                             "\n\n",
-                            __("The device must be on the same network as the remote or use a mDNS reflector."),
+                            __("The device must be on the same network as the remote."),
                         )
                     }
                 },
             },
             {
                 "id": "address",
-                "label": _a("IP address"),
+                "label": _a("IP address (same network only)"),
                 "field": {"text": {"value": ""}},
             },
         ],

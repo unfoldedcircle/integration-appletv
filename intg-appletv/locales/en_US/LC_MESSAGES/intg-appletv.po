@@ -133,11 +133,11 @@ msgstr "Leave blank to use auto-discovery and click _Next_."
 #: ../setup_flow.py:640
 #, fuzzy
 msgid "The device must be on the same network as the remote."
-msgstr "The device must be on the same network as the Remote."
+msgstr "The device must be on the same network as the Remote or use a mDNS reflector."
 
 #: ../setup_flow.py:647
 msgid "IP address (same network only)"
-msgstr "IP address (same network only)"
+msgstr "IP address"
 
 #: ../setup_flow.py:657
 msgid "Change volume on all connected devices"
