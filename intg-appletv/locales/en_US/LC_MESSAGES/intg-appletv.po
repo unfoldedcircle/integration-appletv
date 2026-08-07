@@ -37,7 +37,7 @@ msgstr "The integration will discover your Apple TV on your network."
 
 #: ../setup_flow.py:75
 msgid "Apple TV 4 and newer are supported and the device must be on the same network as the remote."
-msgstr "Apple TV 4 and newer are supported and the device must be on the same network as the Remote."
+msgstr "Apple TV 4 and newer are supported and the device must be on the same network as the Remote or use a mDNS reflector."
 
 #: ../setup_flow.py:79
 msgid "During the process, you need to enter multiple PINs that are shown on your Apple TV. Please make sure to set AirPlay access to _Anyone on the Same Network_ in Apple TV settings."
