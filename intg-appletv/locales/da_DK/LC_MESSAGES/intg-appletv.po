@@ -87,6 +87,9 @@ msgstr "Find eller opret forbindelse til en Apple TV-enhed"
 msgid "Leave blank to use auto-discovery and click _Next_."
 msgstr "Lad feltet være tomt for at bruge automatisk genkendelse, og klik på _Næste_."
 
+msgid "The device must be on the same network as the remote."
+msgstr "Enheden skal være på samme netværk som fjernbetjeningen."
+
 msgid "IP address (same network only)"
 msgstr "IP-adresse"
 

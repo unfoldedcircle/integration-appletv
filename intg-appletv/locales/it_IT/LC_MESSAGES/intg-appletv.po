@@ -87,6 +87,9 @@ msgstr "Trova o connettiti a un dispositivo Apple TV"
 msgid "Leave blank to use auto-discovery and click _Next_."
 msgstr "Lascia vuoto per usare il rilevamento automatico e clicca su _Avanti_."
 
+msgid "The device must be on the same network as the remote."
+msgstr "Il dispositivo deve trovarsi sulla stessa rete del Remote o utilizzare un riflettore mDNS."
+
 msgid "IP address (same network only)"
 msgstr "Indirizzo IP"
 
