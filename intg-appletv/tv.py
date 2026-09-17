@@ -761,11 +761,15 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         if missing_protocols:
             missing_protocols_str = ", ".join(missing_protocols)
             _LOG.warning(
-                "[%s] Protocols %s not yet found for %s, trying later",
+                "[%s] Protocols %s not yet found for %s, retrying discovery later",
                 self.log_id,
                 missing_protocols_str,
                 conf.name,
             )
+            # Do not establish a partial connection. App listing and launching require
+            # Companion, and a partial AirPlay-only connection would stop the retry loop.
+            self._apple_tv_conf = None
+            return
 
         _LOG.debug("[%s] Connecting to device", conf.name)
         # In case the device has been renamed
@@ -916,11 +920,12 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
         try:
             update[MediaAttr.SOURCE_LIST] = []
+            # Do not keep stale entries if Companion becomes unavailable.
+            self._app_list.clear()
             app_list = sorted(await self._atv.apps.app_list(), key=lambda item: (item.name or "").lower())
             if not app_list:
                 _LOG.info("[%s] No apps found, trying again later", self.log_id)
                 return
-            self._app_list.clear()
             for app in app_list:
                 if app.name:
                     self._app_list[app.name] = app.identifier
@@ -1468,20 +1473,19 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
     async def launch_app(self, app_name: str) -> StatusCodes:
         """Launch an app based on bundle ID or URL."""
         assert self._atv is not None  # noqa: S101 — guaranteed by @async_handle_atvlib_errors
-        try:
-            # Launch app by name
-            await self._atv.apps.launch_app(self._app_list[app_name])
-            return StatusCodes.OK
-        except KeyError:
-            # If app_name is not an app name handle it as app deep link url
-            try:
-                await self._atv.apps.launch_app(app_name)
-                return StatusCodes.OK
-            except pyatv.exceptions.NotSupportedError:
-                _LOG.warning("[%s] Launch app is not supported", self.log_id)
-            except pyatv.exceptions.ProtocolError:
-                _LOG.warning("[%s] Launch app: protocol error", self.log_id)
+        if not self._is_feature_available(FeatureName.LaunchApp):
+            _LOG.warning("[%s] Launch app is not supported by the active connection", self.log_id)
             return StatusCodes.SERVICE_UNAVAILABLE
+
+        bundle_id_or_url = self._app_list.get(app_name, app_name)
+        try:
+            await self._atv.apps.launch_app(bundle_id_or_url)
+            return StatusCodes.OK
+        except pyatv.exceptions.NotSupportedError:
+            _LOG.warning("[%s] Launch app is not supported", self.log_id)
+        except pyatv.exceptions.ProtocolError:
+            _LOG.warning("[%s] Launch app: protocol error", self.log_id)
+        return StatusCodes.SERVICE_UNAVAILABLE
 
     @async_handle_atvlib_errors
     async def app_switcher(self) -> StatusCodes:
