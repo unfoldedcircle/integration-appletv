@@ -16,6 +16,9 @@ from pyatv import exceptions
 from pyatv.auth import hap_tlv8
 from pyatv.auth.hap_pairing import HapCredentials, PairSetupProcedure
 from pyatv.auth.hap_srp import SRPAuthHandler
+from pyatv.core import Core, SetupData
+from pyatv.core.facade import FacadeAppleTV
+from pyatv.protocols import airplay as airplay_proto
 from pyatv.protocols.airplay.auth.hap import _AIRPLAY_HEADERS, AirPlayHapPairSetupProcedure, _get_pairing_data
 from pyatv.protocols.airplay.auth.legacy import AirPlayLegacyPairSetupProcedure
 from pyatv.protocols.airplay.pairing import AirPlayMajorVersion, AirPlayPairingHandler, AuthenticationType
@@ -25,6 +28,9 @@ from pyatv.support.http import HttpConnection, http_connect
 
 _LOG = logging.getLogger(__name__)
 HapPairSetupProcedureFactory = Callable[[HttpConnection, SRPAuthHandler, str | None], AirPlayHapPairSetupProcedure]
+
+_original_create_mrp_tunnel_data = airplay_proto._create_mrp_tunnel_data  # noqa: SLF001
+_original_facade_connect = FacadeAppleTV.connect
 
 
 def patched_airplay_hap_pair_setup(
@@ -133,3 +139,31 @@ async def patched_airplay_pairing_begin(self: AirPlayPairingHandler) -> None:
     )
     self._has_paired = False
     return await error_handler(self.pairing_procedure.start_pairing, exceptions.PairingError)
+
+
+def patched_create_mrp_tunnel_data(core: Core, credentials: HapCredentials) -> SetupData:
+    """Create the MRP tunnel setup data. Close the AirPlay session if the tunnel connect fails.
+
+    Without this, a failed connect leaves the AirPlay remote control session open on the Apple TV.
+    """
+    setup_data: SetupData = _original_create_mrp_tunnel_data(core, credentials)
+    connect = setup_data.connect
+    close = setup_data.close
+
+    async def _connect() -> bool:
+        try:
+            return await connect()
+        except BaseException:
+            close()
+            raise
+
+    return setup_data._replace(connect=_connect)
+
+
+async def patched_facade_connect(self: FacadeAppleTV) -> None:
+    """Connect all protocols. Close the already connected protocols if connect fails or is canceled."""
+    try:
+        await _original_facade_connect(self)
+    except BaseException:
+        self.close()
+        raise
