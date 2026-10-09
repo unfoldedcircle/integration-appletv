@@ -11,7 +11,7 @@ Uses the [pyatv](https://github.com/postlund/pyatv) library with concepts borrow
 import asyncio
 from asyncio import AbstractEventLoop, Task
 import base64
-from collections import OrderedDict
+from collections import OrderedDict, deque
 from collections.abc import Awaitable, Callable, Coroutine
 import datetime
 from enum import Enum, StrEnum
@@ -65,6 +65,10 @@ CONNECT_TIMEOUT = 15.0
 APP_LIST_REFRESH_INTERVAL = 300.0
 OUTPUT_REFRESH_INTERVAL = 300.0
 CONNECT_WAIT_FOR_COMMAND = 3.0
+MAX_COMMAND_TIMEOUTS = 3
+"""Number of command timeouts within COMMAND_TIMEOUT_WINDOW after which the connection is reconnected."""
+COMMAND_TIMEOUT_WINDOW = 60.0
+"""Time window in seconds for MAX_COMMAND_TIMEOUTS."""
 
 
 class EVENTS(StrEnum):
@@ -197,6 +201,7 @@ def async_handle_atvlib_errors(
                 func.__name__,
                 args,
             )
+            self._command_timed_out()  # pyright: ignore[reportPrivateUsage]
         except (pyatv.exceptions.ConnectionFailedError, pyatv.exceptions.ConnectionLostError) as err:
             result = StatusCodes.SERVICE_UNAVAILABLE
             _LOG.warning("[%s] ATV network error (%s%s): %s", self.log_id, func.__name__, args, err)
@@ -257,6 +262,8 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         self._device: AtvDevice = device
         self._connect_task: Task[Any] | None = None
         self._connection_attempts: int = 0
+        self._command_timeouts: deque[float] = deque(maxlen=MAX_COMMAND_TIMEOUTS)
+        """Times of the latest command timeouts."""
         self._pairing_atv: pyatv.interface.BaseConfig | None = pairing_atv
         self._pairing_process: pyatv.interface.PairingHandler | None = None
         self._polling: Task[Any] | None = None
@@ -484,6 +491,26 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         self.events.emit(EVENTS.DISCONNECTED, self._device.identifier)
         self._start_connect_loop()
 
+    def _command_timed_out(self) -> None:
+        """Reconnect if too many commands timed out within a short time.
+
+        The connection can look alive while the remote control channel does not respond.
+        Successful commands do not reset the count, because they can use another protocol.
+        """
+        timeouts = self._command_timeouts
+        now = self._loop.time()
+        timeouts.append(now)
+        if len(timeouts) < MAX_COMMAND_TIMEOUTS or now - timeouts[0] > COMMAND_TIMEOUT_WINDOW:
+            return
+        _LOG.warning(
+            "[%s] %d command timeouts within %ds, reconnecting",
+            self.log_id,
+            MAX_COMMAND_TIMEOUTS,
+            COMMAND_TIMEOUT_WINDOW,
+        )
+        self._command_timeouts.clear()
+        self._handle_disconnect()
+
     def _volume_notify(self) -> None:
         """Calculate the average volume level of all connected devices."""
         volume_level: float = self._volume_level
@@ -663,6 +690,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
             # Reset the backoff counter
             self._connection_attempts = 0
+            self._command_timeouts.clear()
 
             await self._start_polling()
 
@@ -772,8 +800,28 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         if self._device.name != conf.name:
             self._device.name = conf.name
 
-        async with asyncio.timeout(CONNECT_TIMEOUT):
-            self._atv = await pyatv.connect(conf, self._loop)
+        # Separate task: if connect finishes at the same time as the timeout, the instance can still be closed
+        connect_task = self._loop.create_task(pyatv.connect(conf, self._loop))
+        try:
+            await asyncio.wait((connect_task,), timeout=CONNECT_TIMEOUT)
+        except asyncio.CancelledError:
+            self._discard_connect_task(connect_task)
+            raise
+        if not connect_task.done():
+            self._discard_connect_task(connect_task)
+            msg = f"connect timed out after {CONNECT_TIMEOUT}s"
+            raise TimeoutError(msg)
+        self._atv = connect_task.result()
+
+    @staticmethod
+    def _discard_connect_task(task: asyncio.Task[pyatv.interface.AppleTV]) -> None:
+        """Cancel a pending connect task, or close the instance it returned."""
+        if not task.done():
+            # pyatv closes partially connected protocols on cancel (see monkey_patch.patched_facade_connect)
+            task.cancel()
+            task.add_done_callback(lambda t: t.cancelled() or t.exception())
+        elif not task.cancelled() and task.exception() is None:
+            task.result().close()
 
     async def disconnect(self) -> None:
         """Disconnect from ATV."""
