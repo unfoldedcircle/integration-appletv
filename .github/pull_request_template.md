@@ -30,12 +30,7 @@ Please also list any relevant details for your test configuration
 
 # Checklist:
 
-- [ ] My code follows
-  the [code guidelines](https://github.com/unfoldedcircle/integration-appletv/blob/main/docs/code_guidelines.md) of this
-  project
-- [ ] My pull request represents one logical piece of work. Do not combine multiple unrelated changes into a single pull
-  request.
-- [ ] My changes pass the linter checks (
-  see [code guidelines](https://github.com/unfoldedcircle/integration-appletv/blob/main/docs/code_guidelines.md)). PRs
-  with failing linter will not be merged.
+- [ ] My code follows the [code guidelines](https://github.com/unfoldedcircle/integration-appletv/blob/main/docs/code_guidelines.md) of this project
+- [ ] My pull request represents one logical piece of work. Do not combine multiple unrelated changes into a single pull request.
+- [ ] My changes pass the linter checks (see [code guidelines](https://github.com/unfoldedcircle/integration-appletv/blob/main/docs/code_guidelines.md)). PRs with failing linter will not be merged.
 - [ ] I have tested and performed a self-review of my code
