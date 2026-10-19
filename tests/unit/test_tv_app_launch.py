@@ -15,7 +15,7 @@ from ucapi import StatusCodes
 from ucapi.media_player import Attributes as MediaAttr
 
 from config import AtvDevice
-from tv import PARTIAL_DISCOVERY_RETRIES, AppleTv, EVENTS
+from tv import AppleTv, EVENTS, PARTIAL_DISCOVERY_RETRIES
 
 pytestmark = pytest.mark.asyncio
 
