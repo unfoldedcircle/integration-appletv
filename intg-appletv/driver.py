@@ -13,6 +13,7 @@ import os
 import sys
 from typing import Any, cast
 
+from pyatv.core.facade import FacadeAppleTV
 import pyatv.protocols.airplay.auth as airplay_auth
 import pyatv.protocols.airplay.auth.hap as airplay_auth_hap
 import pyatv.protocols.airplay.pairing as airplay_pairing
@@ -397,6 +398,11 @@ async def main() -> None:
     airplay_hap_setup_procedure.finish_pairing = monkey_patch.patched_airplay_hap_pair_setup_procedure_finish_pairing
     airplay_pairing_handler = airplay_pairing.AirPlayPairingHandler
     airplay_pairing_handler.begin = monkey_patch.patched_airplay_pairing_begin
+
+    # Patch: pyatv leaves partially connected protocols open when connect fails.
+    # TODO remove when fixed in pyatv
+    FacadeAppleTV.add_protocol = monkey_patch.patched_facade_add_protocol
+    FacadeAppleTV.connect = monkey_patch.patched_facade_connect
 
     # load paired devices
     config.devices = config.Devices(api.config_dir_path, on_device_added, on_device_removed, on_device_updated)

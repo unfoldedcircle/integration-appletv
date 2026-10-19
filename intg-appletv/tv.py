@@ -11,7 +11,7 @@ Uses the [pyatv](https://github.com/postlund/pyatv) library with concepts borrow
 import asyncio
 from asyncio import AbstractEventLoop, Task
 import base64
-from collections import OrderedDict
+from collections import OrderedDict, deque
 from collections.abc import Awaitable, Callable, Coroutine
 import datetime
 from enum import Enum, StrEnum
@@ -57,6 +57,8 @@ _LOG = logging.getLogger(__name__)
 
 BACKOFF_MAX = 30
 BACKOFF_SEC = 2
+PARTIAL_DISCOVERY_RETRIES = 3
+"""Retry incomplete discovery before allowing a reduced-functionality connection."""
 ARTWORK_WIDTH = 400
 ARTWORK_HEIGHT = 400
 ERROR_OS_WAIT = 0.5
@@ -65,6 +67,10 @@ CONNECT_TIMEOUT = 15.0
 APP_LIST_REFRESH_INTERVAL = 300.0
 OUTPUT_REFRESH_INTERVAL = 300.0
 CONNECT_WAIT_FOR_COMMAND = 3.0
+MAX_COMMAND_TIMEOUTS = 3
+"""Number of command timeouts within COMMAND_TIMEOUT_WINDOW after which the connection is reconnected."""
+COMMAND_TIMEOUT_WINDOW = 60.0
+"""Time window in seconds for MAX_COMMAND_TIMEOUTS."""
 
 
 class EVENTS(StrEnum):
@@ -197,6 +203,15 @@ def async_handle_atvlib_errors(
                 func.__name__,
                 args,
             )
+            self._command_timed_out()  # pyright: ignore[reportPrivateUsage]
+        except pyatv.exceptions.ProtocolError as err:
+            # Companion commands raise ProtocolError with the TimeoutError as cause
+            if not isinstance(err.__cause__, TimeoutError):
+                _LOG.exception("[%s] Error %s occurred in method %s%s", self.log_id, err, func.__name__, args)
+                return result
+            result = StatusCodes.TIMEOUT
+            _LOG.warning("[%s] Operation timed out: %s%s: %s", self.log_id, func.__name__, args, err)
+            self._command_timed_out()  # pyright: ignore[reportPrivateUsage]
         except (pyatv.exceptions.ConnectionFailedError, pyatv.exceptions.ConnectionLostError) as err:
             result = StatusCodes.SERVICE_UNAVAILABLE
             _LOG.warning("[%s] ATV network error (%s%s): %s", self.log_id, func.__name__, args, err)
@@ -257,6 +272,8 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         self._device: AtvDevice = device
         self._connect_task: Task[Any] | None = None
         self._connection_attempts: int = 0
+        self._command_timeouts: deque[float] = deque(maxlen=MAX_COMMAND_TIMEOUTS)
+        """Times of the latest command timeouts."""
         self._pairing_atv: pyatv.interface.BaseConfig | None = pairing_atv
         self._pairing_process: pyatv.interface.PairingHandler | None = None
         self._polling: Task[Any] | None = None
@@ -484,6 +501,26 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         self.events.emit(EVENTS.DISCONNECTED, self._device.identifier)
         self._start_connect_loop()
 
+    def _command_timed_out(self) -> None:
+        """Reconnect if too many commands timed out within a short time.
+
+        The connection can look alive while the remote control channel does not respond.
+        Successful commands do not reset the count, because they can use another protocol.
+        """
+        timeouts = self._command_timeouts
+        now = self._loop.time()
+        timeouts.append(now)
+        if len(timeouts) < MAX_COMMAND_TIMEOUTS or now - timeouts[0] > COMMAND_TIMEOUT_WINDOW:
+            return
+        _LOG.warning(
+            "[%s] %d command timeouts within %ds, reconnecting",
+            self.log_id,
+            MAX_COMMAND_TIMEOUTS,
+            COMMAND_TIMEOUT_WINDOW,
+        )
+        self._command_timeouts.clear()
+        self._handle_disconnect()
+
     def _volume_notify(self) -> None:
         """Calculate the average volume level of all connected devices."""
         volume_level: float = self._volume_level
@@ -663,6 +700,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
             # Reset the backoff counter
             self._connection_attempts = 0
+            self._command_timeouts.clear()
 
             await self._start_polling()
 
@@ -742,6 +780,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         # We try to connect with all the protocols.
         # If something is not ready yet, we try again afterward
         missing_protocols = []
+        available_protocols = 0
 
         for credential in self._device.credentials:
             if credential["protocol"] == AtvProtocol.COMPANION:
@@ -753,6 +792,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                 continue
 
             if conf.get_service(protocol) is not None:
+                available_protocols += 1
                 _LOG.debug("[%s] Setting credentials for %s", self.log_id, protocol)
                 conf.set_credentials(protocol, credential["credentials"])
             else:
@@ -760,11 +800,23 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
         if missing_protocols:
             missing_protocols_str = ", ".join(missing_protocols)
+            if not available_protocols or self._connection_attempts < PARTIAL_DISCOVERY_RETRIES:
+                _LOG.warning(
+                    "[%s] Protocols %s not found for %s (attempt %d); retrying discovery",
+                    self.log_id,
+                    missing_protocols_str,
+                    conf.name,
+                    self._connection_attempts + 1,
+                )
+                # The next scan may discover Companion; avoid caching partial results.
+                self._apple_tv_conf = None
+                return
             _LOG.warning(
-                "[%s] Protocols %s not yet found for %s, trying later",
+                "[%s] Protocols %s still missing for %s after %d retries; connecting with limited functionality",
                 self.log_id,
                 missing_protocols_str,
                 conf.name,
+                self._connection_attempts,
             )
 
         _LOG.debug("[%s] Connecting to device", conf.name)
@@ -772,8 +824,28 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         if self._device.name != conf.name:
             self._device.name = conf.name
 
-        async with asyncio.timeout(CONNECT_TIMEOUT):
-            self._atv = await pyatv.connect(conf, self._loop)
+        # Separate task: if connect finishes at the same time as the timeout, the instance can still be closed
+        connect_task = self._loop.create_task(pyatv.connect(conf, self._loop))
+        try:
+            await asyncio.wait((connect_task,), timeout=CONNECT_TIMEOUT)
+        except asyncio.CancelledError:
+            self._discard_connect_task(connect_task)
+            raise
+        if not connect_task.done():
+            self._discard_connect_task(connect_task)
+            msg = f"connect timed out after {CONNECT_TIMEOUT}s"
+            raise TimeoutError(msg)
+        self._atv = connect_task.result()
+
+    @staticmethod
+    def _discard_connect_task(task: asyncio.Task[pyatv.interface.AppleTV]) -> None:
+        """Cancel a pending connect task, or close the instance it returned."""
+        if not task.done():
+            # pyatv closes partially connected protocols on cancel (see monkey_patch.patched_facade_connect)
+            task.cancel()
+            task.add_done_callback(lambda t: t.cancelled() or t.exception())
+        elif not task.cancelled() and task.exception() is None:
+            task.result().close()
 
     async def disconnect(self) -> None:
         """Disconnect from ATV."""
@@ -912,24 +984,22 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             _LOG.warning("[%s] App list not updated, ATV not initialized", self.log_id)
             return
         _LOG.debug("[%s] Updating app list", self.log_id)
-        update: dict[MediaAttr, Any] = {}
-
         try:
-            update[MediaAttr.SOURCE_LIST] = []
             app_list = sorted(await self._atv.apps.app_list(), key=lambda item: (item.name or "").lower())
             if not app_list:
                 _LOG.info("[%s] No apps found, trying again later", self.log_id)
                 return
-            self._app_list.clear()
-            for app in app_list:
-                if app.name:
-                    self._app_list[app.name] = app.identifier
-                    update[MediaAttr.SOURCE_LIST].append(app.name)
+            # Replace atomically: launch commands may arrive while fetching the app list.
+            self._app_list = {app.name: app.identifier for app in app_list if app.name}
+            update: dict[MediaAttr, Any] = {MediaAttr.SOURCE_LIST: list(self._app_list.keys())}
         except pyatv.exceptions.NotSupportedError:
             _LOG.warning("[%s] App list is not supported", self.log_id)
             self._app_list_supported = False
+            self._app_list.clear()
+            update = {MediaAttr.SOURCE_LIST: []}
         except pyatv.exceptions.ProtocolError:
             _LOG.warning("[%s] App list: protocol error", self.log_id)
+            return
         except pyatv.exceptions.BlockedStateError:
             # Connection was closed while we were fetching the app list; ignore silently.
             _LOG.debug("[%s] Connection closed during app list update, skipping", self.log_id)
@@ -1325,14 +1395,20 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
     async def volume_up(self) -> StatusCodes:
         """Press key volume up."""
         assert self._atv is not None  # noqa: S101 — guaranteed by @async_handle_atvlib_errors
-        await self._atv.audio.volume_up()
+        try:
+            await self._atv.audio.volume_up()
+        except TimeoutError:
+            return self._volume_timed_out("volume_up")
         return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def volume_down(self) -> StatusCodes:
         """Press key volume down."""
         assert self._atv is not None  # noqa: S101 — guaranteed by @async_handle_atvlib_errors
-        await self._atv.audio.volume_down()
+        try:
+            await self._atv.audio.volume_down()
+        except TimeoutError:
+            return self._volume_timed_out("volume_down")
         return StatusCodes.OK
 
     @async_handle_atvlib_errors
@@ -1358,10 +1434,22 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                     if device_id == current_output_id:
                         continue
                     tasks.append(audio.protocol.send(messages.set_volume(device_id, volume_level / 100.0)))
-            async with asyncio.timeout(5):
-                await asyncio.gather(*tasks)
+            try:
+                async with asyncio.timeout(5):
+                    await asyncio.gather(*tasks)
+            except TimeoutError:
+                return self._volume_timed_out("volume_set")
             return StatusCodes.OK
         return StatusCodes.SERVICE_UNAVAILABLE
+
+    def _volume_timed_out(self, command: str) -> StatusCodes:
+        """Handle a timeout of a volume command.
+
+        pyatv waits for a volume change event, which does not come on every working connection,
+        e.g. when the volume is at its limit. Do not count it as a command timeout.
+        """
+        _LOG.warning("[%s] Operation timed out: %s()", self.log_id, command)
+        return StatusCodes.TIMEOUT
 
     @async_handle_atvlib_errors
     async def cursor_up(self) -> StatusCodes:
@@ -1468,20 +1556,19 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
     async def launch_app(self, app_name: str) -> StatusCodes:
         """Launch an app based on bundle ID or URL."""
         assert self._atv is not None  # noqa: S101 — guaranteed by @async_handle_atvlib_errors
-        try:
-            # Launch app by name
-            await self._atv.apps.launch_app(self._app_list[app_name])
-            return StatusCodes.OK
-        except KeyError:
-            # If app_name is not an app name handle it as app deep link url
-            try:
-                await self._atv.apps.launch_app(app_name)
-                return StatusCodes.OK
-            except pyatv.exceptions.NotSupportedError:
-                _LOG.warning("[%s] Launch app is not supported", self.log_id)
-            except pyatv.exceptions.ProtocolError:
-                _LOG.warning("[%s] Launch app: protocol error", self.log_id)
+        if not self._is_feature_available(FeatureName.LaunchApp):
+            _LOG.warning("[%s] Launch app is not supported by the active connection", self.log_id)
             return StatusCodes.SERVICE_UNAVAILABLE
+
+        bundle_id_or_url = self._app_list.get(app_name, app_name)
+        try:
+            await self._atv.apps.launch_app(bundle_id_or_url)
+            return StatusCodes.OK
+        except pyatv.exceptions.NotSupportedError:
+            _LOG.warning("[%s] Launch app is not supported", self.log_id)
+        except pyatv.exceptions.ProtocolError:
+            _LOG.warning("[%s] Launch app: protocol error", self.log_id)
+        return StatusCodes.SERVICE_UNAVAILABLE
 
     @async_handle_atvlib_errors
     async def app_switcher(self) -> StatusCodes:

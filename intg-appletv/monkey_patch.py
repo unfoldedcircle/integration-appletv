@@ -7,6 +7,7 @@ This module handles monkey patching of the pyatv library.
 """
 # pyright: reportPrivateUsage=false
 
+import asyncio
 from collections.abc import Callable
 from copy import copy
 import logging
@@ -16,6 +17,8 @@ from pyatv import exceptions
 from pyatv.auth import hap_tlv8
 from pyatv.auth.hap_pairing import HapCredentials, PairSetupProcedure
 from pyatv.auth.hap_srp import SRPAuthHandler
+from pyatv.core import SetupData
+from pyatv.core.facade import FacadeAppleTV
 from pyatv.protocols.airplay.auth.hap import _AIRPLAY_HEADERS, AirPlayHapPairSetupProcedure, _get_pairing_data
 from pyatv.protocols.airplay.auth.legacy import AirPlayLegacyPairSetupProcedure
 from pyatv.protocols.airplay.pairing import AirPlayMajorVersion, AirPlayPairingHandler, AuthenticationType
@@ -25,6 +28,10 @@ from pyatv.support.http import HttpConnection, http_connect
 
 _LOG = logging.getLogger(__name__)
 HapPairSetupProcedureFactory = Callable[[HttpConnection, SRPAuthHandler, str | None], AirPlayHapPairSetupProcedure]
+
+_original_facade_add_protocol = FacadeAppleTV.add_protocol
+_original_facade_connect = FacadeAppleTV.connect
+_close_tasks: set[asyncio.Task[Any]] = set()
 
 
 def patched_airplay_hap_pair_setup(
@@ -133,3 +140,37 @@ async def patched_airplay_pairing_begin(self: AirPlayPairingHandler) -> None:
     )
     self._has_paired = False
     return await error_handler(self.pairing_procedure.start_pairing, exceptions.PairingError)
+
+
+def _keep_close_tasks(tasks: set[asyncio.Task[Any]]) -> None:
+    """Keep a reference to the close tasks until they are done, so they are not garbage collected."""
+    for task in tasks:
+        _close_tasks.add(task)
+        task.add_done_callback(_close_tasks.discard)
+
+
+def patched_facade_add_protocol(self: FacadeAppleTV, setup_data: SetupData) -> None:
+    """Add a protocol. Close the protocol if its connect fails or is canceled.
+
+    Without this, a failed connect leaves the connection open, e.g. the AirPlay remote control session on the Apple TV.
+    """
+    connect = setup_data.connect
+    close = setup_data.close
+
+    async def _connect() -> bool:
+        try:
+            return await connect()
+        except BaseException:
+            _keep_close_tasks(close())
+            raise
+
+    _original_facade_add_protocol(self, setup_data._replace(connect=_connect))
+
+
+async def patched_facade_connect(self: FacadeAppleTV) -> None:
+    """Connect all protocols. Close the already connected protocols if connect fails or is canceled."""
+    try:
+        await _original_facade_connect(self)
+    except BaseException:
+        _keep_close_tasks(self.close())
+        raise
