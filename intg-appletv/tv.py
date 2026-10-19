@@ -202,6 +202,14 @@ def async_handle_atvlib_errors(
                 args,
             )
             self._command_timed_out()  # pyright: ignore[reportPrivateUsage]
+        except pyatv.exceptions.ProtocolError as err:
+            # Companion commands raise ProtocolError with the TimeoutError as cause
+            if not isinstance(err.__cause__, TimeoutError):
+                _LOG.exception("[%s] Error %s occurred in method %s%s", self.log_id, err, func.__name__, args)
+                return result
+            result = StatusCodes.TIMEOUT
+            _LOG.warning("[%s] Operation timed out: %s%s: %s", self.log_id, func.__name__, args, err)
+            self._command_timed_out()  # pyright: ignore[reportPrivateUsage]
         except (pyatv.exceptions.ConnectionFailedError, pyatv.exceptions.ConnectionLostError) as err:
             result = StatusCodes.SERVICE_UNAVAILABLE
             _LOG.warning("[%s] ATV network error (%s%s): %s", self.log_id, func.__name__, args, err)
@@ -1373,14 +1381,20 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
     async def volume_up(self) -> StatusCodes:
         """Press key volume up."""
         assert self._atv is not None  # noqa: S101 — guaranteed by @async_handle_atvlib_errors
-        await self._atv.audio.volume_up()
+        try:
+            await self._atv.audio.volume_up()
+        except TimeoutError:
+            return self._volume_timed_out("volume_up")
         return StatusCodes.OK
 
     @async_handle_atvlib_errors
     async def volume_down(self) -> StatusCodes:
         """Press key volume down."""
         assert self._atv is not None  # noqa: S101 — guaranteed by @async_handle_atvlib_errors
-        await self._atv.audio.volume_down()
+        try:
+            await self._atv.audio.volume_down()
+        except TimeoutError:
+            return self._volume_timed_out("volume_down")
         return StatusCodes.OK
 
     @async_handle_atvlib_errors
@@ -1406,10 +1420,22 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                     if device_id == current_output_id:
                         continue
                     tasks.append(audio.protocol.send(messages.set_volume(device_id, volume_level / 100.0)))
-            async with asyncio.timeout(5):
-                await asyncio.gather(*tasks)
+            try:
+                async with asyncio.timeout(5):
+                    await asyncio.gather(*tasks)
+            except TimeoutError:
+                return self._volume_timed_out("volume_set")
             return StatusCodes.OK
         return StatusCodes.SERVICE_UNAVAILABLE
+
+    def _volume_timed_out(self, command: str) -> StatusCodes:
+        """Handle a timeout of a volume command.
+
+        pyatv waits for a volume change event, which does not come on every working connection,
+        e.g. when the volume is at its limit. Do not count it as a command timeout.
+        """
+        _LOG.warning("[%s] Operation timed out: %s()", self.log_id, command)
+        return StatusCodes.TIMEOUT
 
     @async_handle_atvlib_errors
     async def cursor_up(self) -> StatusCodes:

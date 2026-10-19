@@ -16,7 +16,7 @@ from typing import Any
 import pyatv
 from pyatv.conf import AppleTV, ManualService
 from pyatv.const import Protocol
-from pyatv.core import Core, CoreStateDispatcher, SetupData
+from pyatv.core import CoreStateDispatcher, SetupData
 from pyatv.core.facade import FacadeAppleTV
 from pyatv.settings import Settings
 from pyatv.support import http
@@ -73,62 +73,47 @@ def _apple_tv() -> tv.AppleTv:
     return atv
 
 
-def _tunnel_factory(stub: ProtocolStub) -> Callable[[Core, Any], SetupData]:
-    return lambda _core, _credentials: stub.setup_data
+async def _wait_close_tasks() -> None:
+    await asyncio.gather(*monkey_patch._close_tasks)
 
 
 @pytest.fixture
 def patched_pyatv(monkeypatch: pytest.MonkeyPatch) -> None:
     """Install the pyatv patches for one test."""
+    monkeypatch.setattr(FacadeAppleTV, "add_protocol", monkey_patch.patched_facade_add_protocol)
     monkeypatch.setattr(FacadeAppleTV, "connect", monkey_patch.patched_facade_connect)
 
 
-# --- patched_create_mrp_tunnel_data ---
-
-
-@pytest.mark.asyncio
-async def test_tunnel_closed_when_connect_fails(monkeypatch: pytest.MonkeyPatch) -> None:
-    stub = ProtocolStub(Protocol.MRP, _connect_fail)
-    monkeypatch.setattr(monkey_patch, "_original_create_mrp_tunnel_data", _tunnel_factory(stub))
-
-    setup_data = monkey_patch.patched_create_mrp_tunnel_data(None, None)  # pyright: ignore[reportArgumentType]
-
-    with pytest.raises(pyatv.exceptions.ProtocolError):
-        await setup_data.connect()
-    assert stub.closed
-
-
-@pytest.mark.asyncio
-async def test_tunnel_not_closed_when_connect_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
-    stub = ProtocolStub(Protocol.MRP, _connect_ok)
-    monkeypatch.setattr(monkey_patch, "_original_create_mrp_tunnel_data", _tunnel_factory(stub))
-
-    setup_data = monkey_patch.patched_create_mrp_tunnel_data(None, None)  # pyright: ignore[reportArgumentType]
-
-    assert await setup_data.connect()
-    assert not stub.closed
-
-
-def test_tunnel_patch_matches_pyatv() -> None:
-    """The patch replaces a private pyatv function. Fail if pyatv renames it."""
-    import pyatv.protocols.airplay as airplay_proto
-
-    assert callable(airplay_proto._create_mrp_tunnel_data)
-
-
-# --- patched_facade_connect ---
+# --- patched_facade_add_protocol and patched_facade_connect ---
 
 
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("patched_pyatv")
-async def test_facade_closes_connected_protocols_when_connect_fails() -> None:
+async def test_facade_closes_all_protocols_when_connect_fails() -> None:
     mrp = ProtocolStub(Protocol.MRP, _connect_ok)
     companion = ProtocolStub(Protocol.Companion, _connect_fail)
     atv = await _facade(mrp, companion)
 
     with pytest.raises(pyatv.exceptions.ProtocolError):
         await atv.connect()
+    await _wait_close_tasks()
     assert mrp.closed
+    assert companion.closed
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("patched_pyatv")
+async def test_facade_closes_failed_first_protocol() -> None:
+    """The MRP tunnel fails: its AirPlay remote control session is closed."""
+    mrp = ProtocolStub(Protocol.MRP, _connect_fail)
+    companion = ProtocolStub(Protocol.Companion, _connect_ok)
+    atv = await _facade(mrp, companion)
+
+    with pytest.raises(pyatv.exceptions.ProtocolError):
+        await atv.connect()
+    await _wait_close_tasks()
+    assert mrp.closed
+    assert not companion.closed  # never connected
 
 
 @pytest.mark.asyncio
@@ -143,7 +128,9 @@ async def test_facade_closes_connected_protocols_when_cancelled() -> None:
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await task
+    await _wait_close_tasks()
     assert mrp.closed
+    assert companion.closed
 
 
 @pytest.mark.asyncio
@@ -154,7 +141,7 @@ async def test_facade_stays_open_when_connect_succeeds() -> None:
 
     await atv.connect()
     assert not mrp.closed
-    atv.close()
+    await asyncio.gather(*atv.close())
 
 
 # --- AppleTv._connect timeout ---
@@ -178,7 +165,9 @@ async def test_connect_timeout_closes_connected_protocols(monkeypatch: pytest.Mo
     with pytest.raises(TimeoutError):
         await atv._connect(_config())
     await asyncio.sleep(0.01)  # let the canceled connect task finish
+    await _wait_close_tasks()
     assert mrp.closed
+    assert companion.closed
     assert atv._atv is None
 
 
@@ -195,6 +184,7 @@ async def test_discard_connect_task_closes_result_of_finished_connect() -> None:
     task = asyncio.create_task(connect())
     await task
     tv.AppleTv._discard_connect_task(task)
+    await asyncio.sleep(0)  # let the session close task finish
 
     assert mrp.closed
 
@@ -216,12 +206,21 @@ class RemoteControlStub:
             raise pyatv.exceptions.OperationTimeoutError(msg)
 
 
+class AudioStub:
+    """Audio that does not get a volume change event."""
+
+    async def volume_up(self) -> None:
+        """Increase volume."""
+        raise TimeoutError
+
+
 class AtvStub:
     """Connected pyatv instance with a stub remote control."""
 
     def __init__(self) -> None:
         """Create a connected instance."""
         self.remote_control = RemoteControlStub()
+        self.audio = AudioStub()
 
     def close(self) -> None:
         """Close the connection."""
@@ -267,5 +266,54 @@ async def test_no_reconnect_when_timeouts_are_spread_out(monkeypatch: pytest.Mon
     for _ in range(tv.MAX_COMMAND_TIMEOUTS):
         await atv.cursor_up()
         now[0] += tv.COMMAND_TIMEOUT_WINDOW / 2 + 1
+
+    assert atv._atv is not None
+
+
+@pytest.mark.asyncio
+async def test_volume_timeouts_do_not_reconnect() -> None:
+    """Volume commands wait for a volume change event, which does not come on every working connection."""
+    atv = _apple_tv()
+    atv._atv = AtvStub()  # pyright: ignore[reportAttributeAccessIssue]
+
+    for _ in range(tv.MAX_COMMAND_TIMEOUTS):
+        assert await atv.volume_up() == tv.StatusCodes.TIMEOUT
+
+    assert atv._atv is not None
+
+
+@pytest.mark.asyncio
+async def test_companion_timeouts_reconnect() -> None:
+    """Companion wraps a timeout in ProtocolError."""
+    atv = _apple_tv()
+    stub = AtvStub()
+    atv._atv = stub  # pyright: ignore[reportAttributeAccessIssue]
+
+    async def up() -> None:
+        msg = "Command _hidC failed"
+        raise pyatv.exceptions.ProtocolError(msg) from TimeoutError()
+
+    stub.remote_control.up = up
+
+    for _ in range(tv.MAX_COMMAND_TIMEOUTS):
+        assert await atv.cursor_up() == tv.StatusCodes.TIMEOUT
+
+    assert atv._atv is None
+
+
+@pytest.mark.asyncio
+async def test_other_protocol_errors_do_not_reconnect() -> None:
+    atv = _apple_tv()
+    stub = AtvStub()
+    atv._atv = stub  # pyright: ignore[reportAttributeAccessIssue]
+
+    async def up() -> None:
+        msg = "missing content"
+        raise pyatv.exceptions.ProtocolError(msg)
+
+    stub.remote_control.up = up
+
+    for _ in range(tv.MAX_COMMAND_TIMEOUTS):
+        assert await atv.cursor_up() == tv.StatusCodes.SERVER_ERROR
 
     assert atv._atv is not None
