@@ -7,9 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-_Changes in the next release_
-
 ---
+
+## v0.25.0 - 2026-10-19
+### Fixed
+- Retry app discovery when Companion is unavailable by @albaintor ([#183](https://github.com/unfoldedcircle/integration-appletv/pull/183)).
+- Reconnect when Apple TV buttons stop responding by @henrikwidlund ([#189](https://github.com/unfoldedcircle/integration-appletv/issues/189)).
 
 ## v0.24.1 - 2026-08-07
 ### Added
