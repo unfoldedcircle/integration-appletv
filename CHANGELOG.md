@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## v0.25.1 - 2026-10-19
+### Changed
+- Update pyinstaller, websockets and zeroconf packages ([#194](https://github.com/unfoldedcircle/integration-appletv/pull/194)).
+
 ## v0.25.0 - 2026-10-19
 ### Fixed
 - Retry app discovery when Companion is unavailable by @albaintor ([#183](https://github.com/unfoldedcircle/integration-appletv/pull/183)).
