@@ -57,6 +57,8 @@ _LOG = logging.getLogger(__name__)
 
 BACKOFF_MAX = 30
 BACKOFF_SEC = 2
+PARTIAL_DISCOVERY_RETRIES = 3
+"""Retry incomplete discovery before allowing a reduced-functionality connection."""
 ARTWORK_WIDTH = 400
 ARTWORK_HEIGHT = 400
 ERROR_OS_WAIT = 0.5
@@ -742,6 +744,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         # We try to connect with all the protocols.
         # If something is not ready yet, we try again afterward
         missing_protocols = []
+        available_protocols = 0
 
         for credential in self._device.credentials:
             if credential["protocol"] == AtvProtocol.COMPANION:
@@ -753,6 +756,7 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
                 continue
 
             if conf.get_service(protocol) is not None:
+                available_protocols += 1
                 _LOG.debug("[%s] Setting credentials for %s", self.log_id, protocol)
                 conf.set_credentials(protocol, credential["credentials"])
             else:
@@ -760,16 +764,24 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
         if missing_protocols:
             missing_protocols_str = ", ".join(missing_protocols)
+            if not available_protocols or self._connection_attempts < PARTIAL_DISCOVERY_RETRIES:
+                _LOG.warning(
+                    "[%s] Protocols %s not found for %s (attempt %d); retrying discovery",
+                    self.log_id,
+                    missing_protocols_str,
+                    conf.name,
+                    self._connection_attempts + 1,
+                )
+                # The next scan may discover Companion; avoid caching partial results.
+                self._apple_tv_conf = None
+                return
             _LOG.warning(
-                "[%s] Protocols %s not yet found for %s, retrying discovery later",
+                "[%s] Protocols %s still missing for %s after %d retries; connecting with limited functionality",
                 self.log_id,
                 missing_protocols_str,
                 conf.name,
+                self._connection_attempts,
             )
-            # Do not establish a partial connection. App listing and launching require
-            # Companion, and a partial AirPlay-only connection would stop the retry loop.
-            self._apple_tv_conf = None
-            return
 
         _LOG.debug("[%s] Connecting to device", conf.name)
         # In case the device has been renamed
@@ -916,25 +928,22 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             _LOG.warning("[%s] App list not updated, ATV not initialized", self.log_id)
             return
         _LOG.debug("[%s] Updating app list", self.log_id)
-        update: dict[MediaAttr, Any] = {}
-
         try:
-            update[MediaAttr.SOURCE_LIST] = []
-            # Do not keep stale entries if Companion becomes unavailable.
-            self._app_list.clear()
             app_list = sorted(await self._atv.apps.app_list(), key=lambda item: (item.name or "").lower())
             if not app_list:
                 _LOG.info("[%s] No apps found, trying again later", self.log_id)
                 return
-            for app in app_list:
-                if app.name:
-                    self._app_list[app.name] = app.identifier
-                    update[MediaAttr.SOURCE_LIST].append(app.name)
+            # Replace atomically: launch commands may arrive while fetching the app list.
+            self._app_list = {app.name: app.identifier for app in app_list if app.name}
+            update: dict[MediaAttr, Any] = {MediaAttr.SOURCE_LIST: list(self._app_list.keys())}
         except pyatv.exceptions.NotSupportedError:
             _LOG.warning("[%s] App list is not supported", self.log_id)
             self._app_list_supported = False
+            self._app_list.clear()
+            update = {MediaAttr.SOURCE_LIST: []}
         except pyatv.exceptions.ProtocolError:
             _LOG.warning("[%s] App list: protocol error", self.log_id)
+            return
         except pyatv.exceptions.BlockedStateError:
             # Connection was closed while we were fetching the app list; ignore silently.
             _LOG.debug("[%s] Connection closed during app list update, skipping", self.log_id)
