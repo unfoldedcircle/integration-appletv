@@ -364,8 +364,7 @@ class JournaldFormatter(logging.Formatter):
             logging.ERROR: "<3>",
             logging.CRITICAL: "<2>",
         }.get(record.levelno, "<6>")
-        # TODO: remove before merge, only for timing measurements
-        return f"{priority}{record.created:.3f} {record.name}: {record.getMessage()}"
+        return f"{priority}{record.name}: {record.getMessage()}"
 
 
 async def main() -> None:
