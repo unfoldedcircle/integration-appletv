@@ -14,9 +14,12 @@ import sys
 from typing import Any, cast
 
 from pyatv.core.facade import FacadeAppleTV
+from pyatv.protocols.airplay.ap2_session import AP2Session
 import pyatv.protocols.airplay.auth as airplay_auth
 import pyatv.protocols.airplay.auth.hap as airplay_auth_hap
 import pyatv.protocols.airplay.pairing as airplay_pairing
+from pyatv.protocols.companion.api import CompanionAPI
+from pyatv.protocols.mrp.protocol import MrpProtocol
 from typing_extensions import override
 import ucapi
 from ucapi import Entity, media_player
@@ -264,7 +267,7 @@ def _add_configured_atv(device_config: config.AtvDevice, *, connect: bool = True
         device_config.identifier,
         device_config.address or "",
     )
-    atv = tv.AppleTv(device_config, loop=_LOOP)
+    atv = tv.AppleTv(device_config, loop=_LOOP, cache_dir=config.devices.data_path if config.devices else None)
     atv.events.on(tv.EVENTS.CONNECTED, on_atv_connected)
     atv.events.on(tv.EVENTS.DISCONNECTED, on_atv_disconnected)
     atv.events.on(tv.EVENTS.ERROR, on_atv_connection_error)
@@ -329,6 +332,7 @@ def on_device_removed(device: config.AtvDevice | None) -> None:
         for atv in _configured_atvs.values():
             _spawn_task(atv.disconnect())
             atv.events.remove_all_listeners()
+            atv.remove_cache()
         _configured_atvs.clear()
         api.configured_entities.clear()
         api.available_entities.clear()
@@ -337,6 +341,7 @@ def on_device_removed(device: config.AtvDevice | None) -> None:
         atv = _configured_atvs.pop(device.identifier)
         _spawn_task(atv.disconnect())
         atv.events.remove_all_listeners()
+        atv.remove_cache()
         for entity in _get_entities(atv.identifier, include_all=True):
             api.configured_entities.remove(entity.entity_id)
             api.available_entities.remove(entity.entity_id)
@@ -386,6 +391,11 @@ async def main() -> None:
     logging.getLogger("selector").setLevel(level)
     logging.getLogger("sensor").setLevel(level)
     logging.getLogger("remote").setLevel(level)
+    logging.getLogger("monkey_patch").setLevel(level)
+    # ucapi sets these loggers to DEBUG on import
+    logging.getLogger("ucapi.api").setLevel(level)
+    logging.getLogger("ucapi.entities").setLevel(level)
+    logging.getLogger("ucapi.entity").setLevel(level)
 
     # logging.getLogger("pyatv").setLevel(logging.DEBUG)
 
@@ -401,8 +411,14 @@ async def main() -> None:
 
     # Patch: pyatv leaves partially connected protocols open when connect fails.
     # TODO remove when fixed in pyatv
+    # The connect patch also connects all protocols at the same time instead of one after the other.
     FacadeAppleTV.add_protocol = monkey_patch.patched_facade_add_protocol
     FacadeAppleTV.connect = monkey_patch.patched_facade_connect
+
+    # Patch: send the connect requests of each protocol without waiting for each reply, to connect faster.
+    CompanionAPI.connect = monkey_patch.patched_companion_api_connect
+    MrpProtocol.start = monkey_patch.patched_mrp_protocol_start
+    AP2Session.setup_remote_control = monkey_patch.patched_ap2_session_setup_remote_control
 
     # load paired devices
     config.devices = config.Devices(api.config_dir_path, on_device_added, on_device_removed, on_device_updated)

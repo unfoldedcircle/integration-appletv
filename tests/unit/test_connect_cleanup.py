@@ -104,7 +104,7 @@ async def test_facade_closes_all_protocols_when_connect_fails() -> None:
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("patched_pyatv")
 async def test_facade_closes_failed_first_protocol() -> None:
-    """The MRP tunnel fails: its AirPlay remote control session is closed."""
+    """The MRP tunnel fails: it is closed, and also the Companion that connected at the same time."""
     mrp = ProtocolStub(Protocol.MRP, _connect_fail)
     companion = ProtocolStub(Protocol.Companion, _connect_ok)
     atv = await _facade(mrp, companion)
@@ -113,7 +113,68 @@ async def test_facade_closes_failed_first_protocol() -> None:
         await atv.connect()
     await _wait_close_tasks()
     assert mrp.closed
-    assert not companion.closed  # never connected
+    assert companion.closed
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("patched_pyatv")
+async def test_facade_closes_pending_protocols_when_first_fails() -> None:
+    mrp = ProtocolStub(Protocol.MRP, _connect_fail)
+    companion = ProtocolStub(Protocol.Companion, _connect_hang)
+    atv = await _facade(mrp, companion)
+
+    with pytest.raises(pyatv.exceptions.ProtocolError):
+        await atv.connect()
+    await asyncio.sleep(0.01)  # let the canceled connect finish
+    await _wait_close_tasks()
+    assert mrp.closed
+    assert companion.closed
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("patched_pyatv")
+async def test_facade_connects_protocols_at_same_time() -> None:
+    running = 0
+    max_running = 0
+
+    async def _connect_slow() -> bool:
+        nonlocal running, max_running
+        running += 1
+        max_running = max(max_running, running)
+        await asyncio.sleep(0.01)
+        running -= 1
+        return True
+
+    mrp = ProtocolStub(Protocol.MRP, _connect_slow)
+    companion = ProtocolStub(Protocol.Companion, _connect_slow)
+    atv = await _facade(mrp, companion)
+
+    await atv.connect()
+    assert max_running == 2
+    assert list(atv._protocol_handlers) == [Protocol.MRP, Protocol.Companion]
+    await asyncio.gather(*atv.close())
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("patched_pyatv")
+async def test_facade_connects_duplicate_protocol_only_when_first_fails() -> None:
+    calls: list[str] = []
+
+    async def _connect_first() -> bool:
+        calls.append("first")
+        return True
+
+    async def _connect_second() -> bool:
+        calls.append("second")
+        return True
+
+    first = ProtocolStub(Protocol.MRP, _connect_first)
+    second = ProtocolStub(Protocol.MRP, _connect_second)
+    atv = await _facade(first, second)
+
+    await atv.connect()
+    assert calls == ["first"]
+    await asyncio.gather(*atv.close())
 
 
 @pytest.mark.asyncio
