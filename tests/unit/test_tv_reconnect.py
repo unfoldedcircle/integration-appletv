@@ -137,6 +137,45 @@ async def test_network_retry_stops_when_disabled(monkeypatch: pytest.MonkeyPatch
     assert calls == 1
 
 
+async def test_connect_once_propagates_cancel() -> None:
+    """A cancelled connect attempt is not reported as a failed attempt."""
+    apple_tv = AppleTv(_device(), asyncio.get_running_loop())
+    apple_tv._apple_tv_conf = MagicMock()
+    apple_tv._connect = AsyncMock(side_effect=asyncio.CancelledError())
+
+    with pytest.raises(asyncio.CancelledError):
+        await apple_tv._connect_once()
+
+
+async def test_disconnect_ends_connect_loop() -> None:
+    """disconnect() ends the connect loop: it must not retry after a later connect() started a new loop."""
+    apple_tv = AppleTv(_device(), asyncio.get_running_loop())
+    apple_tv._apple_tv_conf = MagicMock()
+    calls = 0
+
+    async def connect(_conf: object, _stall_timeout: float | None = None) -> None:
+        nonlocal calls
+        calls += 1
+        await asyncio.sleep(10)
+
+    apple_tv._connect = connect
+    apple_tv._backoff = MagicMock(return_value=0)
+
+    await apple_tv.connect()
+    old_task = apple_tv._connect_task
+    assert old_task is not None
+    await asyncio.sleep(0)  # first connect attempt is running
+    await apple_tv.disconnect()
+    await apple_tv.connect()  # standby bounce: new connect loop
+    new_task = apple_tv._connect_task
+    await asyncio.sleep(0.01)
+
+    assert old_task.cancelled()
+    assert calls == 2  # one attempt per loop, no retry from the cancelled loop
+    assert apple_tv._connect_task is new_task
+    await apple_tv.disconnect()
+
+
 # ---- stalled connect ----
 
 
@@ -446,6 +485,18 @@ async def test_connect_without_scan_sends_current_output_device() -> None:
 
     await _run_connect_loop(apple_tv)
 
+    assert {MediaAttr.SOUND_MODE: "Test Apple TV"} in updates
+
+
+async def test_connect_with_scan_sends_current_output_device() -> None:
+    """The current output device is also sent if a scan is started: an unchanged scan result sends no update."""
+    apple_tv = AppleTv(_device(), asyncio.get_running_loop())
+    updates: list[dict[str, object]] = []
+    apple_tv.events.on(tv.EVENTS.UPDATE, lambda _device_id, update: updates.append(update))
+
+    await _run_connect_loop(apple_tv)
+
+    apple_tv._update_output_devices.assert_awaited_once()
     assert {MediaAttr.SOUND_MODE: "Test Apple TV"} in updates
 
 

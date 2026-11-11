@@ -736,12 +736,12 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
 
             await self._start_polling()
 
-            output_devices_stale = self._refresh_after_connect(self._atv)
+            self._refresh_after_connect(self._atv)
 
             self.events.emit(EVENTS.CONNECTED, self._device.identifier)
-            if not output_devices_stale:
-                # No scan: send the current output device, it may have changed during sleep.
-                self.events.emit(EVENTS.UPDATE, self._device.identifier, {MediaAttr.SOUND_MODE: self.output_devices})
+            # Always send the current output device: it may have changed during sleep, and an output devices
+            # scan only sends an update if the list of devices changed.
+            self.events.emit(EVENTS.UPDATE, self._device.identifier, {MediaAttr.SOUND_MODE: self.output_devices})
             _LOG.debug(
                 "[%s] Connected in %.2fs (%d tries, %d network retries)",
                 self.log_id,
@@ -795,8 +795,8 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             await asyncio.sleep(backoff)
         return tries, network_retries
 
-    def _refresh_after_connect(self, atv: pyatv.interface.AppleTV) -> bool:
-        """Start the app list and output devices refresh after connect. Return True if output devices are scanned."""
+    def _refresh_after_connect(self, atv: pyatv.interface.AppleTV) -> None:
+        """Start the app list and output devices refresh after connect if the lists are stale."""
         # Fresh connection: allow one prompt fetch of the app list and output devices if they are
         # older than the refresh interval (resume from sleep does not need new lists), then
         # let the poll worker's time-based backoff take over (see _poll_worker). Reset the
@@ -818,7 +818,6 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
         now = self._loop.time()
         self._next_app_list_refresh = now + APP_LIST_REFRESH_INTERVAL
         self._next_output_refresh = now + OUTPUT_REFRESH_INTERVAL
-        return output_devices_stale
 
     async def _connect_once(self, stall_timeout: float | None = None) -> ConnectResult:
         try:
@@ -835,9 +834,8 @@ class AppleTv(interface.AudioListener, interface.DeviceListener):
             self._auth_failed = True
             self.events.emit(EVENTS.ERROR, self._device.identifier, "authentication_failed")
             return ConnectResult.FAILED
-        except asyncio.CancelledError:
-            return ConnectResult.FAILED
         except Exception as err:  # noqa: BLE001
+            # asyncio.CancelledError is not caught: a cancelled connect loop must end, not retry (see disconnect)
             self._atv = None
             # OSError(101, 'Network is unreachable') or 10065 for Windows, raised directly or as cause
             cause = err if isinstance(err, OSError) else err.__cause__
