@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## v0.26.0 - 2026-11-11
+### Changed
+- Improve startup speed by @henrikwidlund ([#199](https://github.com/unfoldedcircle/integration-appletv/pull/199)).
+- Update dependencies and GitHub Actions.
+
 ## v0.25.1 - 2026-10-19
 ### Changed
 - Update pyinstaller, websockets and zeroconf packages ([#194](https://github.com/unfoldedcircle/integration-appletv/pull/194)).
