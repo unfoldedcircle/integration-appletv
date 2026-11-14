@@ -44,7 +44,17 @@ async def apple_tvs(
             DeviceModel.AppleTV4KGen2,
             DeviceModel.AppleTV4KGen3,
         }
-        return [tv for tv in atvs if tv.device_info is not None and tv.device_info.model in supported_models]  # pyright: ignore[reportUnnecessaryComparison]
+        return [
+            tv
+            for tv in atvs
+            if tv.device_info is not None  # pyright: ignore[reportUnnecessaryComparison]
+            and (
+                tv.device_info.model in supported_models
+                or tv.device_info.model == getattr(DeviceModel, "AppleTV4KGen4", None)
+                # pyatv 0.18.0 preserves the identifier even though the model is unknown.
+                or (tv.device_info.model == DeviceModel.Unknown and tv.device_info.raw_model == "AppleTV18,1")
+            )
+        ]
     except Exception as ex:  # noqa: BLE001 — broad catch retained for resilience
         _LOG.error("Failed to start discovery: %s", ex)
         return []
