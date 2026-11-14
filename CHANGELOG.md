@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+- Apple TV 4K (4th generation) discovery with the existing pyatv dependency and future model recognition.
+
 ---
 
 ## v0.26.0 - 2026-11-11
